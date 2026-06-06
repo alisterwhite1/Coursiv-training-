@@ -2065,6 +2065,8 @@ function saveRoom(bldgId, floorAndOldRoom) {
   db.snags.forEach(s => { if (s.building === b.building && s.floor === f.name && s.room === oldRoom) s.room = newRoom; });
   saveDB(); S.editingLoc = null; render();
 }
+
+function addBuilding() {
   const inp = document.getElementById('new_building');
   const name = (inp?.value || '').trim();
   if (!name) return;
