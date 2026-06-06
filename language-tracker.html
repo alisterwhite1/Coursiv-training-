@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Language Tracker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:       #3ecf6e;
+      --green-dark:  #2aab58;
+      --green-light: #d4f5e2;
+      --cream:       #faf8f3;
+      --cream-dark:  #f0ece0;
+      --text:        #2c3a2e;
+      --muted:       #7a9980;
+      --radius:      18px;
+      --shadow:      0 4px 24px rgba(62,207,110,.10);
+    }
+
+    body {
+      background: var(--cream);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 2.5rem 1rem 4rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.8rem;
+    }
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -.5px;
+      color: var(--text);
+    }
+    header p {
+      color: var(--muted);
+      margin-top: .35rem;
+      font-size: .95rem;
+    }
+
+    .grid {
+      max-width: 780px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.4rem;
+    }
+    @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: #fff;
+      border-radius: var(--radius);
+      padding: 1.8rem 1.8rem 1.6rem;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .card.wide { grid-column: 1 / -1; }
+
+    .card-label {
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── Streak ── */
+    .streak-num {
+      font-size: 4.5rem;
+      font-weight: 800;
+      line-height: 1;
+      color: var(--green-dark);
+    }
+    .streak-sub { font-size: .88rem; color: var(--muted); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .4rem;
+      padding: .6rem 1.2rem;
+      border: none;
+      border-radius: 999px;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: filter .15s, transform .1s;
+    }
+    .btn:active { transform: scale(.96); }
+    .btn-primary { background: var(--green); color: #fff; }
+    .btn-primary:hover { filter: brightness(1.08); }
+    .btn-ghost {
+      background: var(--green-light);
+      color: var(--green-dark);
+    }
+    .btn-ghost:hover { filter: brightness(.95); }
+    .btn-sm { padding: .38rem .85rem; font-size: .82rem; }
+
+    .streak-done {
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+      padding: .5rem 1rem;
+      background: var(--green-light);
+      color: var(--green-dark);
+      border-radius: 999px;
+      font-size: .88rem;
+      font-weight: 600;
+    }
+
+    /* ── Progress bar ── */
+    .progress-wrap { display: flex; flex-direction: column; gap: .45rem; }
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: .8rem;
+      color: var(--muted);
+    }
+    .progress-track {
+      height: 10px;
+      background: var(--cream-dark);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--green);
+      border-radius: 999px;
+      transition: width .5s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* ── Word list ── */
+    .word-input-row {
+      display: flex;
+      gap: .6rem;
+    }
+    .word-input {
+      flex: 1;
+      padding: .6rem .9rem;
+      border: 2px solid var(--cream-dark);
+      border-radius: 999px;
+      font-size: .9rem;
+      color: var(--text);
+      background: var(--cream);
+      outline: none;
+      transition: border-color .15s;
+    }
+    .word-input:focus { border-color: var(--green); }
+
+    .word-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: .45rem;
+      max-height: 280px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+    .word-list::-webkit-scrollbar { width: 4px; }
+    .word-list::-webkit-scrollbar-thumb { background: var(--green-light); border-radius: 99px; }
+
+    .word-item {
+      display: flex;
+      align-items: center;
+      gap: .7rem;
+      padding: .55rem .8rem;
+      background: var(--cream);
+      border-radius: 10px;
+      font-size: .92rem;
+      animation: fadeIn .2s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+
+    .word-item .word-text { flex: 1; }
+    .word-item .word-date { font-size: .72rem; color: var(--muted); white-space: nowrap; }
+    .word-del {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #ccc;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0 .1rem;
+      transition: color .15s;
+    }
+    .word-del:hover { color: #e06060; }
+
+    .week-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      padding: .3rem .7rem;
+      border-radius: 999px;
+      font-size: .78rem;
+      font-weight: 600;
+    }
+    .week-badge.ok  { background: var(--green-light); color: var(--green-dark); }
+    .week-badge.go  { background: #fef3cd; color: #92690a; }
+
+    /* ── Calendar dots ── */
+    .dot-row {
+      display: flex;
+      gap: .35rem;
+      flex-wrap: wrap;
+    }
+    .dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--cream-dark);
+    }
+    .dot.filled { background: var(--green); }
+
+    /* ── Reset ── */
+    .reset-link {
+      font-size: .75rem;
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      text-decoration: underline;
+      margin-top: .2rem;
+      align-self: flex-start;
+    }
+    .reset-link:hover { color: #e06060; }
+
+    .section-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Language Tracker</h1>
+  <p>Study a little every day.</p>
+</header>
+
+<div class="grid">
+
+  <!-- ── Streak Card ── -->
+  <div class="card">
+    <span class="card-label">Study Streak</span>
+    <div>
+      <div class="streak-num" id="streakNum">0</div>
+      <div class="streak-sub">days in a row</div>
+    </div>
+    <div id="streakAction"></div>
+    <div class="progress-wrap">
+      <div class="progress-meta">
+        <span>This week</span>
+        <span id="weekDaysMeta">0 / 7</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="weekBar" style="width:0%"></div>
+      </div>
+    </div>
+    <div class="dot-row" id="dotRow"></div>
+    <button class="reset-link" id="resetStreak">Reset streak</button>
+  </div>
+
+  <!-- ── Words this week ── -->
+  <div class="card">
+    <span class="card-label">Words This Week</span>
+    <div style="display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;">
+      <div class="streak-num" id="weekWordNum" style="font-size:3rem">0</div>
+      <div id="weekBadge"></div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-meta">
+        <span>Weekly goal</span>
+        <span id="wordGoalMeta">0 / 20</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="wordBar" style="width:0%"></div>
+      </div>
+    </div>
+    <div style="font-size:.78rem;color:var(--muted)" id="weekRange"></div>
+  </div>
+
+  <!-- ── Word List Card ── -->
+  <div class="card wide">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem">
+      <span class="section-title">Word List</span>
+      <span id="totalWordsBadge" style="font-size:.8rem;color:var(--muted)"></span>
+    </div>
+    <div class="word-input-row">
+      <input class="word-input" id="wordInput" type="text" placeholder="Add a new word or phrase…" maxlength="80" />
+      <button class="btn btn-primary" id="addWordBtn">Add</button>
+    </div>
+    <ul class="word-list" id="wordList"></ul>
+  </div>
+
+</div>
+
+<script>
+// ── Storage helpers ──────────────────────────────────────────────
+const KEY = 'lang_tracker_v1';
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; }
+}
+function save(data) { localStorage.setItem(KEY, JSON.stringify(data)); }
+
+function defaultData() {
+  return {
+    streak: 0,
+    lastStudyDate: null,   // 'YYYY-MM-DD'
+    studyDates: [],        // all studied dates
+    words: []              // [{id, text, date:'YYYY-MM-DD'}]
+  };
+}
+
+// ── Date helpers ─────────────────────────────────────────────────
+function today() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function startOfWeek(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const day = d.getDay(); // 0=Sun
+  const diff = (day === 0) ? -6 : 1 - day; // Monday
+  d.setDate(d.getDate() + diff);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function shortDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString(undefined, { month:'short', day:'numeric' });
+}
+
+// ── State ────────────────────────────────────────────────────────
+let data = { ...defaultData(), ...load() };
+
+// ── Streak logic ─────────────────────────────────────────────────
+function markStudied() {
+  const t = today();
+  if (data.lastStudyDate === t) return; // already done today
+
+  const yesterday = addDays(t, -1);
+  if (data.lastStudyDate === yesterday) {
+    data.streak += 1;
+  } else if (data.lastStudyDate !== t) {
+    data.streak = 1;
+  }
+  data.lastStudyDate = t;
+  if (!data.studyDates.includes(t)) data.studyDates.push(t);
+  save(data);
+  render();
+}
+
+// ── Render ───────────────────────────────────────────────────────
+function render() {
+  const t = today();
+
+  // Streak number
+  document.getElementById('streakNum').textContent = data.streak;
+
+  // Check if studied today
+  const doneToday = data.lastStudyDate === t;
+  const actionEl = document.getElementById('streakAction');
+  if (doneToday) {
+    actionEl.innerHTML = `<span class="streak-done">✓ Studied today</span>`;
+  } else {
+    actionEl.innerHTML = `<button class="btn btn-primary" id="markBtn">Mark today studied</button>`;
+    document.getElementById('markBtn').addEventListener('click', markStudied);
+  }
+
+  // Week progress (Mon–Sun)
+  const weekStart = startOfWeek(t);
+  const weekDays = Array.from({length:7}, (_,i) => addDays(weekStart, i));
+  const studiedThisWeek = weekDays.filter(d => data.studyDates.includes(d)).length;
+
+  document.getElementById('weekDaysMeta').textContent = `${studiedThisWeek} / 7`;
+  document.getElementById('weekBar').style.width = `${(studiedThisWeek/7)*100}%`;
+
+  // Dots
+  const dotRow = document.getElementById('dotRow');
+  dotRow.innerHTML = weekDays.map(d => {
+    const filled = data.studyDates.includes(d);
+    const isToday = d === t;
+    return `<div class="dot${filled?' filled':''}" title="${d}${isToday?' (today)':''}"></div>`;
+  }).join('');
+
+  // Words this week
+  const GOAL = 20;
+  const weekEnd = addDays(weekStart, 6);
+  const weekWords = data.words.filter(w => w.date >= weekStart && w.date <= weekEnd);
+  const wwCount = weekWords.length;
+
+  document.getElementById('weekWordNum').textContent = wwCount;
+  const pct = Math.min(wwCount / GOAL * 100, 100);
+  document.getElementById('wordBar').style.width = `${pct}%`;
+  document.getElementById('wordGoalMeta').textContent = `${wwCount} / ${GOAL}`;
+  document.getElementById('weekRange').textContent = `${shortDate(weekStart)} – ${shortDate(weekEnd)}`;
+
+  const badge = document.getElementById('weekBadge');
+  if (wwCount >= GOAL) {
+    badge.innerHTML = `<span class="week-badge ok">✓ Goal reached!</span>`;
+  } else {
+    const left = GOAL - wwCount;
+    badge.innerHTML = `<span class="week-badge go">${left} to go</span>`;
+  }
+
+  // Total words
+  document.getElementById('totalWordsBadge').textContent = `${data.words.length} total`;
+
+  // Word list
+  renderWordList();
+}
+
+function renderWordList() {
+  const ul = document.getElementById('wordList');
+  if (data.words.length === 0) {
+    ul.innerHTML = `<li style="color:var(--muted);font-size:.88rem;padding:.4rem .8rem">No words yet — add your first one above.</li>`;
+    return;
+  }
+  ul.innerHTML = [...data.words].reverse().map(w => `
+    <li class="word-item" data-id="${w.id}">
+      <span class="word-text">${escHtml(w.text)}</span>
+      <span class="word-date">${shortDate(w.date)}</span>
+      <button class="word-del" title="Remove" onclick="removeWord('${w.id}')">×</button>
+    </li>
+  `).join('');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Words ────────────────────────────────────────────────────────
+function addWord() {
+  const input = document.getElementById('wordInput');
+  const text = input.value.trim();
+  if (!text) return;
+  data.words.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2), text, date: today() });
+  save(data);
+  input.value = '';
+  render();
+}
+
+function removeWord(id) {
+  data.words = data.words.filter(w => w.id !== id);
+  save(data);
+  render();
+}
+
+// ── Reset ────────────────────────────────────────────────────────
+document.getElementById('resetStreak').addEventListener('click', () => {
+  if (!confirm('Reset your streak and study history?')) return;
+  data.streak = 0;
+  data.lastStudyDate = null;
+  data.studyDates = [];
+  save(data);
+  render();
+});
+
+// ── Events ───────────────────────────────────────────────────────
+document.getElementById('addWordBtn').addEventListener('click', addWord);
+document.getElementById('wordInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addWord();
+});
+
+// ── Init ─────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
