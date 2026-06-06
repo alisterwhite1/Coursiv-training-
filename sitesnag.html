@@ -487,10 +487,28 @@ const DB_KEY    = 'sitesnag_v1';
 const STATE_KEY = 'sitesnag_state';
 let db = { projects: [], companies: [], snags: [], users: [] };
 
+var storageOK = (function() {
+  try { localStorage.setItem('__test__', '1'); localStorage.removeItem('__test__'); return true; } catch(e) { return false; }
+})();
+
+function showStorageWarning() {
+  var w = document.getElementById('storage-warn');
+  if (w) return;
+  w = document.createElement('div');
+  w.id = 'storage-warn';
+  w.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#b45309;color:#fff;padding:.65rem 1rem;font-size:.8rem;z-index:9998;text-align:center';
+  w.innerHTML = '&#9888; Storage blocked &mdash; data will not be saved between sessions. To fix: serve this file via a local web server, or allow cookies/storage in your browser settings.';
+  document.body.appendChild(w);
+}
+
 function loadDB() {
+  if (!storageOK) return;
   try { const s = JSON.parse(localStorage.getItem(DB_KEY)); if (s) db = { ...db, ...s }; } catch {}
 }
-function saveDB() { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+function saveDB() {
+  if (!storageOK) return;
+  try { localStorage.setItem(DB_KEY, JSON.stringify(db)); } catch {}
+}
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
 // ── GLOBAL ERROR DISPLAY ─────────────────────────────────────────────────────
@@ -570,11 +588,14 @@ function loadState() {
 }
 
 function saveState() {
-  localStorage.setItem(STATE_KEY, JSON.stringify({
-    projectId:   S.projectId,
-    mode:        S.mode,
-    currentUser: S.currentUser,
-  }));
+  if (!storageOK) return;
+  try {
+    localStorage.setItem(STATE_KEY, JSON.stringify({
+      projectId:   S.projectId,
+      mode:        S.mode,
+      currentUser: S.currentUser,
+    }));
+  } catch {}
 }
 
 // ── NAVIGATE ───────────────────────────────────────────────────────────────────
@@ -1855,6 +1876,7 @@ function submitRect(snagId) {
 // ── INIT ───────────────────────────────────────────────────────────────────────
 loadDB();
 loadState();
+if (!storageOK) showStorageWarning();
 
 // Wire static login-screen button — addEventListener + direct .onclick for maximum compatibility
 var _setupBtn = document.getElementById('btn-first-user');
