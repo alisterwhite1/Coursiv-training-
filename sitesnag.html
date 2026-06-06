@@ -1421,6 +1421,12 @@ function viewReports() {
 
   // ── SNAG TYPE KEYWORD ANALYSIS ──
   const STOP = new Set(['a','an','the','and','or','at','in','on','of','to','for','with','is','are','was','were','be','been','by','from','that','this','not','has','have','had','its','it','as','but','if','no','so','up','out','more','some','any','all','been','also','into','than','then','when','where','which','who','will','would','could','should','does','did','do','due','per']);
+  // Exclude words that appear in building, floor or room fields so location names don't pollute the keyword chart
+  allSnags.forEach(s => {
+    [s.building, s.floor, s.room].filter(Boolean).forEach(v =>
+      v.toLowerCase().replace(/[^a-z\s]/g,' ').split(/\s+/).filter(w=>w.length>2).forEach(w => STOP.add(w))
+    );
+  });
   const wordFreq = {};
   allSnags.forEach(s => {
     ((s.title||'')+' '+(s.description||'')).toLowerCase()
