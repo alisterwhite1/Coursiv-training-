@@ -493,14 +493,6 @@ function applyLocation(loc) {
   if (box) box.style.display = 'none';
 }
 
-function fillDesc(select) {
-  if (!select.value) return;
-  const ta = document.getElementById('f_desc');
-  if (ta) ta.value = select.value;
-  // Reset picker back to placeholder without triggering another change
-  select.selectedIndex = 0;
-}
-
 function saveManualCoords() {
   const latEl = document.getElementById('manualLat');
   const lngEl = document.getElementById('manualLng');
@@ -777,58 +769,50 @@ function viewSnagDetail() {
 // ── SNAG FORM ──────────────────────────────────────────────────────────────────
 function viewSnagForm() {
   const editing = S.snagId ? db.snags.find(s => s.id === S.snagId) : null;
-  const photo   = S.fd.photo !== undefined ? S.fd.photo : (editing?.photo ?? null);
-  const loc     = S.fd.location || editing?.location;
-  const locTxt  = loc ? `${loc.lat}, ${loc.lng}${loc.acc ? ` (±${loc.acc}m)` : ''}` : 'Not captured';
-
-  // Pre-compute all option lists — avoids IIFE-in-template issues
-  const titleOpts = fieldOptions('title');
-  const descOpts  = fieldOptions('description');
-  const titleDL   = datalist('dl_title',    'title');
-  const buildDL   = datalist('dl_building', 'building');
-  const floorDL   = datalist('dl_floor',    'floor');
-  const roomDL    = datalist('dl_room',     'room');
-
-  const descPicker = descOpts.length
-    ? `<select id="desc_pick" onchange="fillDesc(this)"
-         style="margin-bottom:.45rem;font-size:.85rem;color:var(--soft);border-radius:8px;padding:.5rem .7rem;border:2px solid var(--border);width:100%;background:#fff;font-family:inherit">
-         <option value="">↩ Select a previous description…</option>
-         ${descOpts.map(v => `<option value="${esc(v)}">${esc(v.length > 70 ? v.slice(0,70) + '…' : v)}</option>`).join('')}
-       </select>`
-    : '';
+  const photo = S.fd.photo !== undefined ? S.fd.photo : (editing?.photo ?? null);
+  const loc   = S.fd.location || editing?.location;
+  const locTxt = loc ? `${loc.lat}, ${loc.lng} (±${loc.acc}m)` : 'Not captured';
 
   return appBar(editing ? `Edit ${numStr(editing.number)}` : 'New Snag', editing ? 'snag-detail' : 'snag-list') + `
     <div class="main">
       <div class="card card-body">
         <div class="form-group">
           <label class="form-label">Title *</label>
-          ${titleDL}
+          ${datalist('dl_title','title')}
           <input type="text" id="f_title" list="dl_title" placeholder="e.g. Cracked render at column B3"
-                 value="${esc(S.fd.f_title ?? editing?.title ?? '')}" autocomplete="off" />
+                 value="${esc(S.fd.f_title ?? editing?.title ?? '')}" />
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem">
           <div class="form-group">
             <label class="form-label">Building</label>
-            ${buildDL}
+            ${datalist('dl_building','building')}
             <input type="text" id="f_building" list="dl_building" placeholder="e.g. A"
-                   value="${esc(S.fd.f_building ?? editing?.building ?? '')}" autocomplete="off" />
+                   value="${esc(S.fd.f_building ?? editing?.building ?? '')}" />
           </div>
           <div class="form-group">
             <label class="form-label">Floor</label>
-            ${floorDL}
+            ${datalist('dl_floor','floor')}
             <input type="text" id="f_floor" list="dl_floor" placeholder="e.g. G, 1, 2"
-                   value="${esc(S.fd.f_floor ?? editing?.floor ?? '')}" autocomplete="off" />
+                   value="${esc(S.fd.f_floor ?? editing?.floor ?? '')}" />
           </div>
           <div class="form-group">
             <label class="form-label">Room</label>
-            ${roomDL}
+            ${datalist('dl_room','room')}
             <input type="text" id="f_room" list="dl_room" placeholder="e.g. 101"
-                   value="${esc(S.fd.f_room ?? editing?.room ?? '')}" autocomplete="off" />
+                   value="${esc(S.fd.f_room ?? editing?.room ?? '')}" />
           </div>
         </div>
         <div class="form-group">
           <label class="form-label">Description</label>
-          ${descPicker}
+          ${(() => {
+            const opts = fieldOptions('description');
+            return opts.length ? `
+              <select id="desc_pick" onchange="if(this.value){document.getElementById('f_desc').value=this.value;this.value=''}"
+                style="margin-bottom:.4rem;font-size:.82rem;color:var(--soft)">
+                <option value="">↩ Pick a previous description…</option>
+                ${opts.map(v=>`<option value="${esc(v)}">${esc(v.length>72?v.slice(0,72)+'…':v)}</option>`).join('')}
+              </select>` : '';
+          })()}
           <textarea id="f_desc" placeholder="Describe the defect in detail…">${esc(S.fd.f_desc ?? editing?.description ?? '')}</textarea>
         </div>
         <div class="form-group">
