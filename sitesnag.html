@@ -44,7 +44,7 @@
     .app-bar {
       background: var(--blue);
       color: #fff;
-      padding: .85rem 1rem;
+      padding: .75rem 1rem;
       display: flex;
       align-items: center;
       gap: .6rem;
@@ -60,6 +60,92 @@
       font-size: 1.4rem; cursor: pointer; padding: 0 .2rem; line-height: 1;
     }
     .back-btn:hover { color: #fff; }
+    .user-chip {
+      display: flex; align-items: center; gap: .35rem;
+      background: rgba(255,255,255,.18); border-radius: 999px;
+      padding: .28rem .65rem .28rem .45rem;
+      font-size: .78rem; font-weight: 700; cursor: default;
+      max-width: 160px;
+    }
+    .user-chip .avatar {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: rgba(255,255,255,.35);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .72rem; font-weight: 800; flex-shrink: 0;
+    }
+    .user-chip .uname {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .logout-btn {
+      background: rgba(255,255,255,.18); border: none; color: #fff;
+      border-radius: 8px; padding: .3rem .55rem; font-size: .78rem;
+      font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .logout-btn:hover { background: rgba(255,255,255,.3); }
+
+    /* ── Login screen ── */
+    .login-wrap {
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 1.5rem 1rem 3rem; background: var(--bg);
+    }
+    .login-logo { font-size: 2.8rem; margin-bottom: .4rem; }
+    .login-title { font-size: 1.6rem; font-weight: 800; color: var(--text); margin-bottom: .25rem; }
+    .login-sub { font-size: .88rem; color: var(--muted); margin-bottom: 2rem; }
+    .user-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: .6rem; width: 100%; max-width: 480px; margin-bottom: 1.2rem;
+    }
+    .user-card {
+      background: #fff; border-radius: var(--radius);
+      padding: .9rem .8rem; text-align: center; cursor: pointer;
+      border: 2.5px solid transparent;
+      box-shadow: var(--shadow); transition: all .15s;
+    }
+    .user-card:hover { border-color: var(--blue); }
+    .user-card.selected { border-color: var(--blue); background: var(--blue-bg); }
+    .user-card .uc-avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      margin: 0 auto .5rem;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; font-weight: 800; color: #fff;
+    }
+    .user-card .uc-name { font-weight: 700; font-size: .9rem; margin-bottom: .25rem; }
+    .user-card .uc-role {
+      font-size: .68rem; font-weight: 800; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .pin-wrap {
+      width: 100%; max-width: 480px;
+      background: #fff; border-radius: var(--radius);
+      padding: 1.2rem; box-shadow: var(--shadow);
+      margin-bottom: 1rem;
+    }
+    .pin-label { font-size: .78rem; font-weight: 800; color: var(--soft); text-transform: uppercase; letter-spacing: .07em; margin-bottom: .5rem; }
+    .pin-dots {
+      display: flex; gap: .5rem; justify-content: center;
+      margin-bottom: .9rem;
+    }
+    .pin-dot {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid var(--border); background: transparent;
+      transition: background .12s, border-color .12s;
+    }
+    .pin-dot.filled { background: var(--blue); border-color: var(--blue); }
+    .pin-keypad {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem;
+    }
+    .pin-key {
+      padding: .75rem; border: none; border-radius: 10px;
+      background: var(--bg); font-size: 1.1rem; font-weight: 700;
+      cursor: pointer; transition: background .1s; font-family: inherit;
+      color: var(--text);
+    }
+    .pin-key:active { background: var(--blue-bg); }
+    .pin-key.del { color: var(--red); font-size: 1rem; }
+    .pin-key.go  { background: var(--blue); color: #fff; }
+    .pin-key.go:active { background: var(--blue); filter: brightness(1.1); }
+    .pin-error { color: var(--red); font-size: .82rem; font-weight: 600; text-align: center; margin-top: .5rem; }
 
     /* ── Bottom nav ── */
     .bottom-nav {
@@ -73,7 +159,7 @@
       padding: .6rem .3rem .45rem;
       display: flex; flex-direction: column; align-items: center; gap: .18rem;
       cursor: pointer; color: var(--muted);
-      font-size: .65rem; font-weight: 700; letter-spacing: .02em;
+      font-size: .62rem; font-weight: 700; letter-spacing: .02em;
       transition: color .12s; font-family: inherit;
     }
     .nav-btn .ico { font-size: 1.3rem; line-height: 1; }
@@ -82,26 +168,12 @@
     /* ── Main ── */
     .main { padding: .85rem; max-width: 580px; margin: 0 auto; }
 
-    /* ── Mode toggle ── */
-    .mode-strip {
-      display: flex; background: var(--bg);
-      border-radius: 999px; padding: .22rem;
-      margin-bottom: .9rem; border: 1.5px solid var(--border);
-    }
-    .mode-btn {
-      flex: 1; padding: .48rem .6rem;
-      border: none; border-radius: 999px; background: none;
-      font-size: .82rem; font-weight: 700; cursor: pointer;
-      color: var(--muted); transition: all .15s; font-family: inherit;
-    }
-    .mode-btn.active { background: #fff; color: var(--blue); box-shadow: var(--shadow); }
-
     /* ── Cards ── */
     .card {
       background: var(--card); border-radius: var(--radius);
       box-shadow: var(--shadow); overflow: hidden;
     }
-    .card + .card, .card + .sec-label + .card { margin-top: .75rem; }
+    .card + .card { margin-top: .75rem; }
     .card-body { padding: 1rem; }
 
     /* ── List items ── */
@@ -128,10 +200,7 @@
     }
     .snag-meta { display: flex; align-items: center; gap: .45rem; margin-top: .2rem; flex-wrap: wrap; }
     .snag-co { font-size: .73rem; color: var(--soft); }
-    .snag-thumb {
-      width: 44px; height: 44px; border-radius: 8px;
-      object-fit: cover; flex-shrink: 0;
-    }
+    .snag-thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
     .snag-thumb-empty {
       width: 44px; height: 44px; border-radius: 8px;
       background: var(--bg); border: 1.5px dashed var(--border);
@@ -143,14 +212,20 @@
     .badge {
       display: inline-flex; align-items: center;
       padding: .18rem .55rem; border-radius: 999px;
-      font-size: .7rem; font-weight: 800;
-      letter-spacing: .03em; white-space: nowrap;
+      font-size: .7rem; font-weight: 800; letter-spacing: .03em; white-space: nowrap;
     }
     .b-open     { background: var(--amber-bg);  color: var(--amber); }
     .b-assigned { background: var(--blue-bg);   color: var(--blue); }
     .b-pending  { background: var(--purple-bg); color: var(--purple); }
     .b-accepted { background: var(--green-bg);  color: var(--green); }
     .b-rejected { background: var(--red-bg);    color: var(--red); }
+    .role-badge {
+      display: inline-flex; align-items: center;
+      padding: .15rem .5rem; border-radius: 999px;
+      font-size: .68rem; font-weight: 800; letter-spacing: .05em; white-space: nowrap;
+    }
+    .role-inspector  { background: var(--blue-bg);  color: var(--blue); }
+    .role-contractor { background: var(--orange-bg); color: var(--orange); }
 
     /* ── Buttons ── */
     .btn {
@@ -165,9 +240,7 @@
     .btn-primary:hover { filter: brightness(1.1); }
     .btn-success { background: var(--green); color: #fff; }
     .btn-danger  { background: var(--red);   color: #fff; }
-    .btn-outline {
-      background: none; border: 2px solid var(--border); color: var(--soft);
-    }
+    .btn-outline { background: none; border: 2px solid var(--border); color: var(--soft); }
     .btn-outline:hover { border-color: var(--blue); color: var(--blue); }
     .btn-sm { padding: .38rem .85rem; font-size: .82rem; }
     .btn-block { width: 100%; border-radius: var(--radius); }
@@ -176,8 +249,7 @@
       position: fixed; bottom: 86px; right: 1.1rem;
       width: 54px; height: 54px; border-radius: 50%;
       background: var(--blue); color: #fff; border: none;
-      font-size: 1.7rem; cursor: pointer;
-      box-shadow: var(--shadow-md);
+      font-size: 1.7rem; cursor: pointer; box-shadow: var(--shadow-md);
       display: flex; align-items: center; justify-content: center;
       z-index: 80; transition: transform .15s;
     }
@@ -191,7 +263,7 @@
       font-size: .73rem; font-weight: 800; color: var(--soft);
       text-transform: uppercase; letter-spacing: .07em;
     }
-    input[type=text], input[type=date], textarea, select {
+    input[type=text], input[type=date], input[type=password], textarea, select {
       width: 100%; padding: .62rem .9rem;
       border: 2px solid var(--border); border-radius: 10px;
       font-size: .93rem; font-family: inherit; color: var(--text);
@@ -238,7 +310,7 @@
     .detail-val { flex: 1; }
 
     /* ── Timeline ── */
-    .timeline { display: flex; flex-direction: column; gap: .55rem; }
+    .timeline { display: flex; flex-direction: column; gap: .65rem; }
     .tl-row { display: flex; gap: .65rem; align-items: flex-start; }
     .tl-dot {
       width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
@@ -250,7 +322,8 @@
     .tl-dot.p { background: var(--purple); }
     .tl-main { font-size: .87rem; font-weight: 600; }
     .tl-when { font-size: .73rem; color: var(--muted); }
-    .tl-note { font-size: .8rem; color: var(--soft); margin-top: .12rem; white-space: pre-wrap; }
+    .tl-by   { font-size: .75rem; color: var(--blue); font-weight: 600; margin-top: .1rem; }
+    .tl-note { font-size: .8rem; color: var(--soft); margin-top: .1rem; white-space: pre-wrap; }
 
     /* ── Action bar ── */
     .action-bar {
@@ -284,10 +357,16 @@
       border-radius: 999px; letter-spacing: .04em;
     }
 
-    /* ── Company ── */
+    /* ── Company / User list ── */
     .co-avatar {
       width: 36px; height: 36px; border-radius: 50%;
       background: var(--orange); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: .9rem; flex-shrink: 0;
+    }
+    .usr-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      color: #fff;
       display: flex; align-items: center; justify-content: center;
       font-weight: 800; font-size: .9rem; flex-shrink: 0;
     }
@@ -350,7 +429,7 @@
 // ── DB ─────────────────────────────────────────────────────────────────────────
 const DB_KEY    = 'sitesnag_v1';
 const STATE_KEY = 'sitesnag_state';
-let db = { projects: [], companies: [], snags: [] };
+let db = { projects: [], companies: [], snags: [], users: [] };
 
 function loadDB() {
   try { const s = JSON.parse(localStorage.getItem(DB_KEY)); if (s) db = { ...db, ...s }; } catch {}
@@ -360,31 +439,43 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 
 // ── STATE ──────────────────────────────────────────────────────────────────────
 let S = {
-  view: 'projects',
+  view: 'login',
   projectId: null,
   snagId: null,
   mode: 'inspector',
   contractorCompanyId: null,
   filter: 'all',
   fd: {},
+  currentUser: null,    // { id, name, role, companyId }
+  loginUserId: null,    // selected on login screen
+  pinEntry: '',         // digits typed on login screen
+  pinError: '',
 };
 
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STATE_KEY));
     if (saved) {
-      if (saved.projectId) S.projectId = saved.projectId;
-      if (saved.mode)      S.mode      = saved.mode;
+      if (saved.projectId)   S.projectId   = saved.projectId;
+      if (saved.mode)        S.mode        = saved.mode;
+      if (saved.currentUser) S.currentUser = saved.currentUser;
     }
   } catch {}
-  // If a project was saved but no longer exists, clear it
   if (S.projectId && !db.projects.find(p => p.id === S.projectId)) S.projectId = null;
-  // Auto-select the only project if there's exactly one
   if (!S.projectId && db.projects.length === 1) S.projectId = db.projects[0].id;
+  // Validate saved user still exists
+  if (S.currentUser) {
+    const u = db.users.find(u => u.id === S.currentUser.id);
+    if (!u) S.currentUser = null;
+  }
 }
 
 function saveState() {
-  localStorage.setItem(STATE_KEY, JSON.stringify({ projectId: S.projectId, mode: S.mode }));
+  localStorage.setItem(STATE_KEY, JSON.stringify({
+    projectId:   S.projectId,
+    mode:        S.mode,
+    currentUser: S.currentUser,
+  }));
 }
 
 // ── NAVIGATE ───────────────────────────────────────────────────────────────────
@@ -408,7 +499,7 @@ function badge(status) {
   return `<span class="badge ${s.cls}">${s.label}</span>`;
 }
 
-// ── DATE HELPERS ───────────────────────────────────────────────────────────────
+// ── DATE ───────────────────────────────────────────────────────────────────────
 function fmtDate(ts)     { return ts ? new Date(ts).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'}) : '—'; }
 function fmtDateTime(ts) { return ts ? new Date(ts).toLocaleString(undefined,{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—'; }
 
@@ -423,6 +514,11 @@ function coName(id)    { const c = db.companies.find(c => c.id === id); return c
 function snagCount(pid){ return db.snags.filter(s => s.projectId === pid).length; }
 function nextNum(pid)  { const ns = db.snags.filter(s => s.projectId === pid).map(s => s.number); return ns.length ? Math.max(...ns)+1 : 1; }
 function numStr(n)     { return '#' + String(n).padStart(3,'0'); }
+function byMe()        { return S.currentUser ? S.currentUser.name : 'Unknown'; }
+
+// Avatar colour based on name
+const COLOURS = ['#1d4ed8','#15803d','#dc2626','#7c3aed','#ea580c','#0891b2','#be185d'];
+function avatarColour(name) { let h = 0; for (const c of String(name)) h = (h*31 + c.charCodeAt(0)) & 0xffffff; return COLOURS[Math.abs(h) % COLOURS.length]; }
 
 // ── PHOTO RESIZE ───────────────────────────────────────────────────────────────
 function resizePhoto(file) {
@@ -449,26 +545,19 @@ function resizePhoto(file) {
 function getGPS() {
   const btn = document.getElementById('gpsBtn');
   if (btn) { btn.textContent = '⏳ Getting…'; btn.disabled = true; }
-
   if (!navigator.geolocation) {
     showManualEntry('Automatic GPS is not available in this browser. Enter coordinates manually below.');
     if (btn) { btn.textContent = '📍 Try Auto'; btn.disabled = false; }
     return;
   }
-
   navigator.geolocation.getCurrentPosition(
     pos => {
-      S.fd.location = {
-        lat: pos.coords.latitude.toFixed(6),
-        lng: pos.coords.longitude.toFixed(6),
-        acc: Math.round(pos.coords.accuracy)
-      };
+      S.fd.location = { lat: pos.coords.latitude.toFixed(6), lng: pos.coords.longitude.toFixed(6), acc: Math.round(pos.coords.accuracy) };
       applyLocation(S.fd.location);
       if (btn) { btn.textContent = '📍 Update'; btn.disabled = false; }
     },
     e => {
       if (btn) { btn.textContent = '📍 Try Auto'; btn.disabled = false; }
-      // Automatic GPS blocked (common when opening file:// in browser)
       const hint = e.code === 3
         ? 'GPS timed out — try again outdoors, or enter coordinates manually.'
         : 'Automatic GPS is blocked when opening the file directly. Enter coordinates manually using Google Maps (see link below).';
@@ -477,14 +566,12 @@ function getGPS() {
     { enableHighAccuracy: true, timeout: 10000 }
   );
 }
-
 function showManualEntry(hint) {
   const box = document.getElementById('gpsManual');
   const msg = document.getElementById('gpsHint');
   if (msg) msg.textContent = hint;
   if (box) box.style.display = 'block';
 }
-
 function applyLocation(loc) {
   S.fd.location = loc;
   const chip = document.getElementById('gpsChip');
@@ -492,41 +579,30 @@ function applyLocation(loc) {
   const box = document.getElementById('gpsManual');
   if (box) box.style.display = 'none';
 }
-
 function saveManualCoords() {
-  const latEl = document.getElementById('manualLat');
-  const lngEl = document.getElementById('manualLng');
-  const lat = parseFloat(latEl?.value);
-  const lng = parseFloat(lngEl?.value);
+  const lat = parseFloat(document.getElementById('manualLat')?.value);
+  const lng = parseFloat(document.getElementById('manualLng')?.value);
   if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-    alert('Enter valid coordinates. Latitude: -90 to 90. Longitude: -180 to 180.');
-    return;
+    alert('Enter valid coordinates. Latitude: -90 to 90. Longitude: -180 to 180.'); return;
   }
   applyLocation({ lat: lat.toFixed(6), lng: lng.toFixed(6), acc: null });
 }
 
-// ── SNAPSHOT FORM FIELDS ───────────────────────────────────────────────────────
+// ── FORM HELPERS ───────────────────────────────────────────────────────────────
 function snap() {
   ['f_title','f_desc','f_building','f_floor','f_room','f_rect_comment'].forEach(id => {
     const el = document.getElementById(id);
     if (el) S.fd[id] = el.value;
   });
 }
-
-// Collect unique values for a field across all snags in the current project
 function fieldOptions(field) {
   const seen = new Set();
-  db.snags
-    .filter(s => s.projectId === S.projectId && s[field])
-    .forEach(s => seen.add(s[field].trim()));
+  db.snags.filter(s => s.projectId === S.projectId && s[field]).forEach(s => seen.add(s[field].trim()));
   return [...seen].sort((a, b) => a.localeCompare(b));
 }
-
 function datalist(id, field) {
-  const opts = fieldOptions(field).map(v => `<option value="${esc(v)}">`).join('');
-  return `<datalist id="${id}">${opts}</datalist>`;
+  return `<datalist id="${id}">${fieldOptions(field).map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
 }
-
 function fillDesc(sel) {
   if (!sel.value) return;
   const ta = document.getElementById('f_desc');
@@ -536,18 +612,220 @@ function fillDesc(sel) {
 
 // ── RENDER ─────────────────────────────────────────────────────────────────────
 function render() {
+  // Redirect to login if not logged in
+  if (!S.currentUser) {
+    document.getElementById('app').innerHTML = viewLogin();
+    return;
+  }
   const views = {
-    projects:            viewProjects,
-    'snag-list':         viewSnagList,
-    'snag-detail':       viewSnagDetail,
-    'snag-form':         viewSnagForm,
-    'contractor-respond':viewContractorRespond,
-    companies:           viewCompanies,
+    projects:             viewProjects,
+    'snag-list':          viewSnagList,
+    'snag-detail':        viewSnagDetail,
+    'snag-form':          viewSnagForm,
+    'contractor-respond': viewContractorRespond,
+    companies:            viewCompanies,
+    users:                viewUsers,
   };
   document.getElementById('app').innerHTML = (views[S.view] || viewProjects)();
 }
 
 // ══ VIEWS ══════════════════════════════════════════════════════════════════════
+
+// ── LOGIN ──────────────────────────────────────────────────────────────────────
+function viewLogin() {
+  const noUsers = !db.users.length;
+  const sel = S.loginUserId ? db.users.find(u => u.id === S.loginUserId) : null;
+
+  const userCards = db.users.map(u => `
+    <div class="user-card ${u.id === S.loginUserId ? 'selected' : ''}"
+         onclick="selectLoginUser('${u.id}')">
+      <div class="uc-avatar" style="background:${avatarColour(u.name)}">${u.name.charAt(0).toUpperCase()}</div>
+      <div class="uc-name">${esc(u.name)}</div>
+      <div class="uc-role">${u.role}</div>
+    </div>`).join('');
+
+  const pinUI = sel ? `
+    <div class="pin-wrap">
+      <div class="pin-label">Enter PIN for ${esc(sel.name)}</div>
+      <div class="pin-dots">
+        ${[0,1,2,3].map(i => `<div class="pin-dot ${S.pinEntry.length > i ? 'filled' : ''}"></div>`).join('')}
+      </div>
+      <div class="pin-keypad">
+        ${[1,2,3,4,5,6,7,8,9].map(n => `<button class="pin-key" onclick="pinKey('${n}')">${n}</button>`).join('')}
+        <button class="pin-key del" onclick="pinKey('del')">⌫</button>
+        <button class="pin-key" onclick="pinKey('0')">0</button>
+        <button class="pin-key go" onclick="pinKey('go')">→</button>
+      </div>
+      ${S.pinError ? `<div class="pin-error">${esc(S.pinError)}</div>` : ''}
+    </div>` : '';
+
+  return `
+    <div class="login-wrap" style="padding-bottom:1.5rem">
+      <div class="login-logo">🏗</div>
+      <div class="login-title">SiteSnag</div>
+      <div class="login-sub">Construction Quality Inspection</div>
+      ${noUsers ? `
+        <div class="card card-body" style="width:100%;max-width:480px;text-align:center">
+          <div style="font-size:1.5rem;margin-bottom:.5rem">👋</div>
+          <div style="font-weight:700;margin-bottom:.4rem">First time setup</div>
+          <div style="font-size:.88rem;color:var(--muted);margin-bottom:1rem">Create your first user to get started.</div>
+          <button class="btn btn-primary btn-block" onclick="S.currentUser={id:'__setup__',name:'Setup',role:'inspector'};go('users')">
+            Create First User
+          </button>
+        </div>` : `
+        <div class="user-grid">${userCards}</div>
+        ${pinUI}`}
+    </div>`;
+}
+
+function selectLoginUser(id) {
+  S.loginUserId = id;
+  S.pinEntry = '';
+  S.pinError = '';
+  render();
+}
+
+function pinKey(k) {
+  if (k === 'del') {
+    S.pinEntry = S.pinEntry.slice(0, -1);
+    S.pinError = '';
+    render();
+    return;
+  }
+  if (k === 'go') { doLogin(); return; }
+  if (S.pinEntry.length >= 4) return;
+  S.pinEntry += k;
+  S.pinError = '';
+  render();
+  if (S.pinEntry.length === 4) setTimeout(doLogin, 120);
+}
+
+function doLogin() {
+  const u = db.users.find(u => u.id === S.loginUserId);
+  if (!u) return;
+  if (String(u.pin) !== String(S.pinEntry)) {
+    S.pinError = 'Incorrect PIN — try again.';
+    S.pinEntry = '';
+    render();
+    return;
+  }
+  S.currentUser = { id: u.id, name: u.name, role: u.role, companyId: u.companyId || null };
+  S.mode = u.role === 'contractor' ? 'contractor' : 'inspector';
+  if (u.role === 'contractor' && u.companyId) S.contractorCompanyId = u.companyId;
+  S.pinEntry = '';
+  S.pinError = '';
+  S.loginUserId = null;
+  // Log the login
+  if (!db.loginLog) db.loginLog = [];
+  db.loginLog.push({ userId: u.id, name: u.name, role: u.role, at: Date.now(), action: 'login' });
+  saveDB();
+  go('projects');
+}
+
+function logout() {
+  if (!confirm(`Log out as ${S.currentUser?.name}?`)) return;
+  if (!db.loginLog) db.loginLog = [];
+  db.loginLog.push({ userId: S.currentUser.id, name: S.currentUser.name, role: S.currentUser.role, at: Date.now(), action: 'logout' });
+  saveDB();
+  S.currentUser = null;
+  S.contractorCompanyId = null;
+  saveState();
+  render();
+}
+
+// ── USERS ──────────────────────────────────────────────────────────────────────
+function viewUsers() {
+  const canManage = S.currentUser?.role === 'inspector' || S.currentUser?.id === '__setup__';
+
+  const items = db.users.length
+    ? db.users.map(u => {
+        const co = u.companyId ? db.companies.find(c => c.id === u.companyId) : null;
+        return `<div class="list-item" style="cursor:default">
+          <div class="usr-avatar" style="background:${avatarColour(u.name)}">${u.name.charAt(0).toUpperCase()}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:.93rem">${esc(u.name)}</div>
+            <div style="display:flex;gap:.35rem;align-items:center;margin-top:.2rem;flex-wrap:wrap">
+              <span class="role-badge role-${u.role}">${u.role}</span>
+              ${co ? `<span style="font-size:.75rem;color:var(--soft)">${esc(co.name)}</span>` : ''}
+            </div>
+          </div>
+          ${canManage ? `<button class="del-btn" onclick="deleteUser('${u.id}')">×</button>` : ''}
+        </div>`;
+      }).join('')
+    : `<div class="empty"><div class="eico">👤</div><p>No users yet.</p></div>`;
+
+  const addForm = canManage ? `
+    <div class="sec-label">Add User</div>
+    <div class="card card-body">
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input type="text" id="nu_name" placeholder="e.g. James Murphy" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Role</label>
+        <select id="nu_role" onchange="toggleCoField()">
+          <option value="inspector">Inspector</option>
+          <option value="contractor">Contractor</option>
+        </select>
+      </div>
+      <div class="form-group" id="nu_co_group" style="display:none">
+        <label class="form-label">Company</label>
+        <select id="nu_co">
+          <option value="">— select company —</option>
+          ${db.companies.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">4-Digit PIN</label>
+        <input type="password" id="nu_pin" placeholder="e.g. 1234" maxlength="4"
+               inputmode="numeric" pattern="[0-9]{4}" />
+      </div>
+      <div style="margin-top:.75rem">
+        <button class="btn btn-primary btn-block" onclick="createUser()">+ Add User</button>
+      </div>
+    </div>` : '';
+
+  const isSetup = S.currentUser?.id === '__setup__';
+  return appBar('Users', isSetup ? '' : 'projects') + `
+    <div class="main">
+      ${isSetup ? `<div class="alert alert-info">Create your first inspector to start using the app.</div>` : ''}
+      <div class="card">${items}</div>
+      ${addForm}
+    </div>` + (isSetup ? '' : navBar('users'));
+}
+
+function toggleCoField() {
+  const role = document.getElementById('nu_role')?.value;
+  const grp  = document.getElementById('nu_co_group');
+  if (grp) grp.style.display = role === 'contractor' ? 'flex' : 'none';
+}
+
+function createUser() {
+  const name = document.getElementById('nu_name').value.trim();
+  const role = document.getElementById('nu_role').value;
+  const co   = document.getElementById('nu_co')?.value || null;
+  const pin  = document.getElementById('nu_pin').value.trim();
+  if (!name) { alert('Enter a name.'); return; }
+  if (!/^\d{4}$/.test(pin)) { alert('PIN must be exactly 4 digits.'); return; }
+  if (role === 'contractor' && !co) { alert('Select a company for this contractor.'); return; }
+  db.users.push({ id: uid(), name, role, companyId: co || null, pin, createdAt: Date.now() });
+  saveDB();
+  // If this was the setup flow, log them in as the first inspector
+  if (S.currentUser?.id === '__setup__') {
+    S.currentUser = null;
+    render();
+    return;
+  }
+  render();
+}
+
+function deleteUser(id) {
+  if (id === S.currentUser?.id) { alert("You can't delete your own account."); return; }
+  if (!confirm('Remove this user?')) return;
+  db.users = db.users.filter(u => u.id !== id);
+  saveDB();
+  render();
+}
 
 // ── PROJECTS ───────────────────────────────────────────────────────────────────
 function viewProjects() {
@@ -561,25 +839,22 @@ function viewProjects() {
         </div>`).join('')
     : `<div class="empty"><div class="eico">📂</div><p>No projects yet.<br>Create one below.</p></div>`;
 
+  const isInspector = S.currentUser?.role === 'inspector';
   return appBar('SiteSnag', '') + `
     <div class="main">
-      <div class="mode-strip">
-        <button class="mode-btn ${S.mode==='inspector'?'active':''}" onclick="setMode('inspector')">🔍 Inspector</button>
-        <button class="mode-btn ${S.mode==='contractor'?'active':''}" onclick="setMode('contractor')">🔧 Contractor</button>
-      </div>
-      ${S.mode==='contractor' ? `<div class="alert alert-info">Contractor mode: select a project to view your assigned snags.</div>` : ''}
       <div class="sec-label">Projects</div>
       <div class="card">${items}</div>
-      <div class="sec-label">New Project</div>
-      <div class="card card-body">
-        <div class="form-group">
-          <label class="form-label">Project Name</label>
-          <input type="text" id="newProjName" placeholder="e.g. Block A – Ground Floor" />
-        </div>
-        <div style="margin-top:.75rem">
-          <button class="btn btn-primary btn-block" onclick="createProject()">+ Create Project</button>
-        </div>
-      </div>
+      ${isInspector ? `
+        <div class="sec-label">New Project</div>
+        <div class="card card-body">
+          <div class="form-group">
+            <label class="form-label">Project Name</label>
+            <input type="text" id="newProjName" placeholder="e.g. Block A – Ground Floor" />
+          </div>
+          <div style="margin-top:.75rem">
+            <button class="btn btn-primary btn-block" onclick="createProject()">+ Create Project</button>
+          </div>
+        </div>` : ''}
     </div>` + navBar('projects');
 }
 
@@ -589,34 +864,16 @@ function viewSnagList() {
   if (!p) return viewProjects();
 
   let snags = db.snags.filter(s => s.projectId === S.projectId);
+  const isContractor = S.currentUser?.role === 'contractor';
 
-  if (S.mode === 'contractor') {
-    if (!S.contractorCompanyId) {
-      return appBar(esc(p.name), 'projects', 'Inspector on this project') + `
-        <div class="main">
-          <div class="sec-label">Select Your Company</div>
-          <div class="card card-body">
-            ${!db.companies.length
-              ? `<div class="alert alert-warn">No companies added. Go to Companies tab first.</div>`
-              : `<div class="form-group">
-                   <label class="form-label">Your Company</label>
-                   <select id="coSelect">
-                     <option value="">— choose —</option>
-                     ${db.companies.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
-                   </select>
-                 </div>
-                 <div style="margin-top:.75rem">
-                   <button class="btn btn-primary btn-block" onclick="pickContractorCo()">Continue</button>
-                 </div>`}
-          </div>
-        </div>` + navBar('snag-list');
-    }
-    snags = snags.filter(s => s.assignedTo === S.contractorCompanyId && (s.status==='assigned'||s.status==='rejected'));
+  if (isContractor) {
+    const cid = S.currentUser.companyId;
+    snags = snags.filter(s => s.assignedTo === cid && (s.status==='assigned'||s.status==='rejected'));
   }
 
-  const filters = S.mode === 'inspector'
-    ? ['all','open','assigned','pending','accepted','rejected']
-    : ['all','assigned','rejected'];
+  const filters = isContractor
+    ? ['all','assigned','rejected']
+    : ['all','open','assigned','pending','accepted','rejected'];
 
   if (S.filter !== 'all') snags = snags.filter(s => s.status === S.filter);
   snags = snags.slice().sort((a,b) => b.createdAt - a.createdAt);
@@ -634,26 +891,21 @@ function viewSnagList() {
             <div class="snag-title">${esc(s.title)}</div>
             <div class="snag-meta">
               ${badge(s.status)}
-              ${s.building||s.floor||s.room ? `<span class="snag-co">
-                ${[s.building?`Bldg ${s.building}`:'', s.floor?`Fl ${s.floor}`:'', s.room?`Rm ${s.room}`:''].filter(Boolean).join(' · ')}
-              </span>` : ''}
+              ${s.building||s.floor||s.room ? `<span class="snag-co">${[s.building?`Bldg ${s.building}`:'',s.floor?`Fl ${s.floor}`:'',s.room?`Rm ${s.room}`:''].filter(Boolean).join(' · ')}</span>` : ''}
               <span class="snag-co">${esc(coName(s.assignedTo))}</span>
             </div>
           </div>
-          ${s.photo
-            ? `<img class="snag-thumb" src="${s.photo}" />`
-            : `<div class="snag-thumb-empty">📷</div>`}
+          ${s.photo ? `<img class="snag-thumb" src="${s.photo}" />` : `<div class="snag-thumb-empty">📷</div>`}
         </div>`).join('')
     : `<div class="empty"><div class="eico">✅</div><p>No snags${S.filter!=='all'?' with this filter':''}.</p></div>`;
 
   return appBar(esc(p.name), 'projects') + `
     <div class="main">
-      ${S.mode==='contractor' ? `<div class="alert alert-info">Showing snags assigned to <strong>${esc(coName(S.contractorCompanyId))}</strong>
-        &nbsp;<button style="font-size:.78rem;color:var(--blue);background:none;border:none;cursor:pointer;font-weight:700" onclick="S.contractorCompanyId=null;render()">Change</button></div>` : ''}
+      ${isContractor ? `<div class="alert alert-info">Showing snags assigned to <strong>${esc(coName(S.currentUser.companyId))}</strong></div>` : ''}
       <div class="filter-row">${chips}</div>
       <div class="card">${items}</div>
     </div>
-    ${S.mode==='inspector' ? `<button class="fab" onclick="go('snag-form',{snagId:null,fd:{}})">+</button>` : ''}
+    ${!isContractor ? `<button class="fab" onclick="go('snag-form',{snagId:null,fd:{}})">+</button>` : ''}
     ` + navBar('snag-list');
 }
 
@@ -663,11 +915,12 @@ function viewSnagDetail() {
   if (!snag) return viewSnagList();
   const p   = db.projects.find(p => p.id === snag.projectId);
   const co  = snag.assignedTo ? db.companies.find(c => c.id === snag.assignedTo) : null;
-  const ins = S.mode === 'inspector';
+  const isInspector  = S.currentUser?.role === 'inspector';
+  const isContractor = S.currentUser?.role === 'contractor';
+  const myCompany    = S.currentUser?.companyId;
 
-  // Inspector actions
   let actionBar = '';
-  if (ins) {
+  if (isInspector) {
     if (snag.status === 'open') {
       actionBar = `<div class="action-bar">
         <button class="btn btn-primary" onclick="openAssignModal('${snag.id}')">Assign to Contractor →</button>
@@ -684,17 +937,14 @@ function viewSnagDetail() {
         <button class="btn btn-danger"  onclick="openRejectModal('${snag.id}')">✗ Reject</button>
       </div>`;
     }
-  } else {
-    if (snag.assignedTo === S.contractorCompanyId && (snag.status==='assigned'||snag.status==='rejected')) {
-      actionBar = `<div class="action-bar">
-        <button class="btn btn-primary btn-block" onclick="go('contractor-respond',{snagId:'${snag.id}',fd:{}})">
-          📸 Submit Rectification
-        </button>
-      </div>`;
-    }
+  } else if (isContractor && snag.assignedTo === myCompany && (snag.status==='assigned'||snag.status==='rejected')) {
+    actionBar = `<div class="action-bar">
+      <button class="btn btn-primary btn-block" onclick="go('contractor-respond',{snagId:'${snag.id}',fd:{}})">
+        📸 Submit Rectification
+      </button>
+    </div>`;
   }
 
-  // Rectification block
   const r = snag.rectification;
   const rectBlock = r ? `
     <div class="divider"></div>
@@ -702,21 +952,23 @@ function viewSnagDetail() {
       <div class="sec-label" style="margin:0 0 .6rem">Rectification Submitted</div>
       ${r.photo ? `<img src="${r.photo}" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:.7rem;display:block" />` : ''}
       <div class="detail-row"><span class="detail-label">By</span>
-        <span class="detail-val">${esc(coName(snag.assignedTo))}</span></div>
+        <span class="detail-val">${esc(r.by || coName(snag.assignedTo))}</span></div>
       <div class="detail-row"><span class="detail-label">Submitted</span>
         <span class="detail-val">${fmtDateTime(r.submittedAt)}</span></div>
       <div class="detail-row"><span class="detail-label">Comment</span>
         <span class="detail-val" style="white-space:pre-wrap">${esc(r.comment)||'—'}</span></div>
     </div>` : '';
 
-  // History
   const hist = (snag.history||[]).map(h => {
     const dc = h.action.includes('Accept')?'g':h.action.includes('Reject')?'r':h.action.includes('Rectif')?'p':'b';
     return `<div class="tl-row">
       <div class="tl-dot ${dc}"></div>
-      <div><div class="tl-main">${esc(h.action)}</div>
-           <div class="tl-when">${fmtDateTime(h.at)}</div>
-           ${h.note?`<div class="tl-note">${esc(h.note)}</div>`:''}</div>
+      <div>
+        <div class="tl-main">${esc(h.action)}</div>
+        <div class="tl-when">${fmtDateTime(h.at)}</div>
+        ${h.by   ? `<div class="tl-by">👤 ${esc(h.by)}</div>` : ''}
+        ${h.note ? `<div class="tl-note">${esc(h.note)}</div>` : ''}
+      </div>
     </div>`;
   }).join('');
 
@@ -740,20 +992,19 @@ function viewSnagDetail() {
             <span class="detail-val">${esc(p?.name)}</span></div>
           <div class="detail-row"><span class="detail-label">Location</span>
             <span class="detail-val" style="display:flex;gap:.5rem;flex-wrap:wrap">
-              ${snag.building ? `<span style="background:var(--blue-bg);color:var(--blue);font-size:.78rem;font-weight:700;padding:.18rem .6rem;border-radius:999px">🏢 Bldg ${esc(snag.building)}</span>` : ''}
-              ${snag.floor    ? `<span style="background:var(--bg);color:var(--soft);font-size:.78rem;font-weight:700;padding:.18rem .6rem;border-radius:999px;border:1.5px solid var(--border)">Floor ${esc(snag.floor)}</span>` : ''}
-              ${snag.room     ? `<span style="background:var(--bg);color:var(--soft);font-size:.78rem;font-weight:700;padding:.18rem .6rem;border-radius:999px;border:1.5px solid var(--border)">Room ${esc(snag.room)}</span>` : ''}
-              ${!snag.building && !snag.floor && !snag.room ? '<em style="color:var(--muted)">Not specified</em>' : ''}
-            </span>
-          </div>
+              ${snag.building?`<span style="background:var(--blue-bg);color:var(--blue);font-size:.78rem;font-weight:700;padding:.18rem .6rem;border-radius:999px">🏢 Bldg ${esc(snag.building)}</span>`:''}
+              ${snag.floor?`<span style="background:var(--bg);color:var(--soft);font-size:.78rem;font-weight:700;padding:.18rem .6rem;border-radius:999px;border:1.5px solid var(--border)">Floor ${esc(snag.floor)}</span>`:''}
+              ${snag.room?`<span style="background:var(--bg);color:var(--soft);font-size:.78rem;font-weight:700;padding:.18rem .6rem;border-radius:999px;border:1.5px solid var(--border)">Room ${esc(snag.room)}</span>`:''}
+              ${!snag.building&&!snag.floor&&!snag.room?'<em style="color:var(--muted)">Not specified</em>':''}
+            </span></div>
           <div class="detail-row"><span class="detail-label">Assigned to</span>
-            <span class="detail-val">${co ? esc(co.name) : '<em style="color:var(--muted)">Unassigned</em>'}</span></div>
+            <span class="detail-val">${co?esc(co.name):'<em style="color:var(--muted)">Unassigned</em>'}</span></div>
           <div class="detail-row"><span class="detail-label">Description</span>
             <span class="detail-val" style="white-space:pre-wrap">${esc(snag.description)||'—'}</span></div>
-          <div class="detail-row"><span class="detail-label">Location</span>
+          <div class="detail-row"><span class="detail-label">GPS</span>
             <span class="detail-val">${snag.location
               ? `<a class="map-link" href="https://maps.google.com/?q=${snag.location.lat},${snag.location.lng}" target="_blank">📍 ${snag.location.lat}, ${snag.location.lng}</a>
-                 <br><span style="font-size:.72rem;color:var(--muted)">±${snag.location.acc}m accuracy</span>`
+                 ${snag.location.acc?`<br><span style="font-size:.72rem;color:var(--muted)">±${snag.location.acc}m</span>`:''}`
               : '<em style="color:var(--muted)">Not recorded</em>'}</span></div>
         </div>
         ${rectBlock}
@@ -764,7 +1015,7 @@ function viewSnagDetail() {
           </div>` : ''}
         ${actionBar}
       </div>
-      ${ins ? `<div style="margin-top:.75rem;text-align:center">
+      ${isInspector ? `<div style="margin-top:.75rem;text-align:center">
         <button onclick="deleteSnag('${snag.id}')"
           style="font-size:.78rem;color:var(--red);background:none;border:none;cursor:pointer;text-decoration:underline">
           Delete snag
@@ -775,60 +1026,58 @@ function viewSnagDetail() {
 
 // ── SNAG FORM ──────────────────────────────────────────────────────────────────
 function viewSnagForm() {
-  const editing = S.snagId ? db.snags.find(s => s.id === S.snagId) : null;
-  const photo = S.fd.photo !== undefined ? S.fd.photo : (editing?.photo ?? null);
+  const editing  = S.snagId ? db.snags.find(s => s.id === S.snagId) : null;
+  const photo    = S.fd.photo !== undefined ? S.fd.photo : (editing?.photo ?? null);
+  const loc      = S.fd.location || editing?.location;
+  const locTxt   = loc ? `${loc.lat}, ${loc.lng}${loc.acc?` (±${loc.acc}m)`:''}` : 'Not captured';
   const descOpts = fieldOptions('description');
   const descPicker = descOpts.length
     ? `<select onchange="fillDesc(this)"
-         style="margin-bottom:.4rem;font-size:.85rem;color:var(--soft);border-radius:8px;padding:.5rem .7rem;border:2px solid var(--border);width:100%;background:#fff;font-family:inherit">
+         style="margin-bottom:.45rem;font-size:.85rem;color:var(--soft);border-radius:8px;padding:.5rem .7rem;border:2px solid var(--border);width:100%;background:#fff;font-family:inherit">
          <option value="">↩ Pick a previous description…</option>
-         ${descOpts.map(v => `<option value="${esc(v)}">${esc(v.length > 70 ? v.slice(0, 70) + '…' : v)}</option>`).join('')}
+         ${descOpts.map(v=>`<option value="${esc(v)}">${esc(v.length>70?v.slice(0,70)+'…':v)}</option>`).join('')}
        </select>`
     : '';
-  const loc   = S.fd.location || editing?.location;
-  const locTxt = loc ? `${loc.lat}, ${loc.lng} (±${loc.acc}m)` : 'Not captured';
 
-  return appBar(editing ? `Edit ${numStr(editing.number)}` : 'New Snag', editing ? 'snag-detail' : 'snag-list') + `
+  return appBar(editing?`Edit ${numStr(editing.number)}`:'New Snag', editing?'snag-detail':'snag-list') + `
     <div class="main">
       <div class="card card-body">
         <div class="form-group">
           <label class="form-label">Title *</label>
           ${datalist('dl_title','title')}
           <input type="text" id="f_title" list="dl_title" placeholder="e.g. Cracked render at column B3"
-                 value="${esc(S.fd.f_title ?? editing?.title ?? '')}" />
+                 value="${esc(S.fd.f_title??editing?.title??'')}" autocomplete="off" />
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem">
           <div class="form-group">
             <label class="form-label">Building</label>
             ${datalist('dl_building','building')}
             <input type="text" id="f_building" list="dl_building" placeholder="e.g. A"
-                   value="${esc(S.fd.f_building ?? editing?.building ?? '')}" />
+                   value="${esc(S.fd.f_building??editing?.building??'')}" autocomplete="off" />
           </div>
           <div class="form-group">
             <label class="form-label">Floor</label>
             ${datalist('dl_floor','floor')}
-            <input type="text" id="f_floor" list="dl_floor" placeholder="e.g. G, 1, 2"
-                   value="${esc(S.fd.f_floor ?? editing?.floor ?? '')}" />
+            <input type="text" id="f_floor" list="dl_floor" placeholder="e.g. G, 1"
+                   value="${esc(S.fd.f_floor??editing?.floor??'')}" autocomplete="off" />
           </div>
           <div class="form-group">
             <label class="form-label">Room</label>
             ${datalist('dl_room','room')}
             <input type="text" id="f_room" list="dl_room" placeholder="e.g. 101"
-                   value="${esc(S.fd.f_room ?? editing?.room ?? '')}" />
+                   value="${esc(S.fd.f_room??editing?.room??'')}" autocomplete="off" />
           </div>
         </div>
         <div class="form-group">
           <label class="form-label">Description</label>
           ${descPicker}
-          <textarea id="f_desc" placeholder="Describe the defect in detail…">${esc(S.fd.f_desc ?? editing?.description ?? '')}</textarea>
+          <textarea id="f_desc" placeholder="Describe the defect in detail…">${esc(S.fd.f_desc??editing?.description??'')}</textarea>
         </div>
         <div class="form-group">
           <label class="form-label">Photo</label>
           ${photo
-            ? `<div class="photo-wrap">
-                 <img src="${photo}" />
-                 <button class="photo-remove" onclick="snap();S.fd.photo=null;render()">×</button>
-               </div>`
+            ? `<div class="photo-wrap"><img src="${photo}" />
+               <button class="photo-remove" onclick="snap();S.fd.photo=null;render()">×</button></div>`
             : `<label class="photo-trigger" for="photoIn">📷 Take / Choose Photo</label>
                <input type="file" id="photoIn" accept="image/*" capture="environment" style="display:none"
                       onchange="handlePhoto(this)" />`}
@@ -839,29 +1088,25 @@ function viewSnagForm() {
             <span class="loc-chip" id="gpsChip">${esc(locTxt)}</span>
             <button class="btn btn-outline btn-sm" id="gpsBtn" onclick="getGPS()">📍 Get GPS</button>
           </div>
-
-          <!-- Manual entry panel — shown when auto GPS is blocked -->
-          <div id="gpsManual" style="display:${S.fd._showManual?'block':'none'};margin-top:.6rem;padding:.8rem;background:var(--bg);border-radius:10px;border:1.5px solid var(--border)">
+          <div id="gpsManual" style="display:none;margin-top:.6rem;padding:.8rem;background:var(--bg);border-radius:10px;border:1.5px solid var(--border)">
             <div id="gpsHint" style="font-size:.8rem;color:var(--soft);margin-bottom:.6rem;line-height:1.45"></div>
             <a href="https://maps.google.com" target="_blank"
                style="display:inline-flex;align-items:center;gap:.3rem;font-size:.82rem;font-weight:700;color:var(--blue);text-decoration:none;margin-bottom:.7rem">
               🗺 Open Google Maps to find your coordinates
             </a>
             <div style="font-size:.75rem;color:var(--muted);margin-bottom:.6rem">
-              In Google Maps: tap &amp; hold your location → the coordinates appear at the top — copy them here.
+              In Google Maps: tap &amp; hold your location → coordinates appear at the top.
             </div>
             <div style="display:flex;gap:.5rem;margin-bottom:.5rem">
               <div style="flex:1">
                 <div style="font-size:.72rem;font-weight:700;color:var(--soft);margin-bottom:.25rem">LATITUDE</div>
                 <input type="text" id="manualLat" placeholder="e.g. 25.197525"
-                       value="${esc(S.fd.location?.lat ?? '')}"
-                       style="border-radius:8px;padding:.5rem .7rem;font-size:.9rem" />
+                       value="${esc(S.fd.location?.lat??'')}" style="border-radius:8px;padding:.5rem .7rem;font-size:.9rem" />
               </div>
               <div style="flex:1">
                 <div style="font-size:.72rem;font-weight:700;color:var(--soft);margin-bottom:.25rem">LONGITUDE</div>
                 <input type="text" id="manualLng" placeholder="e.g. 55.274288"
-                       value="${esc(S.fd.location?.lng ?? '')}"
-                       style="border-radius:8px;padding:.5rem .7rem;font-size:.9rem" />
+                       value="${esc(S.fd.location?.lng??'')}" style="border-radius:8px;padding:.5rem .7rem;font-size:.9rem" />
               </div>
             </div>
             <button class="btn btn-primary btn-sm" onclick="saveManualCoords()">✓ Set Location</button>
@@ -870,9 +1115,7 @@ function viewSnagForm() {
       </div>
       <div style="margin-top:.75rem;display:flex;gap:.55rem">
         <button class="btn btn-outline" style="flex:1" onclick="go(S.snagId?'snag-detail':'snag-list')">Cancel</button>
-        <button class="btn btn-primary" style="flex:2" onclick="saveSnag()">
-          ${editing ? 'Save Changes' : '+ Add Snag'}
-        </button>
+        <button class="btn btn-primary" style="flex:2" onclick="saveSnag()">${editing?'Save Changes':'+ Add Snag'}</button>
       </div>
     </div>` + navBar('');
 }
@@ -882,20 +1125,18 @@ function viewContractorRespond() {
   const snag = db.snags.find(s => s.id === S.snagId);
   if (!snag) return viewSnagList();
   const photo = S.fd.rectPhoto;
+  const lastReject = snag.history?.slice().reverse().find(h => h.action === 'Rejected');
 
   return appBar(`Rectify ${numStr(snag.number)}`, 'snag-detail') + `
     <div class="main">
       <div class="alert alert-warn">${esc(snag.title)}</div>
-      ${snag.status === 'rejected' && snag.history?.slice().reverse().find(h=>h.action==='Rejected')?.note
-        ? `<div class="alert alert-danger">Inspector note: ${esc(snag.history.slice().reverse().find(h=>h.action==='Rejected').note)}</div>` : ''}
+      ${lastReject?.note ? `<div class="alert alert-danger"><strong>Inspector note:</strong> ${esc(lastReject.note)}</div>` : ''}
       <div class="card card-body">
         <div class="form-group">
           <label class="form-label">Rectification Photo *</label>
           ${photo
-            ? `<div class="photo-wrap">
-                 <img src="${photo}" />
-                 <button class="photo-remove" onclick="snap();S.fd.rectPhoto=null;render()">×</button>
-               </div>`
+            ? `<div class="photo-wrap"><img src="${photo}" />
+               <button class="photo-remove" onclick="snap();S.fd.rectPhoto=null;render()">×</button></div>`
             : `<label class="photo-trigger" for="rectPhotoIn">📷 Photograph Completed Work</label>
                <input type="file" id="rectPhotoIn" accept="image/*" capture="environment" style="display:none"
                       onchange="handleRectPhoto(this)" />`}
@@ -907,9 +1148,7 @@ function viewContractorRespond() {
       </div>
       <div style="margin-top:.75rem;display:flex;gap:.55rem">
         <button class="btn btn-outline" style="flex:1" onclick="go('snag-detail',{snagId:'${snag.id}'})">Cancel</button>
-        <button class="btn btn-success" style="flex:2" onclick="submitRect('${snag.id}')">
-          ✓ Submit for Inspection
-        </button>
+        <button class="btn btn-success" style="flex:2" onclick="submitRect('${snag.id}')">✓ Submit for Inspection</button>
       </div>
     </div>` + navBar('');
 }
@@ -944,26 +1183,35 @@ function viewCompanies() {
 // ── CHROME ─────────────────────────────────────────────────────────────────────
 function appBar(title, backView, sub) {
   const back = backView ? `<button class="back-btn" onclick="go('${backView}')">&#8592;</button>` : '';
-  return `<div class="app-bar">${back}<h1>${title}${sub?`<small>${sub}</small>`:''}</h1></div>`;
+  const user = S.currentUser && S.currentUser.id !== '__setup__'
+    ? `<div class="user-chip">
+         <div class="avatar" style="background:${avatarColour(S.currentUser.name)}">${S.currentUser.name.charAt(0).toUpperCase()}</div>
+         <span class="uname">${esc(S.currentUser.name)}</span>
+       </div>
+       <button class="logout-btn" onclick="logout()">Log out</button>`
+    : '';
+  return `<div class="app-bar">${back}<h1>${title}${sub?`<small>${sub}</small>`:''}</h1>${user}</div>`;
 }
 
 function navBar(active) {
-  // If no project selected but one exists, auto-select the first
   const snagClick = S.projectId
     ? "go('snag-list')"
     : db.projects.length === 1
       ? `selectProject('${db.projects[0].id}')`
       : "go('projects')";
+  const isInspector = S.currentUser?.role === 'inspector';
   return `<nav class="bottom-nav">
     <button class="nav-btn ${active==='projects'?'active':''}" onclick="go('projects')">
       <span class="ico">📂</span>Projects
     </button>
-    <button class="nav-btn ${active==='snag-list'?'active':''}"
-            onclick="${snagClick}">
+    <button class="nav-btn ${active==='snag-list'?'active':''}" onclick="${snagClick}">
       <span class="ico">📋</span>Snags
     </button>
     <button class="nav-btn ${active==='companies'?'active':''}" onclick="go('companies')">
       <span class="ico">🏢</span>Companies
+    </button>
+    <button class="nav-btn ${active==='users'?'active':''}" onclick="go('users')">
+      <span class="ico">👤</span>Users
     </button>
   </nav>`;
 }
@@ -1007,18 +1255,15 @@ function modal(html) {
 function closeModal() { document.getElementById('modalBack')?.remove(); }
 
 // ── ACTIONS ────────────────────────────────────────────────────────────────────
-function setMode(m) { S.mode = m; S.contractorCompanyId = null; S.filter = 'all'; go('projects'); }
 function setFilter(f) { S.filter = f; render(); }
-
-function selectProject(id) { S.projectId = id; S.filter = 'all'; S.contractorCompanyId = null; go('snag-list'); }
+function selectProject(id) { S.projectId = id; S.filter = 'all'; go('snag-list'); }
 
 function createProject() {
   const n = document.getElementById('newProjName').value.trim();
   if (!n) { alert('Enter a project name.'); return; }
-  const p = { id: uid(), name: n, createdAt: Date.now() };
-  db.projects.push(p);
+  db.projects.push({ id: uid(), name: n, createdAt: Date.now() });
   saveDB();
-  S.projectId = p.id;
+  S.projectId = db.projects[db.projects.length-1].id;
   go('snag-list');
 }
 
@@ -1027,36 +1272,26 @@ function addCo() {
   if (!n) { alert('Enter a company name.'); return; }
   if (db.companies.some(c => c.name.toLowerCase() === n.toLowerCase())) { alert('Company already exists.'); return; }
   db.companies.push({ id: uid(), name: n });
-  saveDB();
-  render();
+  saveDB(); render();
 }
-
 function deleteCo(id) {
   if (!confirm('Remove this company?')) return;
   db.companies = db.companies.filter(c => c.id !== id);
-  saveDB();
-  render();
+  saveDB(); render();
 }
 
 async function handlePhoto(input) {
-  const f = input.files[0];
-  if (!f) return;
-  snap();
-  S.fd.photo = await resizePhoto(f);
-  render();
+  const f = input.files[0]; if (!f) return;
+  snap(); S.fd.photo = await resizePhoto(f); render();
 }
-
 async function handleRectPhoto(input) {
-  const f = input.files[0];
-  if (!f) return;
-  snap();
-  S.fd.rectPhoto = await resizePhoto(f);
-  render();
+  const f = input.files[0]; if (!f) return;
+  snap(); S.fd.rectPhoto = await resizePhoto(f); render();
 }
 
 function saveSnag() {
-  const titleEl = document.getElementById('f_title');
-  const title   = titleEl.value.trim();
+  const titleEl  = document.getElementById('f_title');
+  const title    = titleEl.value.trim();
   if (!title) { titleEl.focus(); alert('Title is required.'); return; }
   const desc     = document.getElementById('f_desc').value.trim();
   const building = document.getElementById('f_building').value.trim();
@@ -1065,31 +1300,25 @@ function saveSnag() {
 
   if (S.snagId) {
     const snag = db.snags.find(s => s.id === S.snagId);
-    snag.title = title;
-    snag.description = desc;
-    snag.building = building;
-    snag.floor    = floor;
-    snag.room     = room;
+    snag.title = title; snag.description = desc;
+    snag.building = building; snag.floor = floor; snag.room = room;
     if (S.fd.photo !== undefined) snag.photo = S.fd.photo;
     if (S.fd.location) snag.location = S.fd.location;
     snag.history = snag.history || [];
-    snag.history.push({ action: 'Edited', at: Date.now() });
-    saveDB();
-    S.fd = {};
+    snag.history.push({ action: 'Edited', by: byMe(), at: Date.now() });
+    saveDB(); S.fd = {};
     go('snag-detail', { snagId: S.snagId });
   } else {
     const snag = {
       id: uid(), projectId: S.projectId, number: nextNum(S.projectId),
-      title, description: desc,
-      building, floor, room,
-      photo: S.fd.photo || null, location: S.fd.location || null,
+      title, description: desc, building, floor, room,
+      photo: S.fd.photo||null, location: S.fd.location||null,
       status: 'open', assignedTo: null,
       createdAt: Date.now(), rectification: null,
-      history: [{ action: 'Created', at: Date.now() }]
+      history: [{ action: 'Created', by: byMe(), at: Date.now() }]
     };
     db.snags.push(snag);
-    saveDB();
-    S.fd = {};
+    saveDB(); S.fd = {};
     go('snag-detail', { snagId: snag.id });
   }
 }
@@ -1097,8 +1326,7 @@ function saveSnag() {
 function deleteSnag(id) {
   if (!confirm('Permanently delete this snag?')) return;
   db.snags = db.snags.filter(s => s.id !== id);
-  saveDB();
-  go('snag-list');
+  saveDB(); go('snag-list');
 }
 
 function doAssign(snagId) {
@@ -1108,10 +1336,8 @@ function doAssign(snagId) {
   snag.assignedTo = cid;
   snag.status = 'assigned';
   snag.history = snag.history || [];
-  snag.history.push({ action: `Assigned to ${coName(cid)}`, at: Date.now() });
-  saveDB();
-  closeModal();
-  render();
+  snag.history.push({ action: `Assigned to ${coName(cid)}`, by: byMe(), at: Date.now() });
+  saveDB(); closeModal(); render();
 }
 
 function acceptSnag(snagId) {
@@ -1119,9 +1345,8 @@ function acceptSnag(snagId) {
   const snag = db.snags.find(s => s.id === snagId);
   snag.status = 'accepted';
   snag.history = snag.history || [];
-  snag.history.push({ action: 'Accepted ✓ — Snag Closed', at: Date.now() });
-  saveDB();
-  render();
+  snag.history.push({ action: 'Accepted ✓ — Snag Closed', by: byMe(), at: Date.now() });
+  saveDB(); render();
 }
 
 function doReject(snagId) {
@@ -1129,10 +1354,8 @@ function doReject(snagId) {
   const snag = db.snags.find(s => s.id === snagId);
   snag.status = 'rejected';
   snag.history = snag.history || [];
-  snag.history.push({ action: 'Rejected', note, at: Date.now() });
-  saveDB();
-  closeModal();
-  render();
+  snag.history.push({ action: 'Rejected', by: byMe(), note, at: Date.now() });
+  saveDB(); closeModal(); render();
 }
 
 function submitRect(snagId) {
@@ -1140,20 +1363,12 @@ function submitRect(snagId) {
   const photo   = S.fd.rectPhoto;
   if (!photo) { alert('A photo is required.'); return; }
   const snag = db.snags.find(s => s.id === snagId);
-  snag.rectification = { photo, comment, submittedAt: Date.now() };
+  snag.rectification = { photo, comment, by: byMe(), submittedAt: Date.now() };
   snag.status = 'pending';
   snag.history = snag.history || [];
-  snag.history.push({ action: 'Rectification submitted', note: comment, at: Date.now() });
-  saveDB();
-  S.fd = {};
+  snag.history.push({ action: 'Rectification submitted', by: byMe(), note: comment, at: Date.now() });
+  saveDB(); S.fd = {};
   go('snag-detail', { snagId });
-}
-
-function pickContractorCo() {
-  const v = document.getElementById('coSelect').value;
-  if (!v) { alert('Select your company.'); return; }
-  S.contractorCompanyId = v;
-  render();
 }
 
 // ── INIT ───────────────────────────────────────────────────────────────────────
