@@ -348,7 +348,8 @@
 
 <script>
 // ── DB ─────────────────────────────────────────────────────────────────────────
-const DB_KEY = 'sitesnag_v1';
+const DB_KEY    = 'sitesnag_v1';
+const STATE_KEY = 'sitesnag_state';
 let db = { projects: [], companies: [], snags: [] };
 
 function loadDB() {
@@ -362,16 +363,35 @@ let S = {
   view: 'projects',
   projectId: null,
   snagId: null,
-  mode: 'inspector',         // 'inspector' | 'contractor'
+  mode: 'inspector',
   contractorCompanyId: null,
   filter: 'all',
-  fd: {},                    // form data buffer
+  fd: {},
 };
+
+function loadState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STATE_KEY));
+    if (saved) {
+      if (saved.projectId) S.projectId = saved.projectId;
+      if (saved.mode)      S.mode      = saved.mode;
+    }
+  } catch {}
+  // If a project was saved but no longer exists, clear it
+  if (S.projectId && !db.projects.find(p => p.id === S.projectId)) S.projectId = null;
+  // Auto-select the only project if there's exactly one
+  if (!S.projectId && db.projects.length === 1) S.projectId = db.projects[0].id;
+}
+
+function saveState() {
+  localStorage.setItem(STATE_KEY, JSON.stringify({ projectId: S.projectId, mode: S.mode }));
+}
 
 // ── NAVIGATE ───────────────────────────────────────────────────────────────────
 function go(view, params) {
   S.view = view;
   if (params) Object.assign(S, params);
+  saveState();
   render();
 }
 
@@ -817,13 +837,18 @@ function appBar(title, backView, sub) {
 }
 
 function navBar(active) {
-  const p = proj();
+  // If no project selected but one exists, auto-select the first
+  const snagClick = S.projectId
+    ? "go('snag-list')"
+    : db.projects.length === 1
+      ? `selectProject('${db.projects[0].id}')`
+      : "go('projects')";
   return `<nav class="bottom-nav">
     <button class="nav-btn ${active==='projects'?'active':''}" onclick="go('projects')">
       <span class="ico">📂</span>Projects
     </button>
     <button class="nav-btn ${active==='snag-list'?'active':''}"
-            onclick="${p?"go('snag-list')":"go('projects')"}">
+            onclick="${snagClick}">
       <span class="ico">📋</span>Snags
     </button>
     <button class="nav-btn ${active==='companies'?'active':''}" onclick="go('companies')">
@@ -1015,6 +1040,7 @@ function pickContractorCo() {
 
 // ── INIT ───────────────────────────────────────────────────────────────────────
 loadDB();
+loadState();
 render();
 </script>
 </body>
