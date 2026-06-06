@@ -493,7 +493,7 @@ function loadState() {
     const saved = JSON.parse(localStorage.getItem(STATE_KEY));
     if (saved) {
       if (saved.projectId)   S.projectId   = saved.projectId;
-      if (saved.mode)        S.mode        = saved.mode;
+      if (saved.mode)        S.mode        = saved.mode === 'inspector' ? 'engineer' : saved.mode;
       if (saved.currentUser) S.currentUser = saved.currentUser;
     }
   } catch {}
@@ -502,8 +502,11 @@ function loadState() {
   // Validate saved user still exists; migrate stale role value
   if (S.currentUser) {
     const u = db.users.find(u => u.id === S.currentUser.id);
-    if (!u) S.currentUser = null;
-    else if (S.currentUser.role === 'inspector') { S.currentUser.role = 'engineer'; saveState(); }
+    if (!u) { S.currentUser = null; }
+    else {
+      if (S.currentUser.role === 'inspector') S.currentUser.role = 'engineer';
+      saveState();
+    }
   }
 }
 
