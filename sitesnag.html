@@ -1952,6 +1952,7 @@ function viewLocations() {
   const isEng = S.currentUser?.role === 'engineer';
   if (!isEng) return viewProjects();
   const locs = db.locations || [];
+  const el = S.editingLoc || {};
   return appBar('Locations', null) + `
     <div class="main">
       <div class="card card-body" style="margin-bottom:.75rem">
@@ -1963,22 +1964,37 @@ function viewLocations() {
       ${locs.length === 0 ? `<div class="card card-body" style="color:var(--muted);text-align:center">No buildings configured yet.<br>Add a building above to get started.</div>` : ''}
       ${locs.map(b => `
         <div class="card card-body" style="margin-bottom:.75rem">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
-            <strong style="font-size:1.05rem">🏗 ${esc(b.building)}</strong>
-            <button class="btn" style="background:var(--red-bg);color:var(--red);padding:.3rem .7rem;font-size:.8rem" data-fn="deleteBuilding" data-a1="${b.id}">Delete</button>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;gap:.5rem">
+            ${el.type==='building'&&el.bldgId===b.id
+              ? `<input type="text" id="edit_bldg_${b.id}" value="${esc(b.building)}" style="flex:1;padding:.4rem .6rem;border:2px solid var(--blue);border-radius:8px;font-size:.95rem;font-family:inherit" />
+                 <button class="btn btn-primary" style="padding:.3rem .7rem;font-size:.8rem" data-fn="saveBuilding" data-a1="${b.id}">Save</button>
+                 <button class="btn" style="padding:.3rem .7rem;font-size:.8rem" data-fn="cancelEdit">Cancel</button>`
+              : `<strong style="font-size:1.05rem;flex:1">🏗 ${esc(b.building)}</strong>
+                 <button class="btn" style="background:var(--blue-bg);color:var(--blue);padding:.3rem .7rem;font-size:.8rem" data-fn="startEditBuilding" data-a1="${b.id}">Edit</button>
+                 <button class="btn" style="background:var(--red-bg);color:var(--red);padding:.3rem .7rem;font-size:.8rem" data-fn="deleteBuilding" data-a1="${b.id}">Delete</button>`}
           </div>
           <div style="margin-left:.5rem">
             ${b.floors.map(f => `
               <div style="border-left:3px solid var(--blue-bg);padding-left:.75rem;margin-bottom:.6rem">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem">
-                  <span style="font-weight:600;color:var(--blue)">↳ ${esc(f.name)}</span>
-                  <button class="btn" style="background:var(--red-bg);color:var(--red);padding:.2rem .55rem;font-size:.78rem" data-fn="deleteFloor" data-a1="${b.id}" data-a2="${f.id}">Remove</button>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem;gap:.4rem">
+                  ${el.type==='floor'&&el.floorId===f.id
+                    ? `<input type="text" id="edit_floor_${f.id}" value="${esc(f.name)}" style="flex:1;padding:.35rem .55rem;border:2px solid var(--blue);border-radius:8px;font-size:.9rem;font-family:inherit" />
+                       <button class="btn btn-primary" style="padding:.25rem .6rem;font-size:.78rem" data-fn="saveFloor" data-a1="${b.id}" data-a2="${f.id}">Save</button>
+                       <button class="btn" style="padding:.25rem .6rem;font-size:.78rem" data-fn="cancelEdit">Cancel</button>`
+                    : `<span style="font-weight:600;color:var(--blue);flex:1">↳ ${esc(f.name)}</span>
+                       <button class="btn" style="background:var(--blue-bg);color:var(--blue);padding:.2rem .55rem;font-size:.75rem" data-fn="startEditFloor" data-a1="${b.id}" data-a2="${f.id}">Edit</button>
+                       <button class="btn" style="background:var(--red-bg);color:var(--red);padding:.2rem .55rem;font-size:.78rem" data-fn="deleteFloor" data-a1="${b.id}" data-a2="${f.id}">Remove</button>`}
                 </div>
                 <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.4rem">
                   ${f.rooms.map(r => `
                     <span style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.2rem .5rem;font-size:.83rem;display:inline-flex;align-items:center;gap:.3rem">
-                      ${esc(r)}
-                      <button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:.9rem;padding:0;line-height:1" data-fn="deleteRoom" data-a1="${b.id}" data-a2="${f.id}|${esc(r)}">×</button>
+                      ${el.type==='room'&&el.floorId===f.id&&el.roomName===r
+                        ? `<input type="text" id="edit_room_${f.id}" value="${esc(r)}" style="width:90px;padding:.15rem .35rem;border:1px solid var(--blue);border-radius:5px;font-size:.83rem;font-family:inherit" />
+                           <button style="background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:.75rem;padding:.1rem .4rem;border-radius:4px;line-height:1.4" data-fn="saveRoom" data-a1="${b.id}" data-a2="${f.id}|${esc(r)}">✓</button>
+                           <button style="background:none;border:none;cursor:pointer;color:var(--soft);font-size:.9rem;padding:0;line-height:1" data-fn="cancelEdit">×</button>`
+                        : `${esc(r)}
+                           <button style="background:none;border:none;cursor:pointer;color:var(--blue);font-size:.8rem;padding:0;line-height:1" data-fn="startEditRoom" data-a1="${b.id}" data-a2="${f.id}|${esc(r)}">✎</button>
+                           <button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:.9rem;padding:0;line-height:1" data-fn="deleteRoom" data-a1="${b.id}" data-a2="${f.id}|${esc(r)}">×</button>`}
                     </span>`).join('')}
                 </div>
                 <div style="display:flex;gap:.4rem">
@@ -1995,7 +2011,60 @@ function viewLocations() {
     </div>` + navBar('locations');
 }
 
-function addBuilding() {
+function startEditBuilding(bldgId) { S.editingLoc = { type:'building', bldgId }; render(); }
+function startEditFloor(bldgId, floorId) { S.editingLoc = { type:'floor', bldgId, floorId }; render(); }
+function startEditRoom(bldgId, floorAndRoom) {
+  const [floorId, ...rp] = floorAndRoom.split('|');
+  S.editingLoc = { type:'room', bldgId, floorId, roomName: rp.join('|') }; render();
+}
+function cancelEdit() { S.editingLoc = null; render(); }
+
+function saveBuilding(bldgId) {
+  const inp = document.getElementById('edit_bldg_' + bldgId);
+  const newName = (inp?.value || '').trim();
+  if (!newName) return;
+  const b = db.locations.find(b => b.id === bldgId);
+  if (!b) return;
+  const oldName = b.building;
+  if (newName === oldName) { cancelEdit(); return; }
+  if (db.locations.find(x => x.id !== bldgId && x.building.toLowerCase() === newName.toLowerCase())) { alert('Building name already exists.'); return; }
+  b.building = newName;
+  db.snags.forEach(s => { if (s.building === oldName) s.building = newName; });
+  saveDB(); S.editingLoc = null; render();
+}
+
+function saveFloor(bldgId, floorId) {
+  const inp = document.getElementById('edit_floor_' + floorId);
+  const newName = (inp?.value || '').trim();
+  if (!newName) return;
+  const b = db.locations.find(b => b.id === bldgId);
+  if (!b) return;
+  const f = b.floors.find(f => f.id === floorId);
+  if (!f) return;
+  const oldName = f.name;
+  if (newName === oldName) { cancelEdit(); return; }
+  if (b.floors.find(x => x.id !== floorId && x.name.toLowerCase() === newName.toLowerCase())) { alert('Floor name already exists in this building.'); return; }
+  f.name = newName;
+  db.snags.forEach(s => { if (s.building === b.building && s.floor === oldName) s.floor = newName; });
+  saveDB(); S.editingLoc = null; render();
+}
+
+function saveRoom(bldgId, floorAndOldRoom) {
+  const [floorId, ...rp] = floorAndOldRoom.split('|');
+  const oldRoom = rp.join('|');
+  const inp = document.getElementById('edit_room_' + floorId);
+  const newRoom = (inp?.value || '').trim();
+  if (!newRoom) return;
+  const b = db.locations.find(b => b.id === bldgId);
+  if (!b) return;
+  const f = b.floors.find(f => f.id === floorId);
+  if (!f) return;
+  if (newRoom === oldRoom) { cancelEdit(); return; }
+  if (f.rooms.find(r => r.toLowerCase() === newRoom.toLowerCase())) { alert('Room already exists on this floor.'); return; }
+  f.rooms = f.rooms.map(r => r === oldRoom ? newRoom : r);
+  db.snags.forEach(s => { if (s.building === b.building && s.floor === f.name && s.room === oldRoom) s.room = newRoom; });
+  saveDB(); S.editingLoc = null; render();
+}
   const inp = document.getElementById('new_building');
   const name = (inp?.value || '').trim();
   if (!name) return;
