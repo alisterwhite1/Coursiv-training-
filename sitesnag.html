@@ -406,6 +406,36 @@
     }
     .divider { height: 1px; background: var(--border); }
 
+    /* ── Reports / Analytics ── */
+    .rpt-kpi-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin-bottom: .75rem;
+    }
+    @media (max-width: 360px) { .rpt-kpi-grid { grid-template-columns: repeat(2,1fr); } }
+    .rpt-kpi {
+      background: var(--card); border-radius: var(--radius);
+      padding: .8rem .85rem; box-shadow: var(--shadow);
+    }
+    .rpt-kpi-val { font-size: 1.55rem; font-weight: 800; line-height: 1; margin-bottom: .2rem; }
+    .rpt-kpi-label { font-size: .63rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    .rpt-kpi-sub { font-size: .7rem; color: var(--soft); margin-top: .15rem; }
+    .bar-row { display: flex; align-items: center; gap: .5rem; margin-bottom: .32rem; }
+    .bar-row:last-child { margin-bottom: 0; }
+    .bar-track { flex: 1; height: 13px; background: var(--bg); border-radius: 999px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 999px; }
+    .bar-label { font-size: .76rem; font-weight: 600; min-width: 84px; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-count { font-size: .76rem; font-weight: 800; min-width: 28px; text-align: right; }
+    .rpt-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    .rpt-table th {
+      text-align: left; font-size: .63rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .07em; color: var(--muted); padding: .5rem .65rem;
+      border-bottom: 2px solid var(--border); white-space: nowrap;
+    }
+    .rpt-table td { padding: .52rem .65rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .rpt-table tr:last-child td { border-bottom: none; }
+    .heat-cell { padding: .38rem .45rem; border-radius: 5px; text-align: center; font-size: .78rem; font-weight: 700; }
+    .proj-sel-row { display: flex; align-items: center; gap: .5rem; margin-bottom: .75rem; }
+    .proj-sel-row label { font-size: .72rem; font-weight: 800; color: var(--soft); text-transform: uppercase; letter-spacing: .07em; white-space: nowrap; }
+
     /* ── Modal ── */
     .modal-back {
       position: fixed; inset: 0; background: rgba(0,0,0,.45);
@@ -450,6 +480,7 @@ let S = {
   loginUserId: null,    // selected on login screen
   pinEntry: '',         // digits typed on login screen
   pinError: '',
+  rptProjectId: null,   // project filter on reports tab
 };
 
 function loadState() {
@@ -625,6 +656,7 @@ function render() {
     'contractor-respond': viewContractorRespond,
     companies:            viewCompanies,
     users:                viewUsers,
+    reports:              viewReports,
   };
   document.getElementById('app').innerHTML = (views[S.view] || viewProjects)();
 }
@@ -1180,6 +1212,298 @@ function viewCompanies() {
     </div>` + navBar('companies');
 }
 
+// ── REPORTS & ANALYTICS ───────────────────────────────────────────────────────
+function viewReports() {
+  const rptPid = S.rptProjectId || '';
+  const allSnags = rptPid ? db.snags.filter(s => s.projectId === rptPid) : db.snags;
+
+  const projOpts = [`<option value="">All Projects (${db.snags.length})</option>`,
+    ...db.projects.map(p => {
+      const n = db.snags.filter(s => s.projectId === p.id).length;
+      return `<option value="${p.id}" ${p.id === rptPid ? 'selected' : ''}>${esc(p.name)} (${n})</option>`;
+    })].join('');
+
+  const projSel = `<div class="proj-sel-row">
+    <label>Scope</label>
+    <select onchange="S.rptProjectId=this.value;render()" style="flex:1;padding:.45rem .7rem;font-size:.85rem;border-radius:8px;border:2px solid var(--border)">
+      ${projOpts}
+    </select></div>`;
+
+  if (!allSnags.length) {
+    return appBar('Reports & Analytics', 'projects') + `<div class="main" style="max-width:640px">${projSel}
+      <div class="empty"><div class="eico">📊</div><p>No snag data for this selection.</p></div>
+      </div>` + navBar('reports');
+  }
+
+  // ── KPIs ──
+  const total = allSnags.length;
+  const sc = {};
+  ['open','assigned','pending','accepted','rejected'].forEach(k => { sc[k] = allSnags.filter(x => x.status === k).length; });
+
+  const closedSnags = allSnags.filter(s => s.status === 'accepted');
+  const closeDays = closedSnags.map(s => {
+    const ev = (s.history||[]).slice().reverse().find(h => h.action.includes('Accepted'));
+    return ev ? (ev.at - s.createdAt) / 86400000 : null;
+  }).filter(d => d !== null);
+  const avgClose = closeDays.length ? (closeDays.reduce((a,b)=>a+b,0)/closeDays.length).toFixed(1) : '—';
+
+  const everAssigned = allSnags.filter(s => s.assignedTo).length;
+  const everRejected = allSnags.filter(s => (s.history||[]).some(h => h.action === 'Rejected')).length;
+  const rejRate = everAssigned ? Math.round(100 * everRejected / everAssigned) : 0;
+  const outstanding = sc.open + sc.assigned;
+
+  const kpiCards = `<div class="rpt-kpi-grid">
+    <div class="rpt-kpi"><div class="rpt-kpi-val">${total}</div><div class="rpt-kpi-label">Total Snags</div></div>
+    <div class="rpt-kpi">
+      <div class="rpt-kpi-val" style="color:var(--amber)">${outstanding}</div>
+      <div class="rpt-kpi-label">Outstanding</div>
+      <div class="rpt-kpi-sub">${sc.open} open · ${sc.assigned} assigned</div>
+    </div>
+    <div class="rpt-kpi">
+      <div class="rpt-kpi-val" style="color:var(--green)">${sc.accepted}</div>
+      <div class="rpt-kpi-label">Closed</div>
+      <div class="rpt-kpi-sub">${total ? Math.round(100*sc.accepted/total) : 0}% done</div>
+    </div>
+    <div class="rpt-kpi">
+      <div class="rpt-kpi-val" style="color:var(--purple)">${sc.pending}</div>
+      <div class="rpt-kpi-label">Pending Review</div>
+    </div>
+    <div class="rpt-kpi">
+      <div class="rpt-kpi-val">${avgClose === '—' ? '—' : avgClose}<span style="font-size:.85rem;font-weight:400"> d</span></div>
+      <div class="rpt-kpi-label">Avg Days Closed</div>
+    </div>
+    <div class="rpt-kpi">
+      <div class="rpt-kpi-val" style="color:${rejRate>25?'var(--red)':rejRate>10?'var(--amber)':'var(--green)'}">${rejRate}%</div>
+      <div class="rpt-kpi-label">Rejection Rate</div>
+    </div>
+  </div>`;
+
+  // ── STATUS BARS ──
+  const stColour = { open:'var(--amber)', assigned:'var(--blue)', pending:'var(--purple)', accepted:'var(--green)', rejected:'var(--red)' };
+  const maxSt = Math.max(...Object.values(sc), 1);
+  const statusBars = ['open','assigned','pending','accepted','rejected'].map(k => {
+    const n = sc[k]; const pct = total ? Math.round(100*n/total) : 0;
+    return `<div class="bar-row">
+      <div class="bar-label">${STATUSES[k]?.label||k}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(100*n/maxSt)}%;background:${stColour[k]}"></div></div>
+      <div class="bar-count">${n} <span style="font-weight:400;color:var(--muted);font-size:.68rem">${pct}%</span></div>
+    </div>`;
+  }).join('');
+
+  // ── MONTHLY TREND CHART (SVG) ──
+  const months = [];
+  const nowD = new Date(); nowD.setDate(1); nowD.setHours(0,0,0,0);
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(nowD); d.setMonth(d.getMonth() - i);
+    months.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleDateString(undefined,{month:'short'}), yr: d.getFullYear(), mo: d.getMonth(), opened: 0, closed: 0 });
+  }
+  allSnags.forEach(s => {
+    const d = new Date(s.createdAt); const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const m = months.find(x => x.key === key); if (m) m.opened++;
+  });
+  closedSnags.forEach(s => {
+    const ev = (s.history||[]).slice().reverse().find(h => h.action.includes('Accepted')); if (!ev) return;
+    const d = new Date(ev.at); const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const m = months.find(x => x.key === key); if (m) m.closed++;
+  });
+  const maxBar = Math.max(...months.map(m => Math.max(m.opened, m.closed)), 1);
+  const SVG_H = 130, SVG_PAD_L = 28, SVG_PAD_B = 30, CHART_H = SVG_H - SVG_PAD_B - 10;
+  const BW = 18, GAP = 6, GROUP = BW*2+GAP+8;
+  const svgW = SVG_PAD_L + months.length * GROUP + 8;
+  const monthRects = months.map((m, i) => {
+    const x = SVG_PAD_L + i * GROUP;
+    const oh = Math.max(2, Math.round(m.opened/maxBar*CHART_H));
+    const ch = Math.max(m.closed?2:0, Math.round(m.closed/maxBar*CHART_H));
+    return `<rect x="${x}" y="${10+CHART_H-oh}" width="${BW}" height="${oh}" fill="#1d4ed8" rx="3" opacity=".8"/>
+      <rect x="${x+BW+4}" y="${10+CHART_H-ch}" width="${BW}" height="${ch}" fill="#15803d" rx="3" opacity=".8"/>
+      <text x="${x+BW+2}" y="${SVG_H-10}" text-anchor="middle" font-size="9" fill="#94a3b8">${m.label}</text>`;
+  }).join('');
+  const gridLines = [0.25,0.5,0.75,1].map(f => {
+    const y = 10 + CHART_H - Math.round(f*CHART_H); const v = Math.round(f*maxBar);
+    return `<line x1="${SVG_PAD_L-3}" y1="${y}" x2="${svgW-3}" y2="${y}" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="${SVG_PAD_L-5}" y="${y+3}" text-anchor="end" font-size="8" fill="#94a3b8">${v}</text>`;
+  }).join('');
+  const legend = `<rect x="${SVG_PAD_L}" y="${SVG_H-6}" width="9" height="6" fill="#1d4ed8" rx="1"/>
+    <text x="${SVG_PAD_L+12}" y="${SVG_H-1}" font-size="8" fill="#475569">Opened</text>
+    <rect x="${SVG_PAD_L+60}" y="${SVG_H-6}" width="9" height="6" fill="#15803d" rx="1"/>
+    <text x="${SVG_PAD_L+73}" y="${SVG_H-1}" font-size="8" fill="#475569">Closed</text>`;
+  const timeChart = `<div style="overflow-x:auto">
+    <svg width="${svgW}" height="${SVG_H}" style="display:block;min-width:180px">
+      ${gridLines}${monthRects}${legend}
+    </svg></div>`;
+
+  // ── DAYS TO CLOSE DISTRIBUTION ──
+  const buckets = [
+    { label:'≤ 7 days',  min:-1,  max:7,   count:0, col:'var(--green)' },
+    { label:'8–14 days', min:7,   max:14,  count:0, col:'var(--blue)' },
+    { label:'15–30 days',min:14,  max:30,  count:0, col:'var(--amber)' },
+    { label:'> 30 days', min:30,  max:1e9, count:0, col:'var(--red)' },
+  ];
+  closeDays.forEach(d => { const b = buckets.find(b => d > b.min && d <= b.max); if (b) b.count++; });
+  const maxBkt = Math.max(...buckets.map(b=>b.count),1);
+  const closeBars = buckets.map(b => `<div class="bar-row">
+    <div class="bar-label">${b.label}</div>
+    <div class="bar-track"><div class="bar-fill" style="width:${Math.round(100*b.count/maxBkt)}%;background:${b.col}"></div></div>
+    <div class="bar-count">${b.count}</div>
+  </div>`).join('');
+
+  // ── CONTRACTOR PERFORMANCE TABLE ──
+  const coRowsHtml = db.companies.map(c => {
+    const cs = allSnags.filter(s => s.assignedTo === c.id); if (!cs.length) return null;
+    const cClosed = cs.filter(s => s.status === 'accepted');
+    const cPending = cs.filter(s => s.status === 'pending').length;
+    const cOpen    = cs.filter(s => s.status === 'assigned').length;
+    const cRejected = cs.filter(s => (s.history||[]).some(h => h.action === 'Rejected')).length;
+    const cRejRate = cs.length ? Math.round(100*cRejected/cs.length) : 0;
+    const cDays = cClosed.map(s => {
+      const ev = (s.history||[]).slice().reverse().find(h => h.action.includes('Accepted'));
+      return ev ? (ev.at - s.createdAt)/86400000 : null;
+    }).filter(d=>d!==null);
+    const cAvg = cDays.length ? (cDays.reduce((a,b)=>a+b,0)/cDays.length).toFixed(1) : '—';
+    const rCol = cRejRate>25?'var(--red)':cRejRate>10?'var(--amber)':'var(--green)';
+    return `<tr>
+      <td style="font-weight:600">${esc(c.name)}</td>
+      <td style="text-align:center">${cs.length}</td>
+      <td style="text-align:center;color:var(--amber);font-weight:700">${cOpen}</td>
+      <td style="text-align:center;color:var(--green);font-weight:700">${cClosed.length}</td>
+      <td style="text-align:center;color:var(--purple)">${cPending}</td>
+      <td style="text-align:center;color:${rCol};font-weight:700">${cRejRate}%</td>
+      <td style="text-align:center">${cAvg === '—' ? '—' : cAvg+'d'}</td>
+    </tr>`;
+  }).filter(Boolean).join('');
+  const contractorTable = coRowsHtml
+    ? `<div style="overflow-x:auto"><table class="rpt-table">
+        <thead><tr>
+          <th>Contractor</th><th style="text-align:center">Total</th>
+          <th style="text-align:center">Open</th><th style="text-align:center">Closed</th>
+          <th style="text-align:center">Pending</th>
+          <th style="text-align:center">Rej %</th><th style="text-align:center">Avg Close</th>
+        </tr></thead>
+        <tbody>${coRowsHtml}</tbody>
+      </table></div>`
+    : '<div class="empty" style="padding:1rem"><p style="font-size:.85rem">No contractor data yet.</p></div>';
+
+  // ── LOCATION HEATMAP ──
+  const buildings = [...new Set(allSnags.map(s=>s.building).filter(Boolean))].sort();
+  const floors    = [...new Set(allSnags.map(s=>s.floor).filter(Boolean))].sort();
+  let heatHtml = '';
+  if (buildings.length && floors.length) {
+    const maxCell = Math.max(...buildings.flatMap(b => floors.map(f => allSnags.filter(s=>s.building===b&&s.floor===f).length)), 1);
+    heatHtml = `<div style="overflow-x:auto"><table class="rpt-table">
+      <thead><tr><th>Bldg \\ Floor</th>${floors.map(f=>`<th style="text-align:center">${esc(f)}</th>`).join('')}<th style="text-align:center">Total</th></tr></thead>
+      <tbody>${buildings.map(b => {
+        const rowTotal = allSnags.filter(s=>s.building===b).length;
+        return `<tr><td style="font-weight:700">${esc(b)}</td>${floors.map(f=>{
+          const n = allSnags.filter(s=>s.building===b&&s.floor===f).length;
+          const alpha = n ? Math.min(0.75, 0.12 + (n/maxCell)*0.63) : 0;
+          const bg = n ? `rgba(220,38,38,${alpha.toFixed(2)})` : 'transparent';
+          const fg = alpha > 0.45 ? '#fff' : (n ? 'var(--text)' : 'var(--muted)');
+          return `<td class="heat-cell" style="background:${bg};color:${fg}">${n||'·'}</td>`;
+        }).join('')}<td style="text-align:center;font-weight:700">${rowTotal}</td></tr>`;
+      }).join('')}</tbody>
+    </table></div>`;
+  } else if (allSnags.some(s=>s.building||s.floor||s.room)) {
+    const locGroups = {};
+    allSnags.filter(s=>s.building||s.floor||s.room).forEach(s => {
+      const k = [s.building,s.floor,s.room].filter(Boolean).join(' · ');
+      locGroups[k] = (locGroups[k]||0) + 1;
+    });
+    const maxLoc = Math.max(...Object.values(locGroups),1);
+    heatHtml = Object.entries(locGroups).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`
+      <div class="bar-row">
+        <div class="bar-label" style="min-width:110px;max-width:140px">${esc(k)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${Math.round(100*n/maxLoc)}%;background:var(--blue)"></div></div>
+        <div class="bar-count">${n}</div>
+      </div>`).join('');
+  } else {
+    heatHtml = '<div style="font-size:.85rem;color:var(--muted);padding:.4rem 0">No building / floor data recorded on snags yet.</div>';
+  }
+
+  // ── SNAG TYPE KEYWORD ANALYSIS ──
+  const STOP = new Set(['a','an','the','and','or','at','in','on','of','to','for','with','is','are','was','were','be','been','by','from','that','this','not','has','have','had','its','it','as','but','if','no','so','up','out','more','some','any','all','been','also','into','than','then','when','where','which','who','will','would','could','should','does','did','do','due','per']);
+  const wordFreq = {};
+  allSnags.forEach(s => {
+    ((s.title||'')+' '+(s.description||'')).toLowerCase()
+      .replace(/[^a-z\s]/g,' ').split(/\s+/)
+      .filter(w => w.length > 2 && !STOP.has(w))
+      .forEach(w => { wordFreq[w] = (wordFreq[w]||0)+1; });
+  });
+  const topWords = Object.entries(wordFreq).sort((a,b)=>b[1]-a[1]).slice(0,14);
+  const maxWord = topWords.length ? topWords[0][1] : 1;
+  const wordBars = topWords.map(([w,n]) => `<div class="bar-row">
+    <div class="bar-label" style="text-transform:capitalize">${esc(w)}</div>
+    <div class="bar-track"><div class="bar-fill" style="width:${Math.round(100*n/maxWord)}%;background:var(--purple)"></div></div>
+    <div class="bar-count">${n}</div>
+  </div>`).join('');
+
+  // ── OPEN SNAG AGE (backlog health) ──
+  const nowTs = Date.now();
+  const openSnags = allSnags.filter(s => s.status === 'open' || s.status === 'assigned');
+  const ageBuckets = [
+    { label:'< 7 days',   min:-1, max:7,  count:0, col:'var(--green)' },
+    { label:'7–14 days',  min:7,  max:14, count:0, col:'var(--blue)' },
+    { label:'14–30 days', min:14, max:30, count:0, col:'var(--amber)' },
+    { label:'> 30 days',  min:30, max:1e9,count:0, col:'var(--red)' },
+  ];
+  openSnags.forEach(s => {
+    const d = (nowTs - s.createdAt)/86400000;
+    const b = ageBuckets.find(b => d > b.min && d <= b.max); if (b) b.count++;
+  });
+  const maxAge = Math.max(...ageBuckets.map(b=>b.count),1);
+  const ageBars = ageBuckets.map(b=>`<div class="bar-row">
+    <div class="bar-label">${b.label}</div>
+    <div class="bar-track"><div class="bar-fill" style="width:${Math.round(100*b.count/maxAge)}%;background:${b.col}"></div></div>
+    <div class="bar-count">${b.count}</div>
+  </div>`).join('');
+
+  // ── RECENT ACTIVITY LOG ──
+  const actLog = [...(db.loginLog||[])].reverse().slice(0,25).map(e => {
+    const ic = e.action==='login'?'🔑':'🚪';
+    const col = e.action==='login'?'var(--green)':'var(--muted)';
+    return `<div style="display:flex;align-items:center;gap:.55rem;padding:.48rem 0;border-bottom:1px solid var(--border);font-size:.82rem">
+      <span style="font-size:1rem">${ic}</span>
+      <div style="flex:1">
+        <span style="font-weight:600">${esc(e.name)}</span>
+        <span style="color:${col};font-size:.72rem;font-weight:700;margin-left:.3rem">${e.action}</span>
+        <span class="role-badge role-${e.role}" style="margin-left:.3rem">${e.role}</span>
+      </div>
+      <div style="font-size:.7rem;color:var(--muted);white-space:nowrap">${fmtDateTime(e.at)}</div>
+    </div>`;
+  }).join('') || '<div style="font-size:.85rem;color:var(--muted);padding:.5rem 0">No activity logged yet.</div>';
+
+  return appBar('Reports & Analytics', 'projects') + `
+    <div class="main" style="max-width:640px">
+      ${projSel}
+      ${kpiCards}
+
+      <div class="sec-label">Status Breakdown</div>
+      <div class="card card-body">${statusBars}</div>
+
+      <div class="sec-label">Snags Opened vs Closed — Last 6 Months</div>
+      <div class="card card-body">${timeChart}</div>
+
+      <div class="sec-label">Days to Close — Closed Snags</div>
+      <div class="card card-body">${closeDays.length ? closeBars : '<div style="font-size:.85rem;color:var(--muted)">No closed snags yet.</div>'}</div>
+
+      <div class="sec-label">Backlog Age — Open &amp; Assigned Snags</div>
+      <div class="card card-body">${openSnags.length ? ageBars : '<div style="font-size:.85rem;color:var(--muted)">No outstanding snags.</div>'}</div>
+
+      <div class="sec-label">Contractor Performance</div>
+      <div class="card">${contractorTable}</div>
+
+      <div class="sec-label">Location Heatmap — Building × Floor</div>
+      <div class="card card-body">${heatHtml}</div>
+
+      <div class="sec-label">Snag Type Keywords</div>
+      <div class="card card-body">${topWords.length ? wordBars : '<div style="font-size:.85rem;color:var(--muted)">Add snag titles and descriptions to see keyword analysis.</div>'}</div>
+
+      <div class="sec-label">Recent User Activity</div>
+      <div class="card card-body" style="padding:0 1rem">${actLog}</div>
+
+      <div style="height:.5rem"></div>
+    </div>` + navBar('reports');
+}
+
 // ── CHROME ─────────────────────────────────────────────────────────────────────
 function appBar(title, backView, sub) {
   const back = backView ? `<button class="back-btn" onclick="go('${backView}')">&#8592;</button>` : '';
@@ -1207,6 +1531,9 @@ function navBar(active) {
     <button class="nav-btn ${active==='snag-list'?'active':''}" onclick="${snagClick}">
       <span class="ico">📋</span>Snags
     </button>
+    ${isInspector ? `<button class="nav-btn ${active==='reports'?'active':''}" onclick="go('reports')">
+      <span class="ico">📊</span>Reports
+    </button>` : ''}
     <button class="nav-btn ${active==='companies'?'active':''}" onclick="go('companies')">
       <span class="ico">🏢</span>Companies
     </button>
