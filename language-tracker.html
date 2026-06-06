@@ -8,241 +8,402 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --green:       #3ecf6e;
-      --green-dark:  #2aab58;
-      --green-light: #d4f5e2;
-      --cream:       #faf8f3;
-      --cream-dark:  #f0ece0;
-      --text:        #2c3a2e;
-      --muted:       #7a9980;
-      --radius:      18px;
-      --shadow:      0 4px 24px rgba(62,207,110,.10);
+      --green:        #2ecc71;
+      --green-dark:   #27ae60;
+      --green-deep:   #1e8449;
+      --green-light:  #d5f5e3;
+      --green-xlight: #eafaf1;
+      --cream:        #faf9f5;
+      --cream-card:   #ffffff;
+      --cream-dark:   #ede9db;
+      --cream-input:  #f5f3ec;
+      --text:         #1e2d21;
+      --text-soft:    #4a6350;
+      --muted:        #8aaa90;
+      --radius-lg:    22px;
+      --radius-md:    14px;
+      --radius-sm:    10px;
+      --shadow:       0 2px 20px rgba(46,204,113,.09), 0 1px 4px rgba(0,0,0,.04);
+      --shadow-hover: 0 6px 32px rgba(46,204,113,.16), 0 2px 8px rgba(0,0,0,.06);
     }
 
     body {
       background: var(--cream);
       color: var(--text);
-      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       min-height: 100vh;
-      padding: 2.5rem 1rem 4rem;
+      padding: 3rem 1.25rem 5rem;
     }
 
+    /* ── Header ── */
     header {
       text-align: center;
-      margin-bottom: 2.8rem;
+      margin-bottom: 3rem;
+    }
+    .header-icon {
+      font-size: 2.4rem;
+      line-height: 1;
+      margin-bottom: .6rem;
     }
     header h1 {
-      font-size: 2rem;
-      font-weight: 700;
-      letter-spacing: -.5px;
+      font-size: 2.1rem;
+      font-weight: 800;
+      letter-spacing: -.6px;
       color: var(--text);
     }
+    header h1 span { color: var(--green-dark); }
     header p {
       color: var(--muted);
-      margin-top: .35rem;
+      margin-top: .4rem;
       font-size: .95rem;
+      letter-spacing: .01em;
     }
 
+    /* ── Grid ── */
     .grid {
-      max-width: 780px;
+      max-width: 820px;
       margin: 0 auto;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 1.4rem;
+      gap: 1.5rem;
     }
-    @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+    @media (max-width: 580px) { .grid { grid-template-columns: 1fr; } }
 
+    /* ── Card ── */
     .card {
-      background: #fff;
-      border-radius: var(--radius);
-      padding: 1.8rem 1.8rem 1.6rem;
+      background: var(--cream-card);
+      border-radius: var(--radius-lg);
+      padding: 1.9rem 1.9rem 1.7rem;
       box-shadow: var(--shadow);
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: 1.1rem;
+      transition: box-shadow .2s;
     }
+    .card:hover { box-shadow: var(--shadow-hover); }
     .card.wide { grid-column: 1 / -1; }
 
     .card-label {
-      font-size: .72rem;
-      font-weight: 700;
-      letter-spacing: .12em;
+      font-size: .7rem;
+      font-weight: 800;
+      letter-spacing: .14em;
       text-transform: uppercase;
-      color: var(--muted);
+      color: var(--green-dark);
     }
 
     /* ── Streak ── */
+    .streak-hero {
+      display: flex;
+      align-items: flex-end;
+      gap: .5rem;
+    }
     .streak-num {
-      font-size: 4.5rem;
-      font-weight: 800;
+      font-size: 5rem;
+      font-weight: 900;
       line-height: 1;
       color: var(--green-dark);
+      letter-spacing: -2px;
     }
-    .streak-sub { font-size: .88rem; color: var(--muted); }
+    .streak-unit {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--muted);
+      padding-bottom: .65rem;
+    }
+    .streak-best {
+      font-size: .8rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: .3rem;
+    }
+    .streak-best strong { color: var(--green-dark); }
 
+    /* ── Buttons ── */
     .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: .4rem;
-      padding: .6rem 1.2rem;
+      padding: .65rem 1.3rem;
       border: none;
       border-radius: 999px;
       font-size: .9rem;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
-      transition: filter .15s, transform .1s;
+      transition: filter .15s, transform .1s, box-shadow .15s;
+      letter-spacing: .01em;
     }
-    .btn:active { transform: scale(.96); }
-    .btn-primary { background: var(--green); color: #fff; }
-    .btn-primary:hover { filter: brightness(1.08); }
+    .btn:active { transform: scale(.95); }
+    .btn-primary {
+      background: var(--green);
+      color: #fff;
+      box-shadow: 0 3px 12px rgba(46,204,113,.35);
+    }
+    .btn-primary:hover {
+      filter: brightness(1.07);
+      box-shadow: 0 5px 18px rgba(46,204,113,.45);
+    }
     .btn-ghost {
       background: var(--green-light);
-      color: var(--green-dark);
+      color: var(--green-deep);
     }
-    .btn-ghost:hover { filter: brightness(.95); }
-    .btn-sm { padding: .38rem .85rem; font-size: .82rem; }
+    .btn-ghost:hover { background: #c1edd5; }
+    .btn-sm { padding: .42rem .9rem; font-size: .83rem; }
 
-    .streak-done {
+    .done-chip {
       display: inline-flex;
       align-items: center;
-      gap: .45rem;
-      padding: .5rem 1rem;
-      background: var(--green-light);
-      color: var(--green-dark);
+      gap: .5rem;
+      padding: .55rem 1.1rem;
+      background: var(--green-xlight);
+      border: 1.5px solid var(--green-light);
+      color: var(--green-deep);
       border-radius: 999px;
       font-size: .88rem;
-      font-weight: 600;
+      font-weight: 700;
     }
+    .done-chip .check { font-size: 1rem; }
 
-    /* ── Progress bar ── */
-    .progress-wrap { display: flex; flex-direction: column; gap: .45rem; }
+    /* ── Progress ── */
+    .progress-wrap { display: flex; flex-direction: column; gap: .5rem; }
     .progress-meta {
       display: flex;
       justify-content: space-between;
+      align-items: center;
       font-size: .8rem;
       color: var(--muted);
+      font-weight: 500;
     }
+    .progress-meta strong { color: var(--text-soft); font-weight: 700; }
     .progress-track {
-      height: 10px;
+      height: 9px;
       background: var(--cream-dark);
       border-radius: 999px;
       overflow: hidden;
     }
     .progress-fill {
       height: 100%;
-      background: var(--green);
+      background: linear-gradient(90deg, var(--green) 0%, var(--green-dark) 100%);
       border-radius: 999px;
-      transition: width .5s cubic-bezier(.4,0,.2,1);
+      transition: width .55s cubic-bezier(.4,0,.2,1);
+    }
+    .progress-fill.full { background: linear-gradient(90deg, var(--green-dark) 0%, var(--green-deep) 100%); }
+
+    /* ── Day dots ── */
+    .dot-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: .3rem;
+    }
+    .dot-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .3rem;
+    }
+    .dot-day-label {
+      font-size: .62rem;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .dot {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--cream-dark);
+      transition: background .2s;
+    }
+    .dot.filled { background: var(--green); }
+    .dot.today-empty { background: var(--cream-dark); box-shadow: 0 0 0 2px var(--green); }
+
+    /* ── Words this week card ── */
+    .big-stat {
+      display: flex;
+      align-items: flex-end;
+      gap: .55rem;
+      flex-wrap: wrap;
+    }
+    .big-num {
+      font-size: 4rem;
+      font-weight: 900;
+      line-height: 1;
+      color: var(--green-dark);
+      letter-spacing: -1.5px;
     }
 
-    /* ── Word list ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      padding: .32rem .75rem;
+      border-radius: 999px;
+      font-size: .78rem;
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+    .badge-green { background: var(--green-light); color: var(--green-deep); }
+    .badge-amber { background: #fef3cd; color: #8a5e0a; }
+
+    .week-range {
+      font-size: .78rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    /* ── Word list card ── */
+    .word-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: .6rem;
+    }
+    .word-card-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .total-chip {
+      font-size: .78rem;
+      color: var(--muted);
+      background: var(--cream-input);
+      padding: .25rem .7rem;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+
     .word-input-row {
       display: flex;
       gap: .6rem;
     }
-    .word-input {
+    .word-inputs {
       flex: 1;
-      padding: .6rem .9rem;
-      border: 2px solid var(--cream-dark);
-      border-radius: 999px;
-      font-size: .9rem;
-      color: var(--text);
-      background: var(--cream);
-      outline: none;
-      transition: border-color .15s;
+      display: flex;
+      flex-direction: column;
+      gap: .45rem;
     }
-    .word-input:focus { border-color: var(--green); }
+    .word-input {
+      width: 100%;
+      padding: .65rem 1rem;
+      border: 2px solid var(--cream-dark);
+      border-radius: var(--radius-sm);
+      font-size: .92rem;
+      color: var(--text);
+      background: var(--cream-input);
+      outline: none;
+      transition: border-color .15s, background .15s;
+      font-family: inherit;
+    }
+    .word-input:focus {
+      border-color: var(--green);
+      background: #fff;
+    }
+    .word-input::placeholder { color: var(--muted); }
 
     .word-list {
       list-style: none;
       display: flex;
       flex-direction: column;
-      gap: .45rem;
-      max-height: 280px;
+      gap: .4rem;
+      max-height: 300px;
       overflow-y: auto;
-      padding-right: 2px;
+      padding-right: 3px;
     }
     .word-list::-webkit-scrollbar { width: 4px; }
+    .word-list::-webkit-scrollbar-track { background: transparent; }
     .word-list::-webkit-scrollbar-thumb { background: var(--green-light); border-radius: 99px; }
 
     .word-item {
       display: flex;
       align-items: center;
       gap: .7rem;
-      padding: .55rem .8rem;
-      background: var(--cream);
-      border-radius: 10px;
-      font-size: .92rem;
-      animation: fadeIn .2s ease;
+      padding: .65rem .9rem;
+      background: var(--cream-input);
+      border-radius: var(--radius-sm);
+      animation: fadeUp .2s ease both;
+      border: 1.5px solid transparent;
+      transition: border-color .15s;
     }
-    @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
-
-    .word-item .word-text { flex: 1; }
-    .word-item .word-date { font-size: .72rem; color: var(--muted); white-space: nowrap; }
+    .word-item:hover { border-color: var(--green-light); }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: none; }
+    }
+    .word-texts { flex: 1; min-width: 0; }
+    .word-text {
+      font-size: .93rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .word-translation {
+      font-size: .78rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: .1rem;
+    }
+    .word-date {
+      font-size: .72rem;
+      color: var(--muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
     .word-del {
       background: none;
       border: none;
       cursor: pointer;
-      color: #ccc;
-      font-size: 1rem;
+      color: var(--cream-dark);
+      font-size: 1.1rem;
       line-height: 1;
-      padding: 0 .1rem;
+      padding: 0 .15rem;
       transition: color .15s;
+      flex-shrink: 0;
     }
-    .word-del:hover { color: #e06060; }
+    .word-del:hover { color: #e05555; }
 
-    .week-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: .3rem;
-      padding: .3rem .7rem;
-      border-radius: 999px;
-      font-size: .78rem;
-      font-weight: 600;
+    .empty-state {
+      color: var(--muted);
+      font-size: .88rem;
+      padding: .6rem .9rem;
+      text-align: center;
     }
-    .week-badge.ok  { background: var(--green-light); color: var(--green-dark); }
-    .week-badge.go  { background: #fef3cd; color: #92690a; }
 
-    /* ── Calendar dots ── */
-    .dot-row {
-      display: flex;
-      gap: .35rem;
-      flex-wrap: wrap;
-    }
-    .dot {
-      width: 11px;
-      height: 11px;
-      border-radius: 50%;
+    /* ── Divider ── */
+    .card-divider {
+      height: 1px;
       background: var(--cream-dark);
+      margin: 0 -.1rem;
     }
-    .dot.filled { background: var(--green); }
 
-    /* ── Reset ── */
+    /* ── Reset link ── */
     .reset-link {
-      font-size: .75rem;
+      font-size: .74rem;
       color: var(--muted);
       background: none;
       border: none;
       cursor: pointer;
       text-decoration: underline;
-      margin-top: .2rem;
+      text-underline-offset: 2px;
       align-self: flex-start;
+      transition: color .15s;
+      font-family: inherit;
     }
-    .reset-link:hover { color: #e06060; }
-
-    .section-title {
-      font-size: 1.05rem;
-      font-weight: 700;
-      color: var(--text);
-    }
+    .reset-link:hover { color: #e05555; }
   </style>
 </head>
 <body>
 
 <header>
-  <h1>Language Tracker</h1>
-  <p>Study a little every day.</p>
+  <div class="header-icon">🌿</div>
+  <h1>Language <span>Tracker</span></h1>
+  <p>Study a little every day — it all adds up.</p>
 </header>
 
 <div class="grid">
@@ -250,208 +411,157 @@
   <!-- ── Streak Card ── -->
   <div class="card">
     <span class="card-label">Study Streak</span>
-    <div>
+
+    <div class="streak-hero">
       <div class="streak-num" id="streakNum">0</div>
-      <div class="streak-sub">days in a row</div>
+      <div class="streak-unit">days</div>
     </div>
+
+    <div class="streak-best" id="bestStreakLine"></div>
+
     <div id="streakAction"></div>
+
+    <div class="card-divider"></div>
+
+    <!-- Week dots -->
+    <div class="dot-grid" id="dotGrid"></div>
+
+    <!-- Week progress bar -->
     <div class="progress-wrap">
       <div class="progress-meta">
-        <span>This week</span>
-        <span id="weekDaysMeta">0 / 7</span>
+        <span>Days studied this week</span>
+        <strong id="weekDaysMeta">0 / 7</strong>
       </div>
       <div class="progress-track">
         <div class="progress-fill" id="weekBar" style="width:0%"></div>
       </div>
     </div>
-    <div class="dot-row" id="dotRow"></div>
-    <button class="reset-link" id="resetStreak">Reset streak</button>
+
+    <button class="reset-link" id="resetStreak">Reset streak &amp; history</button>
   </div>
 
-  <!-- ── Words this week ── -->
+  <!-- ── Words This Week Card ── -->
   <div class="card">
     <span class="card-label">Words This Week</span>
-    <div style="display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;">
-      <div class="streak-num" id="weekWordNum" style="font-size:3rem">0</div>
+
+    <div class="big-stat">
+      <div class="big-num" id="weekWordNum">0</div>
       <div id="weekBadge"></div>
     </div>
+
     <div class="progress-wrap">
       <div class="progress-meta">
         <span>Weekly goal</span>
-        <span id="wordGoalMeta">0 / 20</span>
+        <strong id="wordGoalMeta">0 / 20</strong>
       </div>
       <div class="progress-track">
         <div class="progress-fill" id="wordBar" style="width:0%"></div>
       </div>
     </div>
-    <div style="font-size:.78rem;color:var(--muted)" id="weekRange"></div>
+
+    <div class="week-range" id="weekRange"></div>
   </div>
 
   <!-- ── Word List Card ── -->
   <div class="card wide">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem">
-      <span class="section-title">Word List</span>
-      <span id="totalWordsBadge" style="font-size:.8rem;color:var(--muted)"></span>
+    <div class="word-card-header">
+      <span class="word-card-title">Word List</span>
+      <span class="total-chip" id="totalChip">0 words</span>
     </div>
+
     <div class="word-input-row">
-      <input class="word-input" id="wordInput" type="text" placeholder="Add a new word or phrase…" maxlength="80" />
+      <div class="word-inputs">
+        <input class="word-input" id="wordInput" type="text"
+               placeholder="Word or phrase…" maxlength="80" autocomplete="off" />
+        <input class="word-input" id="translationInput" type="text"
+               placeholder="Translation or note (optional)…" maxlength="120" autocomplete="off" />
+      </div>
       <button class="btn btn-primary" id="addWordBtn">Add</button>
     </div>
+
     <ul class="word-list" id="wordList"></ul>
   </div>
 
 </div>
 
 <script>
-// ── Storage helpers ──────────────────────────────────────────────
-const KEY = 'lang_tracker_v1';
+// ── Storage ──────────────────────────────────────────────────────────────────
+const KEY = 'lang_tracker_v2';
 
 function load() {
   try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; }
 }
-function save(data) { localStorage.setItem(KEY, JSON.stringify(data)); }
+function save(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
 
 function defaultData() {
   return {
     streak: 0,
-    lastStudyDate: null,   // 'YYYY-MM-DD'
-    studyDates: [],        // all studied dates
-    words: []              // [{id, text, date:'YYYY-MM-DD'}]
+    bestStreak: 0,
+    lastStudyDate: null,
+    studyDates: [],
+    words: []   // [{id, text, translation, date}]
   };
 }
 
-// ── Date helpers ─────────────────────────────────────────────────
+// ── Date helpers ──────────────────────────────────────────────────────────────
 function today() {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 }
-
-function startOfWeek(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
-  const day = d.getDay(); // 0=Sun
-  const diff = (day === 0) ? -6 : 1 - day; // Monday
-  d.setDate(d.getDate() + diff);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
+function pad(n) { return String(n).padStart(2,'0'); }
 
 function addDays(dateStr, n) {
   const d = new Date(dateStr + 'T00:00:00');
   d.setDate(d.getDate() + n);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+function startOfWeek(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 }
 
 function shortDate(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString(undefined, { month:'short', day:'numeric' });
+  return new Date(dateStr + 'T00:00:00')
+    .toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-// ── State ────────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────────────────────
 let data = { ...defaultData(), ...load() };
 
-// ── Streak logic ─────────────────────────────────────────────────
+// ── Streak ────────────────────────────────────────────────────────────────────
 function markStudied() {
   const t = today();
-  if (data.lastStudyDate === t) return; // already done today
+  if (data.lastStudyDate === t) return;
 
   const yesterday = addDays(t, -1);
-  if (data.lastStudyDate === yesterday) {
-    data.streak += 1;
-  } else if (data.lastStudyDate !== t) {
-    data.streak = 1;
-  }
+  data.streak = data.lastStudyDate === yesterday ? data.streak + 1 : 1;
+  data.bestStreak = Math.max(data.bestStreak || 0, data.streak);
   data.lastStudyDate = t;
   if (!data.studyDates.includes(t)) data.studyDates.push(t);
   save(data);
   render();
 }
 
-// ── Render ───────────────────────────────────────────────────────
-function render() {
-  const t = today();
-
-  // Streak number
-  document.getElementById('streakNum').textContent = data.streak;
-
-  // Check if studied today
-  const doneToday = data.lastStudyDate === t;
-  const actionEl = document.getElementById('streakAction');
-  if (doneToday) {
-    actionEl.innerHTML = `<span class="streak-done">✓ Studied today</span>`;
-  } else {
-    actionEl.innerHTML = `<button class="btn btn-primary" id="markBtn">Mark today studied</button>`;
-    document.getElementById('markBtn').addEventListener('click', markStudied);
-  }
-
-  // Week progress (Mon–Sun)
-  const weekStart = startOfWeek(t);
-  const weekDays = Array.from({length:7}, (_,i) => addDays(weekStart, i));
-  const studiedThisWeek = weekDays.filter(d => data.studyDates.includes(d)).length;
-
-  document.getElementById('weekDaysMeta').textContent = `${studiedThisWeek} / 7`;
-  document.getElementById('weekBar').style.width = `${(studiedThisWeek/7)*100}%`;
-
-  // Dots
-  const dotRow = document.getElementById('dotRow');
-  dotRow.innerHTML = weekDays.map(d => {
-    const filled = data.studyDates.includes(d);
-    const isToday = d === t;
-    return `<div class="dot${filled?' filled':''}" title="${d}${isToday?' (today)':''}"></div>`;
-  }).join('');
-
-  // Words this week
-  const GOAL = 20;
-  const weekEnd = addDays(weekStart, 6);
-  const weekWords = data.words.filter(w => w.date >= weekStart && w.date <= weekEnd);
-  const wwCount = weekWords.length;
-
-  document.getElementById('weekWordNum').textContent = wwCount;
-  const pct = Math.min(wwCount / GOAL * 100, 100);
-  document.getElementById('wordBar').style.width = `${pct}%`;
-  document.getElementById('wordGoalMeta').textContent = `${wwCount} / ${GOAL}`;
-  document.getElementById('weekRange').textContent = `${shortDate(weekStart)} – ${shortDate(weekEnd)}`;
-
-  const badge = document.getElementById('weekBadge');
-  if (wwCount >= GOAL) {
-    badge.innerHTML = `<span class="week-badge ok">✓ Goal reached!</span>`;
-  } else {
-    const left = GOAL - wwCount;
-    badge.innerHTML = `<span class="week-badge go">${left} to go</span>`;
-  }
-
-  // Total words
-  document.getElementById('totalWordsBadge').textContent = `${data.words.length} total`;
-
-  // Word list
-  renderWordList();
-}
-
-function renderWordList() {
-  const ul = document.getElementById('wordList');
-  if (data.words.length === 0) {
-    ul.innerHTML = `<li style="color:var(--muted);font-size:.88rem;padding:.4rem .8rem">No words yet — add your first one above.</li>`;
-    return;
-  }
-  ul.innerHTML = [...data.words].reverse().map(w => `
-    <li class="word-item" data-id="${w.id}">
-      <span class="word-text">${escHtml(w.text)}</span>
-      <span class="word-date">${shortDate(w.date)}</span>
-      <button class="word-del" title="Remove" onclick="removeWord('${w.id}')">×</button>
-    </li>
-  `).join('');
-}
-
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ── Words ────────────────────────────────────────────────────────
+// ── Words ─────────────────────────────────────────────────────────────────────
 function addWord() {
-  const input = document.getElementById('wordInput');
-  const text = input.value.trim();
-  if (!text) return;
-  data.words.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2), text, date: today() });
+  const wordEl = document.getElementById('wordInput');
+  const transEl = document.getElementById('translationInput');
+  const text = wordEl.value.trim();
+  if (!text) { wordEl.focus(); return; }
+  data.words.push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+    text,
+    translation: transEl.value.trim(),
+    date: today()
+  });
   save(data);
-  input.value = '';
+  wordEl.value = '';
+  transEl.value = '';
+  wordEl.focus();
   render();
 }
 
@@ -461,23 +571,126 @@ function removeWord(id) {
   render();
 }
 
-// ── Reset ────────────────────────────────────────────────────────
+// ── Render ────────────────────────────────────────────────────────────────────
+const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const GOAL = 20;
+
+function render() {
+  const t = today();
+  const weekStart = startOfWeek(t);
+  const weekDays  = Array.from({length:7}, (_,i) => addDays(weekStart, i));
+
+  // Streak
+  document.getElementById('streakNum').textContent = data.streak;
+
+  const best = data.bestStreak || data.streak;
+  const bestEl = document.getElementById('bestStreakLine');
+  bestEl.innerHTML = `Best streak: <strong>${best} day${best !== 1 ? 's' : ''}</strong>`;
+
+  // Action button
+  const doneToday = data.lastStudyDate === t;
+  const actionEl = document.getElementById('streakAction');
+  if (doneToday) {
+    actionEl.innerHTML = `<span class="done-chip"><span class="check">✓</span> Studied today</span>`;
+  } else {
+    actionEl.innerHTML = `<button class="btn btn-primary" id="markBtn">Mark today as studied</button>`;
+    document.getElementById('markBtn').addEventListener('click', markStudied);
+  }
+
+  // Day dots with labels
+  const dotGrid = document.getElementById('dotGrid');
+  dotGrid.innerHTML = weekDays.map((d, i) => {
+    const filled   = data.studyDates.includes(d);
+    const isToday  = d === t;
+    const dotClass = filled ? 'dot filled' : (isToday ? 'dot today-empty' : 'dot');
+    return `<div class="dot-col">
+      <span class="dot-day-label">${DAY_LABELS[i]}</span>
+      <div class="${dotClass}" title="${d}${isToday ? ' (today)' : ''}"></div>
+    </div>`;
+  }).join('');
+
+  // Week progress bar
+  const studied = weekDays.filter(d => data.studyDates.includes(d)).length;
+  document.getElementById('weekDaysMeta').textContent = `${studied} / 7`;
+  document.getElementById('weekBar').style.width = `${(studied/7)*100}%`;
+
+  // Words this week
+  const weekEnd   = addDays(weekStart, 6);
+  const weekWords = data.words.filter(w => w.date >= weekStart && w.date <= weekEnd);
+  const wCount    = weekWords.length;
+
+  document.getElementById('weekWordNum').textContent = wCount;
+  const pct = Math.min(wCount / GOAL * 100, 100);
+  const barEl = document.getElementById('wordBar');
+  barEl.style.width = `${pct}%`;
+  barEl.className = 'progress-fill' + (wCount >= GOAL ? ' full' : '');
+  document.getElementById('wordGoalMeta').textContent = `${wCount} / ${GOAL}`;
+  document.getElementById('weekRange').textContent =
+    `${shortDate(weekStart)} – ${shortDate(weekEnd)}`;
+
+  const badge = document.getElementById('weekBadge');
+  if (wCount >= GOAL) {
+    badge.innerHTML = `<span class="badge badge-green">✓ Goal reached!</span>`;
+  } else {
+    const left = GOAL - wCount;
+    badge.innerHTML = `<span class="badge badge-amber">${left} to go</span>`;
+  }
+
+  // Total words chip
+  const total = data.words.length;
+  document.getElementById('totalChip').textContent =
+    `${total} word${total !== 1 ? 's' : ''} total`;
+
+  // Word list
+  renderWords();
+}
+
+function renderWords() {
+  const ul = document.getElementById('wordList');
+  if (!data.words.length) {
+    ul.innerHTML = `<li class="empty-state">No words yet — add your first one above.</li>`;
+    return;
+  }
+  ul.innerHTML = [...data.words].reverse().map(w => `
+    <li class="word-item">
+      <div class="word-texts">
+        <div class="word-text">${esc(w.text)}</div>
+        ${w.translation ? `<div class="word-translation">${esc(w.translation)}</div>` : ''}
+      </div>
+      <span class="word-date">${shortDate(w.date)}</span>
+      <button class="word-del" title="Remove" onclick="removeWord('${w.id}')">×</button>
+    </li>
+  `).join('');
+}
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+// ── Reset streak ──────────────────────────────────────────────────────────────
 document.getElementById('resetStreak').addEventListener('click', () => {
-  if (!confirm('Reset your streak and study history?')) return;
+  if (!confirm('Reset your streak and study history? (Your word list will be kept.)')) return;
   data.streak = 0;
+  data.bestStreak = 0;
   data.lastStudyDate = null;
   data.studyDates = [];
   save(data);
   render();
 });
 
-// ── Events ───────────────────────────────────────────────────────
+// ── Events ────────────────────────────────────────────────────────────────────
 document.getElementById('addWordBtn').addEventListener('click', addWord);
-document.getElementById('wordInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') addWord();
+['wordInput','translationInput'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', e => {
+    if (e.key === 'Enter') addWord();
+  });
 });
 
-// ── Init ─────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────────────
 render();
 </script>
 </body>
