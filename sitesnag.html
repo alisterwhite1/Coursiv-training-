@@ -673,7 +673,7 @@ function viewLogin() {
          onclick="selectLoginUser('${u.id}')">
       <div class="uc-avatar" style="background:${avatarColour(u.name)}">${u.name.charAt(0).toUpperCase()}</div>
       <div class="uc-name">${esc(u.name)}</div>
-      <div class="uc-role">${u.role}</div>
+      <div class="uc-role">${u.role === 'inspector' ? 'Engineer' : 'Contractor'}</div>
     </div>`).join('');
 
   const pinUI = sel ? `
@@ -777,7 +777,7 @@ function viewUsers() {
           <div style="flex:1;min-width:0">
             <div style="font-weight:600;font-size:.93rem">${esc(u.name)}</div>
             <div style="display:flex;gap:.35rem;align-items:center;margin-top:.2rem;flex-wrap:wrap">
-              <span class="role-badge role-${u.role}">${u.role}</span>
+              <span class="role-badge role-${u.role}">${u.role === 'inspector' ? 'Engineer' : 'Contractor'}</span>
               ${co ? `<span style="font-size:.75rem;color:var(--soft)">${esc(co.name)}</span>` : ''}
             </div>
           </div>
@@ -796,7 +796,7 @@ function viewUsers() {
       <div class="form-group">
         <label class="form-label">Role</label>
         <select id="nu_role" onchange="toggleCoField()">
-          <option value="inspector">Inspector</option>
+          <option value="inspector">Engineer</option>
           <option value="contractor">Contractor</option>
         </select>
       </div>
@@ -820,7 +820,7 @@ function viewUsers() {
   const isSetup = S.currentUser?.id === '__setup__';
   return appBar('Users', isSetup ? '' : 'projects') + `
     <div class="main">
-      ${isSetup ? `<div class="alert alert-info">Create your first inspector to start using the app.</div>` : ''}
+      ${isSetup ? `<div class="alert alert-info">Create your first engineer to start using the app.</div>` : ''}
       <div class="card">${items}</div>
       ${addForm}
     </div>` + (isSetup ? '' : navBar('users'));
@@ -1005,8 +1005,8 @@ function viewSnagDetail() {
   }).join('');
 
   const statusAlert = {
-    pending:  `<div class="alert alert-info">Awaiting inspector review.</div>`,
-    accepted: `<div class="alert alert-success">Snag closed — accepted by inspector.</div>`,
+    pending:  `<div class="alert alert-info">Awaiting engineer review.</div>`,
+    accepted: `<div class="alert alert-success">Snag closed — accepted by engineer.</div>`,
     rejected: `<div class="alert alert-danger">Rejected — rectification required again.</div>`,
   }[snag.status] || '';
 
@@ -1471,7 +1471,7 @@ function viewReports() {
       <div style="flex:1">
         <span style="font-weight:600">${esc(e.name)}</span>
         <span style="color:${col};font-size:.72rem;font-weight:700;margin-left:.3rem">${e.action}</span>
-        <span class="role-badge role-${e.role}" style="margin-left:.3rem">${e.role}</span>
+        <span class="role-badge role-${e.role}" style="margin-left:.3rem">${e.role === 'inspector' ? 'Engineer' : 'Contractor'}</span>
       </div>
       <div style="font-size:.7rem;color:var(--muted);white-space:nowrap">${fmtDateTime(e.at)}</div>
     </div>`;
