@@ -701,13 +701,18 @@ function viewLogin() {
           <div style="font-size:1.5rem;margin-bottom:.5rem">👋</div>
           <div style="font-weight:700;margin-bottom:.4rem">First time setup</div>
           <div style="font-size:.88rem;color:var(--muted);margin-bottom:1rem">Create your first user to get started.</div>
-          <button class="btn btn-primary btn-block" onclick="S.currentUser={id:'__setup__',name:'Setup',role:'engineer'};go('users')">
+          <button class="btn btn-primary btn-block" onclick="startSetup()">
             Create First User
           </button>
         </div>` : `
         <div class="user-grid">${userCards}</div>
         ${pinUI}`}
     </div>`;
+}
+
+function startSetup() {
+  S.currentUser = { id: '__setup__', name: 'Setup', role: 'engineer' };
+  go('users');
 }
 
 function selectLoginUser(id) {
