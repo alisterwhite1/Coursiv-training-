@@ -527,6 +527,13 @@ function datalist(id, field) {
   return `<datalist id="${id}">${opts}</datalist>`;
 }
 
+function fillDesc(sel) {
+  if (!sel.value) return;
+  const ta = document.getElementById('f_desc');
+  if (ta) ta.value = sel.value;
+  sel.selectedIndex = 0;
+}
+
 // ── RENDER ─────────────────────────────────────────────────────────────────────
 function render() {
   const views = {
@@ -770,6 +777,14 @@ function viewSnagDetail() {
 function viewSnagForm() {
   const editing = S.snagId ? db.snags.find(s => s.id === S.snagId) : null;
   const photo = S.fd.photo !== undefined ? S.fd.photo : (editing?.photo ?? null);
+  const descOpts = fieldOptions('description');
+  const descPicker = descOpts.length
+    ? `<select onchange="fillDesc(this)"
+         style="margin-bottom:.4rem;font-size:.85rem;color:var(--soft);border-radius:8px;padding:.5rem .7rem;border:2px solid var(--border);width:100%;background:#fff;font-family:inherit">
+         <option value="">↩ Pick a previous description…</option>
+         ${descOpts.map(v => `<option value="${esc(v)}">${esc(v.length > 70 ? v.slice(0, 70) + '…' : v)}</option>`).join('')}
+       </select>`
+    : '';
   const loc   = S.fd.location || editing?.location;
   const locTxt = loc ? `${loc.lat}, ${loc.lng} (±${loc.acc}m)` : 'Not captured';
 
@@ -804,15 +819,7 @@ function viewSnagForm() {
         </div>
         <div class="form-group">
           <label class="form-label">Description</label>
-          ${(() => {
-            const opts = fieldOptions('description');
-            return opts.length ? `
-              <select id="desc_pick" onchange="if(this.value){document.getElementById('f_desc').value=this.value;this.value=''}"
-                style="margin-bottom:.4rem;font-size:.82rem;color:var(--soft)">
-                <option value="">↩ Pick a previous description…</option>
-                ${opts.map(v=>`<option value="${esc(v)}">${esc(v.length>72?v.slice(0,72)+'…':v)}</option>`).join('')}
-              </select>` : '';
-          })()}
+          ${descPicker}
           <textarea id="f_desc" placeholder="Describe the defect in detail…">${esc(S.fd.f_desc ?? editing?.description ?? '')}</textarea>
         </div>
         <div class="form-group">
