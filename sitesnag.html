@@ -1533,8 +1533,17 @@ function viewReports() {
     : '<div class="empty" style="padding:1rem"><p style="font-size:.85rem">No contractor data yet.</p></div>';
 
   // ── LOCATION HEATMAP ──
-  const buildings = [...new Set(allSnags.map(s=>s.building).filter(Boolean))].sort();
-  const floors    = [...new Set(allSnags.map(s=>s.floor).filter(Boolean))].sort();
+  // Use configured locations as the primary source; fall back to snag data if no locations configured
+  const configBuildings = (db.locations || []).map(b => b.building);
+  const configFloors    = [...new Set((db.locations || []).flatMap(b => b.floors.map(f => f.name)))].sort();
+  const snagBuildings   = [...new Set(allSnags.map(s=>s.building).filter(Boolean))].sort();
+  const snagFloors      = [...new Set(allSnags.map(s=>s.floor).filter(Boolean))].sort();
+  const buildings = configBuildings.length
+    ? [...new Set([...configBuildings, ...snagBuildings])].sort()
+    : snagBuildings;
+  const floors = configFloors.length
+    ? [...new Set([...configFloors, ...snagFloors])].sort()
+    : snagFloors;
   let heatHtml = '';
   if (buildings.length && floors.length) {
     const maxCell = Math.max(...buildings.flatMap(b => floors.map(f => allSnags.filter(s=>s.building===b&&s.floor===f).length)), 1);
@@ -1548,7 +1557,7 @@ function viewReports() {
           const bg = n ? `rgba(220,38,38,${alpha.toFixed(2)})` : 'transparent';
           const fg = alpha > 0.45 ? '#fff' : (n ? 'var(--text)' : 'var(--muted)');
           return `<td class="heat-cell" style="background:${bg};color:${fg}">${n||'·'}</td>`;
-        }).join('')}<td style="text-align:center;font-weight:700">${rowTotal}</td></tr>`;
+        }).join('')}<td style="text-align:center;font-weight:700">${rowTotal||'·'}</td></tr>`;
       }).join('')}</tbody>
     </table></div>`;
   } else if (allSnags.some(s=>s.building||s.floor||s.room)) {
