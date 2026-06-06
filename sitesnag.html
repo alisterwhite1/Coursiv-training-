@@ -1379,8 +1379,24 @@ function viewReports() {
     </select></div>`;
 
   if (!allSnags.length) {
+    const locs = db.locations || [];
+    const allFloors = [...new Set(locs.flatMap(b => b.floors.map(f => f.name)))].sort();
+    const locationPreview = locs.length && allFloors.length
+      ? `<div class="card card-body" style="margin-top:.75rem">
+          <div style="font-weight:700;margin-bottom:.6rem">📍 Location Map</div>
+          <div style="overflow-x:auto"><table class="rpt-table">
+            <thead><tr><th>Building \\ Floor</th>${allFloors.map(f=>`<th style="text-align:center">${esc(f)}</th>`).join('')}<th style="text-align:center">Total</th></tr></thead>
+            <tbody>${locs.map(b=>`<tr><td style="font-weight:700">${esc(b.building)}</td>${allFloors.map(f=>{
+              const hasFloor = b.floors.find(fl=>fl.name===f);
+              return `<td class="heat-cell" style="color:var(--muted)">${hasFloor?'·':'—'}</td>`;
+            }).join('')}<td style="text-align:center;color:var(--muted)">·</td></tr>`).join('')}
+            </tbody>
+          </table></div>
+        </div>`
+      : '';
     return appBar('Reports & Analytics', 'projects') + `<div class="main" style="max-width:640px">${projSel}
       <div class="empty"><div class="eico">📊</div><p>No snag data for this selection.</p></div>
+      ${locationPreview}
       </div>` + navBar('reports');
   }
 
