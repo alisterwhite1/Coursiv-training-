@@ -485,7 +485,8 @@
 // ── DB ─────────────────────────────────────────────────────────────────────────
 const DB_KEY    = 'sitesnag_v1';
 const STATE_KEY = 'sitesnag_state';
-let db = { projects: [], companies: [], snags: [], users: [] };
+let db = { projects: [], companies: [], snags: [], users: [], locations: [] };
+// locations: [{ id, building, floors: [{ id, name, rooms: [string] }] }]
 
 var storageOK = (function() {
   try { localStorage.setItem('__test__', '1'); localStorage.removeItem('__test__'); return true; } catch(e) { return false; }
@@ -755,6 +756,7 @@ function render() {
       companies:            viewCompanies,
       users:                viewUsers,
       reports:              viewReports,
+      locations:            viewLocations,
     };
     appDiv.innerHTML = (views[S.view] || viewProjects)();
   } catch(e) {
@@ -1245,24 +1247,7 @@ function viewSnagForm() {
                  value="${esc(S.fd.f_title??editing?.title??'')}" autocomplete="off" />
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem">
-          <div class="form-group">
-            <label class="form-label">Building</label>
-            ${datalist('dl_building','building')}
-            <input type="text" id="f_building" list="dl_building" placeholder="e.g. A"
-                   value="${esc(S.fd.f_building??editing?.building??'')}" autocomplete="off" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Floor</label>
-            ${datalist('dl_floor','floor')}
-            <input type="text" id="f_floor" list="dl_floor" placeholder="e.g. G, 1"
-                   value="${esc(S.fd.f_floor??editing?.floor??'')}" autocomplete="off" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Room</label>
-            ${datalist('dl_room','room')}
-            <input type="text" id="f_room" list="dl_room" placeholder="e.g. 101"
-                   value="${esc(S.fd.f_room??editing?.room??'')}" autocomplete="off" />
-          </div>
+          ${locationSelects(S.fd.f_building??editing?.building??'', S.fd.f_floor??editing?.floor??'', S.fd.f_room??editing?.room??'')}
         </div>
         <div class="form-group">
           <label class="form-label">Description</label>
@@ -1709,6 +1694,9 @@ function navBar(active) {
     ${isInspector ? `<button class="nav-btn ${active==='reports'?'active':''}" data-fn="goView" data-a1="reports">
       <span class="ico">📊</span>Reports
     </button>` : ''}
+    ${isInspector ? `<button class="nav-btn ${active==='locations'?'active':''}" data-fn="goView" data-a1="locations">
+      <span class="ico">📍</span>Locations
+    </button>` : ''}
     <button class="nav-btn ${active==='companies'?'active':''}" data-fn="goView" data-a1="companies">
       <span class="ico">🏢</span>Companies
     </button>
@@ -1871,6 +1859,174 @@ function submitRect(snagId) {
   snag.history.push({ action: 'Rectification submitted', by: byMe(), note: comment, at: Date.now() });
   saveDB(); S.fd = {};
   go('snag-detail', { snagId });
+}
+
+// ── LOCATIONS CONFIG ──────────────────────────────────────────────────────────
+function locationSelects(selBuilding, selFloor, selRoom) {
+  const hasLocations = db.locations && db.locations.length > 0;
+  if (!hasLocations) {
+    // fallback: free-text inputs when no locations configured
+    return `
+      <div class="form-group">
+        <label class="form-label">Building</label>
+        <input type="text" id="f_building" placeholder="e.g. A" value="${esc(selBuilding)}" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Floor</label>
+        <input type="text" id="f_floor" placeholder="e.g. G, 1" value="${esc(selFloor)}" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Room</label>
+        <input type="text" id="f_room" placeholder="e.g. 101" value="${esc(selRoom)}" autocomplete="off" />
+      </div>`;
+  }
+  const bldg = db.locations.find(b => b.building === selBuilding);
+  const floors = bldg ? bldg.floors : [];
+  const floor  = floors.find(f => f.name === selFloor);
+  const rooms  = floor ? floor.rooms : [];
+  return `
+    <div class="form-group">
+      <label class="form-label">Building</label>
+      <select id="f_building" onchange="onBuildingChange(this.value)" style="width:100%;padding:.55rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.95rem;font-family:inherit;background:#fff">
+        <option value="">— Select —</option>
+        ${db.locations.map(b=>`<option value="${esc(b.building)}" ${b.building===selBuilding?'selected':''}>${esc(b.building)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Floor</label>
+      <select id="f_floor" onchange="onFloorChange(this.value)" style="width:100%;padding:.55rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.95rem;font-family:inherit;background:#fff" ${!bldg?'disabled':''}>
+        <option value="">— Select —</option>
+        ${floors.map(f=>`<option value="${esc(f.name)}" ${f.name===selFloor?'selected':''}>${esc(f.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Room</label>
+      <select id="f_room" style="width:100%;padding:.55rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.95rem;font-family:inherit;background:#fff" ${!floor?'disabled':''}>
+        <option value="">— Select —</option>
+        ${rooms.map(r=>`<option value="${esc(r)}" ${r===selRoom?'selected':''}>${esc(r)}</option>`).join('')}
+      </select>
+    </div>`;
+}
+
+function onBuildingChange(val) {
+  snap();
+  S.fd.f_building = val;
+  S.fd.f_floor = '';
+  S.fd.f_room = '';
+  render();
+}
+function onFloorChange(val) {
+  snap();
+  S.fd.f_building = document.getElementById('f_building')?.value || S.fd.f_building || '';
+  S.fd.f_floor = val;
+  S.fd.f_room = '';
+  render();
+}
+
+function viewLocations() {
+  const isEng = S.currentUser?.role === 'engineer';
+  if (!isEng) return viewProjects();
+  const locs = db.locations || [];
+  return appBar('Locations', null) + `
+    <div class="main">
+      <div class="card card-body" style="margin-bottom:.75rem">
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <input type="text" id="new_building" placeholder="New building name…" style="flex:1;padding:.55rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.95rem;font-family:inherit" />
+          <button class="btn btn-primary" data-fn="addBuilding" style="white-space:nowrap">+ Building</button>
+        </div>
+      </div>
+      ${locs.length === 0 ? `<div class="card card-body" style="color:var(--muted);text-align:center">No buildings configured yet.<br>Add a building above to get started.</div>` : ''}
+      ${locs.map(b => `
+        <div class="card card-body" style="margin-bottom:.75rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
+            <strong style="font-size:1.05rem">🏗 ${esc(b.building)}</strong>
+            <button class="btn" style="background:var(--red-bg);color:var(--red);padding:.3rem .7rem;font-size:.8rem" data-fn="deleteBuilding" data-a1="${b.id}">Delete</button>
+          </div>
+          <div style="margin-left:.5rem">
+            ${b.floors.map(f => `
+              <div style="border-left:3px solid var(--blue-bg);padding-left:.75rem;margin-bottom:.6rem">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem">
+                  <span style="font-weight:600;color:var(--blue)">↳ ${esc(f.name)}</span>
+                  <button class="btn" style="background:var(--red-bg);color:var(--red);padding:.2rem .55rem;font-size:.78rem" data-fn="deleteFloor" data-a1="${b.id}" data-a2="${f.id}">Remove</button>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.4rem">
+                  ${f.rooms.map(r => `
+                    <span style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.2rem .5rem;font-size:.83rem;display:inline-flex;align-items:center;gap:.3rem">
+                      ${esc(r)}
+                      <button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:.9rem;padding:0;line-height:1" data-fn="deleteRoom" data-a1="${b.id}" data-a2="${f.id}|${esc(r)}">×</button>
+                    </span>`).join('')}
+                </div>
+                <div style="display:flex;gap:.4rem">
+                  <input type="text" id="new_room_${f.id}" placeholder="Add room…" style="flex:1;padding:.4rem .6rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
+                  <button class="btn btn-primary" style="padding:.4rem .7rem;font-size:.85rem" data-fn="addRoom" data-a1="${b.id}" data-a2="${f.id}">+ Room</button>
+                </div>
+              </div>`).join('')}
+            <div style="display:flex;gap:.4rem;margin-top:.4rem">
+              <input type="text" id="new_floor_${b.id}" placeholder="Add floor / level…" style="flex:1;padding:.4rem .6rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
+              <button class="btn" style="background:var(--blue-bg);color:var(--blue);padding:.4rem .7rem;font-size:.85rem" data-fn="addFloor" data-a1="${b.id}">+ Floor</button>
+            </div>
+          </div>
+        </div>`).join('')}
+    </div>` + navBar('locations');
+}
+
+function addBuilding() {
+  const inp = document.getElementById('new_building');
+  const name = (inp?.value || '').trim();
+  if (!name) return;
+  if (!db.locations) db.locations = [];
+  if (db.locations.find(b => b.building.toLowerCase() === name.toLowerCase())) { alert('Building already exists.'); return; }
+  db.locations.push({ id: uid(), building: name, floors: [] });
+  saveDB(); render();
+}
+
+function addFloor(bldgId) {
+  const inp = document.getElementById('new_floor_' + bldgId);
+  const name = (inp?.value || '').trim();
+  if (!name) return;
+  const b = db.locations.find(b => b.id === bldgId);
+  if (!b) return;
+  if (b.floors.find(f => f.name.toLowerCase() === name.toLowerCase())) { alert('Floor already exists.'); return; }
+  b.floors.push({ id: uid(), name, rooms: [] });
+  saveDB(); render();
+}
+
+function addRoom(bldgId, floorId) {
+  const inp = document.getElementById('new_room_' + floorId);
+  const name = (inp?.value || '').trim();
+  if (!name) return;
+  const b = db.locations.find(b => b.id === bldgId);
+  if (!b) return;
+  const f = b.floors.find(f => f.id === floorId);
+  if (!f) return;
+  if (f.rooms.find(r => r.toLowerCase() === name.toLowerCase())) { alert('Room already exists.'); return; }
+  f.rooms.push(name);
+  saveDB(); render();
+}
+
+function deleteBuilding(bldgId) {
+  if (!confirm('Delete this building and all its floors and rooms?')) return;
+  db.locations = db.locations.filter(b => b.id !== bldgId);
+  saveDB(); render();
+}
+
+function deleteFloor(bldgId, floorId) {
+  if (!confirm('Delete this floor and all its rooms?')) return;
+  const b = db.locations.find(b => b.id === bldgId);
+  if (!b) return;
+  b.floors = b.floors.filter(f => f.id !== floorId);
+  saveDB(); render();
+}
+
+function deleteRoom(bldgId, floorAndRoom) {
+  const [floorId, ...roomParts] = floorAndRoom.split('|');
+  const roomName = roomParts.join('|');
+  const b = db.locations.find(b => b.id === bldgId);
+  if (!b) return;
+  const f = b.floors.find(f => f.id === floorId);
+  if (!f) return;
+  f.rooms = f.rooms.filter(r => r !== roomName);
+  saveDB(); render();
 }
 
 // ── INIT ───────────────────────────────────────────────────────────────────────
