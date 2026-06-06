@@ -224,7 +224,7 @@
       padding: .15rem .5rem; border-radius: 999px;
       font-size: .68rem; font-weight: 800; letter-spacing: .05em; white-space: nowrap;
     }
-    .role-inspector  { background: var(--blue-bg);  color: var(--blue); }
+    .role-engineer  { background: var(--blue-bg);  color: var(--blue); }
     .role-contractor { background: var(--orange-bg); color: var(--orange); }
 
     /* ── Buttons ── */
@@ -472,7 +472,7 @@ let S = {
   view: 'login',
   projectId: null,
   snagId: null,
-  mode: 'inspector',
+  mode: 'engineer',
   contractorCompanyId: null,
   filter: 'all',
   fd: {},
@@ -701,7 +701,7 @@ function viewLogin() {
           <div style="font-size:1.5rem;margin-bottom:.5rem">👋</div>
           <div style="font-weight:700;margin-bottom:.4rem">First time setup</div>
           <div style="font-size:.88rem;color:var(--muted);margin-bottom:1rem">Create your first user to get started.</div>
-          <button class="btn btn-primary btn-block" onclick="S.currentUser={id:'__setup__',name:'Setup',role:'inspector'};go('users')">
+          <button class="btn btn-primary btn-block" onclick="S.currentUser={id:'__setup__',name:'Setup',role:'engineer'};go('users')">
             Create First User
           </button>
         </div>` : `
@@ -742,7 +742,7 @@ function doLogin() {
     return;
   }
   S.currentUser = { id: u.id, name: u.name, role: u.role, companyId: u.companyId || null };
-  S.mode = u.role === 'contractor' ? 'contractor' : 'inspector';
+  S.mode = u.role === 'contractor' ? 'contractor' : 'engineer';
   if (u.role === 'contractor' && u.companyId) S.contractorCompanyId = u.companyId;
   S.pinEntry = '';
   S.pinError = '';
@@ -767,7 +767,7 @@ function logout() {
 
 // ── USERS ──────────────────────────────────────────────────────────────────────
 function viewUsers() {
-  const canManage = S.currentUser?.role === 'inspector' || S.currentUser?.id === '__setup__';
+  const canManage = S.currentUser?.role === 'engineer' || S.currentUser?.id === '__setup__';
 
   const items = db.users.length
     ? db.users.map(u => {
@@ -796,7 +796,7 @@ function viewUsers() {
       <div class="form-group">
         <label class="form-label">Role</label>
         <select id="nu_role" onchange="toggleCoField()">
-          <option value="inspector">Inspector</option>
+          <option value="engineer">Engineer</option>
           <option value="contractor">Contractor</option>
         </select>
       </div>
@@ -830,7 +830,7 @@ function viewUsers() {
 
   return appBar('Users', isSetup ? '' : 'projects') + `
     <div class="main">
-      ${isSetup ? `<div class="alert alert-info">Create your first inspector to start using the app.</div>` : ''}
+      ${isSetup ? `<div class="alert alert-info">Create your first engineer to start using the app.</div>` : ''}
       <div class="card">${items}</div>
       ${addForm}
       ${backupTools}
@@ -916,7 +916,7 @@ function viewProjects() {
         </div>`).join('')
     : `<div class="empty"><div class="eico">📂</div><p>No projects yet.<br>Create one below.</p></div>`;
 
-  const isInspector = S.currentUser?.role === 'inspector';
+  const isInspector = S.currentUser?.role === 'engineer';
   return appBar('SiteSnag', '') + `
     <div class="main">
       <div class="sec-label">Projects</div>
@@ -992,7 +992,7 @@ function viewSnagDetail() {
   if (!snag) return viewSnagList();
   const p   = db.projects.find(p => p.id === snag.projectId);
   const co  = snag.assignedTo ? db.companies.find(c => c.id === snag.assignedTo) : null;
-  const isInspector  = S.currentUser?.role === 'inspector';
+  const isInspector  = S.currentUser?.role === 'engineer';
   const isContractor = S.currentUser?.role === 'contractor';
   const myCompany    = S.currentUser?.companyId;
 
@@ -1050,8 +1050,8 @@ function viewSnagDetail() {
   }).join('');
 
   const statusAlert = {
-    pending:  `<div class="alert alert-info">Awaiting inspector review.</div>`,
-    accepted: `<div class="alert alert-success">Snag closed — accepted by inspector.</div>`,
+    pending:  `<div class="alert alert-info">Awaiting engineer review.</div>`,
+    accepted: `<div class="alert alert-success">Snag closed — accepted by engineer.</div>`,
     rejected: `<div class="alert alert-danger">Rejected — rectification required again.</div>`,
   }[snag.status] || '';
 
@@ -1207,7 +1207,7 @@ function viewContractorRespond() {
   return appBar(`Rectify ${numStr(snag.number)}`, 'snag-detail') + `
     <div class="main">
       <div class="alert alert-warn">${esc(snag.title)}</div>
-      ${lastReject?.note ? `<div class="alert alert-danger"><strong>Inspector note:</strong> ${esc(lastReject.note)}</div>` : ''}
+      ${lastReject?.note ? `<div class="alert alert-danger"><strong>Engineer note:</strong> ${esc(lastReject.note)}</div>` : ''}
       <div class="card card-body">
         <div class="form-group">
           <label class="form-label">Rectification Photo *</label>
@@ -1574,7 +1574,7 @@ function navBar(active) {
     : db.projects.length === 1
       ? `selectProject('${db.projects[0].id}')`
       : "go('projects')";
-  const isInspector = S.currentUser?.role === 'inspector';
+  const isInspector = S.currentUser?.role === 'engineer';
   return `<nav class="bottom-nav">
     <button class="nav-btn ${active==='projects'?'active':''}" onclick="go('projects')">
       <span class="ico">📂</span>Projects
