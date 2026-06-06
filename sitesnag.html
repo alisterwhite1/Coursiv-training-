@@ -485,8 +485,10 @@
 // ── DB ─────────────────────────────────────────────────────────────────────────
 const DB_KEY    = 'sitesnag_v1';
 const STATE_KEY = 'sitesnag_state';
-let db = { projects: [], companies: [], snags: [], users: [], locations: [] };
-// locations: [{ id, building, floors: [{ id, name, rooms: [string] }] }]
+let db = { projects: [], companies: [], snags: [], users: [], locations: [], subsystems: [] };
+// locations:  [{ id, building, floors: [{ id, name, rooms: [string] }] }]
+// subsystems: [{ id, discipline, name }]  discipline ∈ DISCIPLINES
+const DISCIPLINES = ['Civil works', 'MEP works', 'System works'];
 
 var storageOK = (function() {
   try { localStorage.setItem('__test__', '1'); localStorage.removeItem('__test__'); return true; } catch(e) { return false; }
@@ -505,6 +507,7 @@ function showStorageWarning() {
 function loadDB() {
   if (!storageOK) return;
   try { const s = JSON.parse(localStorage.getItem(DB_KEY)); if (s) db = { ...db, ...s }; } catch {}
+  if (!db.subsystems) db.subsystems = [];
 }
 function saveDB() {
   if (!storageOK) return;
@@ -711,7 +714,7 @@ function saveManualCoords() {
 
 // ── FORM HELPERS ───────────────────────────────────────────────────────────────
 function snap() {
-  ['f_title','f_desc','f_building','f_floor','f_room','f_rect_comment'].forEach(id => {
+  ['f_title','f_desc','f_discipline','f_subsystem','f_building','f_floor','f_room','f_rect_comment'].forEach(id => {
     const el = document.getElementById(id);
     if (el) S.fd[id] = el.value;
   });
@@ -1089,6 +1092,7 @@ function viewSnagList() {
             <div class="snag-title">${esc(s.title)}</div>
             <div class="snag-meta">
               ${badge(s.status)}
+              ${s.discipline ? `<span class="snag-co" style="color:var(--blue)">${esc(s.discipline)}${s.subsystem?` › ${esc(s.subsystem)}`:''}</span>` : ''}
               ${s.building||s.floor||s.room ? `<span class="snag-co">${[s.building?`Bldg ${s.building}`:'',s.floor?`Fl ${s.floor}`:'',s.room?`Rm ${s.room}`:''].filter(Boolean).join(' · ')}</span>` : ''}
               <span class="snag-co">${esc(coName(s.assignedTo))}</span>
             </div>
@@ -1188,6 +1192,10 @@ function viewSnagDetail() {
           </div>
           <div class="detail-row"><span class="detail-label">Project</span>
             <span class="detail-val">${esc(p?.name)}</span></div>
+          ${snag.discipline ? `<div class="detail-row"><span class="detail-label">Discipline</span>
+            <span class="detail-val">${esc(snag.discipline)}</span></div>` : ''}
+          ${snag.subsystem ? `<div class="detail-row"><span class="detail-label">Subsystem</span>
+            <span class="detail-val">${esc(snag.subsystem)}</span></div>` : ''}
           <div class="detail-row"><span class="detail-label">Location</span>
             <span class="detail-val" style="display:flex;gap:.5rem;flex-wrap:wrap">
               ${snag.building?`<span style="background:var(--blue-bg);color:var(--blue);font-size:.78rem;font-weight:700;padding:.18rem .6rem;border-radius:999px">🏢 Bldg ${esc(snag.building)}</span>`:''}
@@ -1237,9 +1245,29 @@ function viewSnagForm() {
        </select>`
     : '';
 
+  const selDisc = S.fd.f_discipline ?? editing?.discipline ?? '';
+  const selSub  = S.fd.f_subsystem  ?? editing?.subsystem  ?? '';
+  const discSubs = db.subsystems.filter(s => s.discipline === selDisc);
+
   return appBar(editing?`Edit ${numStr(editing.number)}`:'New Snag', editing?'snag-detail':'snag-list') + `
     <div class="main">
       <div class="card card-body">
+        <div class="form-group">
+          <label class="form-label">Discipline *</label>
+          <select id="f_discipline" onchange="onDisciplineChange(this.value)"
+                  style="width:100%;padding:.55rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.95rem;font-family:inherit;background:#fff">
+            <option value="">— Select discipline —</option>
+            ${DISCIPLINES.map(d=>`<option value="${esc(d)}" ${d===selDisc?'selected':''}>${esc(d)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Subsystem</label>
+          <select id="f_subsystem"
+                  style="width:100%;padding:.55rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.95rem;font-family:inherit;background:#fff" ${!selDisc?'disabled':''}>
+            <option value="">— Select subsystem —</option>
+            ${discSubs.map(s=>`<option value="${esc(s.name)}" ${s.name===selSub?'selected':''}>${esc(s.name)}</option>`).join('')}
+          </select>
+        </div>
         <div class="form-group">
           <label class="form-label">Title *</label>
           ${datalist('dl_title','title')}
@@ -1394,8 +1422,19 @@ function viewReports() {
           </table></div>
         </div>`
       : '';
+    const discPreview = `<div class="card card-body" style="margin-top:.75rem">
+      <div style="font-weight:700;margin-bottom:.6rem">⚙️ Disciplines</div>
+      ${DISCIPLINES.map(d => {
+        const subs = (db.subsystems||[]).filter(s=>s.discipline===d);
+        return `<div style="display:flex;justify-content:space-between;padding:.3rem 0;border-bottom:1px solid var(--border);font-size:.88rem">
+          <span style="font-weight:600;color:var(--blue)">${esc(d)}</span>
+          <span style="color:var(--muted)">${subs.length ? subs.map(s=>esc(s.name)).join(', ') : 'No subsystems yet'}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
     return appBar('Reports & Analytics', 'projects') + `<div class="main" style="max-width:640px">${projSel}
       <div class="empty"><div class="eico">📊</div><p>No snag data for this selection.</p></div>
+      ${discPreview}
       ${locationPreview}
       </div>` + navBar('reports');
   }
@@ -1548,6 +1587,34 @@ function viewReports() {
       </table></div>`
     : '<div class="empty" style="padding:1rem"><p style="font-size:.85rem">No contractor data yet.</p></div>';
 
+  // ── DISCIPLINE BREAKDOWN ──
+  const discRows = DISCIPLINES.map(d => {
+    const ds = allSnags.filter(s => s.discipline === d);
+    if (!ds.length) return null;
+    const dOpen   = ds.filter(s => s.status === 'open' || s.status === 'assigned').length;
+    const dClosed = ds.filter(s => s.status === 'accepted').length;
+    const dPct    = Math.round(100 * dClosed / ds.length);
+    const subs = [...new Set(ds.map(s => s.subsystem).filter(Boolean))].sort();
+    return `<tr>
+      <td style="font-weight:600">${esc(d)}</td>
+      <td style="text-align:center">${ds.length}</td>
+      <td style="text-align:center;color:var(--amber);font-weight:700">${dOpen}</td>
+      <td style="text-align:center;color:var(--green);font-weight:700">${dClosed}</td>
+      <td style="text-align:center">${dPct}%</td>
+      <td style="font-size:.78rem;color:var(--soft)">${subs.length ? subs.map(s=>esc(s)).join(', ') : '—'}</td>
+    </tr>`;
+  }).filter(Boolean).join('');
+  const disciplineTable = discRows
+    ? `<div style="overflow-x:auto"><table class="rpt-table">
+        <thead><tr>
+          <th>Discipline</th><th style="text-align:center">Total</th>
+          <th style="text-align:center">Open</th><th style="text-align:center">Closed</th>
+          <th style="text-align:center">% Done</th><th>Subsystems active</th>
+        </tr></thead>
+        <tbody>${discRows}</tbody>
+      </table></div>`
+    : '<div class="empty" style="padding:1rem"><p style="font-size:.85rem">No discipline data yet.</p></div>';
+
   // ── LOCATION HEATMAP ──
   // Use configured locations as the primary source; fall back to snag data if no locations configured
   const configBuildings = (db.locations || []).map(b => b.building);
@@ -1667,6 +1734,9 @@ function viewReports() {
 
       <div class="sec-label">Backlog Age — Open &amp; Assigned Snags</div>
       <div class="card card-body">${openSnags.length ? ageBars : '<div style="font-size:.85rem;color:var(--muted)">No outstanding snags.</div>'}</div>
+
+      <div class="sec-label">Discipline Breakdown</div>
+      <div class="card">${disciplineTable}</div>
 
       <div class="sec-label">Contractor Performance</div>
       <div class="card">${contractorTable}</div>
@@ -1808,14 +1878,17 @@ function saveSnag() {
   const titleEl  = document.getElementById('f_title');
   const title    = titleEl.value.trim();
   if (!title) { titleEl.focus(); alert('Title is required.'); return; }
-  const desc     = document.getElementById('f_desc').value.trim();
-  const building = document.getElementById('f_building').value.trim();
-  const floor    = document.getElementById('f_floor').value.trim();
-  const room     = document.getElementById('f_room').value.trim();
+  const desc       = document.getElementById('f_desc').value.trim();
+  const discipline = document.getElementById('f_discipline').value.trim();
+  const subsystem  = document.getElementById('f_subsystem')?.value.trim() || '';
+  const building   = document.getElementById('f_building').value.trim();
+  const floor      = document.getElementById('f_floor').value.trim();
+  const room       = document.getElementById('f_room').value.trim();
 
   if (S.snagId) {
     const snag = db.snags.find(s => s.id === S.snagId);
     snag.title = title; snag.description = desc;
+    snag.discipline = discipline; snag.subsystem = subsystem;
     snag.building = building; snag.floor = floor; snag.room = room;
     if (S.fd.photo !== undefined) snag.photo = S.fd.photo;
     if (S.fd.location) snag.location = S.fd.location;
@@ -1826,7 +1899,7 @@ function saveSnag() {
   } else {
     const snag = {
       id: uid(), projectId: S.projectId, number: nextNum(S.projectId),
-      title, description: desc, building, floor, room,
+      title, description: desc, discipline, subsystem, building, floor, room,
       photo: S.fd.photo||null, location: S.fd.location||null,
       status: 'open', assignedTo: null,
       createdAt: Date.now(), rectification: null,
@@ -1933,6 +2006,12 @@ function locationSelects(selBuilding, selFloor, selRoom) {
     </div>`;
 }
 
+function onDisciplineChange(val) {
+  snap();
+  S.fd.f_discipline = val;
+  S.fd.f_subsystem = '';
+  render();
+}
 function onBuildingChange(val) {
   snap();
   S.fd.f_building = val;
@@ -2008,6 +2087,28 @@ function viewLocations() {
             </div>
           </div>
         </div>`).join('')}
+    </div>
+
+    <div class="card card-body" style="margin-bottom:.75rem">
+      <div style="font-weight:700;font-size:1rem;margin-bottom:.75rem">🔧 Subsystems</div>
+      ${DISCIPLINES.map(disc => {
+        const subs = (db.subsystems || []).filter(s => s.discipline === disc);
+        return `<div style="margin-bottom:1rem">
+          <div style="font-weight:600;color:var(--blue);margin-bottom:.4rem">${esc(disc)}</div>
+          ${subs.length ? subs.map(s => `
+            <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem;padding:.35rem .55rem;background:var(--bg);border-radius:8px">
+              <span style="flex:1;font-size:.9rem">${esc(s.name)}</span>
+              <button class="btn" style="background:var(--red-bg);color:var(--red);padding:.2rem .55rem;font-size:.78rem" data-fn="deleteSubsystem" data-a1="${s.id}">×</button>
+            </div>`).join('') : `<div style="font-size:.82rem;color:var(--muted);margin-bottom:.4rem">No subsystems yet.</div>`}
+          <div style="display:flex;gap:.4rem;margin-top:.3rem">
+            <input type="text" id="new_sub_${disc.replace(/\s+/g,'_')}" placeholder="Add subsystem…"
+                   style="flex:1;padding:.4rem .6rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
+            <button class="btn" style="background:var(--blue-bg);color:var(--blue);padding:.4rem .7rem;font-size:.85rem"
+                    data-fn="addSubsystem" data-a1="${esc(disc)}">+ Add</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
     </div>` + navBar('locations');
 }
 
@@ -2122,6 +2223,25 @@ function deleteRoom(bldgId, floorAndRoom) {
   const f = b.floors.find(f => f.id === floorId);
   if (!f) return;
   f.rooms = f.rooms.filter(r => r !== roomName);
+  saveDB(); render();
+}
+
+function addSubsystem(discipline) {
+  const key = discipline.replace(/\s+/g, '_');
+  const inp = document.getElementById('new_sub_' + key);
+  const name = (inp?.value || '').trim();
+  if (!name) return;
+  if (!db.subsystems) db.subsystems = [];
+  if (db.subsystems.find(s => s.discipline === discipline && s.name.toLowerCase() === name.toLowerCase())) {
+    alert('Subsystem already exists for this discipline.'); return;
+  }
+  db.subsystems.push({ id: uid(), discipline, name });
+  saveDB(); render();
+}
+
+function deleteSubsystem(id) {
+  if (!confirm('Remove this subsystem?')) return;
+  db.subsystems = db.subsystems.filter(s => s.id !== id);
   saveDB(); render();
 }
 
