@@ -427,18 +427,39 @@ function resizePhoto(file) {
 
 // ── GPS ────────────────────────────────────────────────────────────────────────
 function getGPS() {
-  const btn = document.getElementById('gpsBtn');
+  const btn  = document.getElementById('gpsBtn');
   const chip = document.getElementById('gpsChip');
-  if (btn) { btn.textContent = '…'; btn.disabled = true; }
+  const err  = document.getElementById('gpsErr');
+
+  if (!navigator.geolocation) {
+    if (err) { err.textContent = 'Geolocation is not supported by this browser.'; err.style.display = 'block'; }
+    return;
+  }
+
+  if (btn)  { btn.textContent = '⏳ Getting…'; btn.disabled = true; }
+  if (err)  { err.style.display = 'none'; }
+
   navigator.geolocation.getCurrentPosition(
     pos => {
-      S.fd.location = { lat: pos.coords.latitude.toFixed(6), lng: pos.coords.longitude.toFixed(6), acc: Math.round(pos.coords.accuracy) };
+      S.fd.location = {
+        lat: pos.coords.latitude.toFixed(6),
+        lng: pos.coords.longitude.toFixed(6),
+        acc: Math.round(pos.coords.accuracy)
+      };
       if (chip) chip.textContent = `${S.fd.location.lat}, ${S.fd.location.lng} (±${S.fd.location.acc}m)`;
-      if (btn) { btn.textContent = '📍 Update'; btn.disabled = false; }
+      if (btn)  { btn.textContent = '📍 Update'; btn.disabled = false; }
     },
-    err => {
-      if (btn) { btn.textContent = '📍 Retry'; btn.disabled = false; }
-      alert('GPS error: ' + err.message);
+    e => {
+      if (btn) { btn.textContent = '📍 Try Again'; btn.disabled = false; }
+      if (err) {
+        const msgs = {
+          1: 'Location permission denied. To fix: tap the 🔒 icon in your browser\'s address bar and allow Location, then try again.',
+          2: 'Location unavailable. Make sure GPS is enabled on your device.',
+          3: 'Location request timed out. Move to an area with better signal and try again.',
+        };
+        err.textContent = msgs[e.code] || 'Could not get location — GPS is optional, you can save without it.';
+        err.style.display = 'block';
+      }
     },
     { enableHighAccuracy: true, timeout: 12000 }
   );
@@ -708,11 +729,12 @@ function viewSnagForm() {
                       onchange="handlePhoto(this)" />`}
         </div>
         <div class="form-group">
-          <label class="form-label">GPS Location</label>
+          <label class="form-label">GPS Location <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">(optional)</span></label>
           <div class="loc-row">
             <span class="loc-chip" id="gpsChip">${esc(locTxt)}</span>
             <button class="btn btn-outline btn-sm" id="gpsBtn" onclick="getGPS()">📍 Get GPS</button>
           </div>
+          <div id="gpsErr" style="display:none;margin-top:.4rem;font-size:.8rem;color:var(--red);background:var(--red-bg);padding:.5rem .75rem;border-radius:8px;line-height:1.45"></div>
         </div>
       </div>
       <div style="margin-top:.75rem;display:flex;gap:.55rem">
