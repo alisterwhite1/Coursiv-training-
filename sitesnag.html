@@ -224,7 +224,7 @@
       padding: .15rem .5rem; border-radius: 999px;
       font-size: .68rem; font-weight: 800; letter-spacing: .05em; white-space: nowrap;
     }
-    .role-engineer   { background: var(--blue-bg);  color: var(--blue); }
+    .role-inspector  { background: var(--blue-bg);  color: var(--blue); }
     .role-contractor { background: var(--orange-bg); color: var(--orange); }
 
     /* ── Buttons ── */
@@ -463,11 +463,6 @@ let db = { projects: [], companies: [], snags: [], users: [] };
 
 function loadDB() {
   try { const s = JSON.parse(localStorage.getItem(DB_KEY)); if (s) db = { ...db, ...s }; } catch {}
-  // Migrate: rename stored role value 'inspector' → 'engineer'
-  let migrated = false;
-  (db.users||[]).forEach(u => { if (u.role === 'inspector') { u.role = 'engineer'; migrated = true; } });
-  (db.loginLog||[]).forEach(e => { if (e.role === 'inspector') { e.role = 'engineer'; migrated = true; } });
-  if (migrated) saveDB();
 }
 function saveDB() { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -477,7 +472,7 @@ let S = {
   view: 'login',
   projectId: null,
   snagId: null,
-  mode: 'engineer',
+  mode: 'inspector',
   contractorCompanyId: null,
   filter: 'all',
   fd: {},
@@ -493,20 +488,16 @@ function loadState() {
     const saved = JSON.parse(localStorage.getItem(STATE_KEY));
     if (saved) {
       if (saved.projectId)   S.projectId   = saved.projectId;
-      if (saved.mode)        S.mode        = saved.mode === 'inspector' ? 'engineer' : saved.mode;
+      if (saved.mode)        S.mode        = saved.mode;
       if (saved.currentUser) S.currentUser = saved.currentUser;
     }
   } catch {}
   if (S.projectId && !db.projects.find(p => p.id === S.projectId)) S.projectId = null;
   if (!S.projectId && db.projects.length === 1) S.projectId = db.projects[0].id;
-  // Validate saved user still exists; migrate stale role value
+  // Validate saved user still exists
   if (S.currentUser) {
     const u = db.users.find(u => u.id === S.currentUser.id);
-    if (!u) { S.currentUser = null; }
-    else {
-      if (S.currentUser.role === 'inspector') S.currentUser.role = 'engineer';
-      saveState();
-    }
+    if (!u) S.currentUser = null;
   }
 }
 
@@ -710,7 +701,7 @@ function viewLogin() {
           <div style="font-size:1.5rem;margin-bottom:.5rem">👋</div>
           <div style="font-weight:700;margin-bottom:.4rem">First time setup</div>
           <div style="font-size:.88rem;color:var(--muted);margin-bottom:1rem">Create your first user to get started.</div>
-          <button class="btn btn-primary btn-block" onclick="S.currentUser={id:'__setup__',name:'Setup',role:'engineer'};go('users')">
+          <button class="btn btn-primary btn-block" onclick="S.currentUser={id:'__setup__',name:'Setup',role:'inspector'};go('users')">
             Create First User
           </button>
         </div>` : `
@@ -751,7 +742,7 @@ function doLogin() {
     return;
   }
   S.currentUser = { id: u.id, name: u.name, role: u.role, companyId: u.companyId || null };
-  S.mode = u.role === 'contractor' ? 'contractor' : 'engineer';
+  S.mode = u.role === 'contractor' ? 'contractor' : 'inspector';
   if (u.role === 'contractor' && u.companyId) S.contractorCompanyId = u.companyId;
   S.pinEntry = '';
   S.pinError = '';
@@ -776,7 +767,7 @@ function logout() {
 
 // ── USERS ──────────────────────────────────────────────────────────────────────
 function viewUsers() {
-  const canManage = S.currentUser?.role === 'engineer' || S.currentUser?.id === '__setup__';
+  const canManage = S.currentUser?.role === 'inspector' || S.currentUser?.id === '__setup__';
 
   const items = db.users.length
     ? db.users.map(u => {
@@ -786,7 +777,7 @@ function viewUsers() {
           <div style="flex:1;min-width:0">
             <div style="font-weight:600;font-size:.93rem">${esc(u.name)}</div>
             <div style="display:flex;gap:.35rem;align-items:center;margin-top:.2rem;flex-wrap:wrap">
-              <span class="role-badge role-${u.role}">${u.role === 'engineer' ? 'Engineer' : 'Contractor'}</span>
+              <span class="role-badge role-${u.role}">${u.role}</span>
               ${co ? `<span style="font-size:.75rem;color:var(--soft)">${esc(co.name)}</span>` : ''}
             </div>
           </div>
@@ -805,7 +796,7 @@ function viewUsers() {
       <div class="form-group">
         <label class="form-label">Role</label>
         <select id="nu_role" onchange="toggleCoField()">
-          <option value="engineer">Engineer</option>
+          <option value="inspector">Inspector</option>
           <option value="contractor">Contractor</option>
         </select>
       </div>
@@ -821,29 +812,17 @@ function viewUsers() {
         <input type="password" id="nu_pin" placeholder="e.g. 1234" maxlength="4"
                inputmode="numeric" pattern="[0-9]{4}" />
       </div>
-      <div id="nu_err" style="display:none;margin-top:.6rem;padding:.6rem .8rem;background:var(--red-bg);color:var(--red);border-radius:8px;font-size:.85rem;font-weight:600"></div>
       <div style="margin-top:.75rem">
         <button class="btn btn-primary btn-block" onclick="createUser()">+ Add User</button>
       </div>
     </div>` : '';
 
   const isSetup = S.currentUser?.id === '__setup__';
-  const dataTools = !isSetup && canManage ? `
-    <div class="sec-label">Data Backup</div>
-    <div class="card card-body" style="display:flex;gap:.5rem;flex-wrap:wrap">
-      <button class="btn btn-outline btn-sm" onclick="exportData()" style="flex:1">⬇ Export All Data</button>
-      <label class="btn btn-outline btn-sm" style="flex:1;cursor:pointer">
-        ⬆ Import Data
-        <input type="file" accept=".json" style="display:none" onchange="importData(this)" />
-      </label>
-    </div>` : '';
-
   return appBar('Users', isSetup ? '' : 'projects') + `
     <div class="main">
-      ${isSetup ? `<div class="alert alert-info">Create your first engineer to start using the app.</div>` : ''}
+      ${isSetup ? `<div class="alert alert-info">Create your first inspector to start using the app.</div>` : ''}
       <div class="card">${items}</div>
       ${addForm}
-      ${dataTools}
     </div>` + (isSetup ? '' : navBar('users'));
 }
 
@@ -858,15 +837,12 @@ function createUser() {
   const role = document.getElementById('nu_role').value;
   const co   = document.getElementById('nu_co')?.value || null;
   const pin  = document.getElementById('nu_pin').value.trim();
-  const errEl = document.getElementById('nu_err');
-  const showErr = msg => { if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; } };
-  if (errEl) errEl.style.display = 'none';
-  if (!name) { showErr('Please enter a full name.'); return; }
-  if (!/^\d{4}$/.test(pin)) { showErr('PIN must be exactly 4 digits (numbers only).'); return; }
-  if (role === 'contractor' && !co) { showErr('Please select a company for this contractor.'); return; }
+  if (!name) { alert('Enter a name.'); return; }
+  if (!/^\d{4}$/.test(pin)) { alert('PIN must be exactly 4 digits.'); return; }
+  if (role === 'contractor' && !co) { alert('Select a company for this contractor.'); return; }
   db.users.push({ id: uid(), name, role, companyId: co || null, pin, createdAt: Date.now() });
   saveDB();
-  // If this was the setup flow, return to login
+  // If this was the setup flow, log them in as the first inspector
   if (S.currentUser?.id === '__setup__') {
     S.currentUser = null;
     render();
@@ -874,34 +850,6 @@ function createUser() {
   }
   render();
 }
-
-function exportData() {
-  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `sitesnag-backup-${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
-function importData(input) {
-  const file = input.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (!data.projects || !data.snags) { showImportErr('Invalid backup file.'); return; }
-      if (!confirm(`This will replace ALL current data with the backup.\n\nProjects: ${data.projects.length}, Snags: ${data.snags.length}, Users: ${(data.users||[]).length}\n\nContinue?`)) return;
-      db = { projects:[], companies:[], snags:[], users:[], loginLog:[], ...data };
-      saveDB();
-      S.currentUser = null;
-      saveState();
-      render();
-    } catch { showImportErr('Could not read file — make sure it is a SiteSnag backup.'); }
-  };
-  reader.readAsText(file);
-}
-function showImportErr(msg) { alert(msg); }
 
 function deleteUser(id) {
   if (id === S.currentUser?.id) { alert("You can't delete your own account."); return; }
@@ -923,7 +871,7 @@ function viewProjects() {
         </div>`).join('')
     : `<div class="empty"><div class="eico">📂</div><p>No projects yet.<br>Create one below.</p></div>`;
 
-  const isInspector = S.currentUser?.role === 'engineer';
+  const isInspector = S.currentUser?.role === 'inspector';
   return appBar('SiteSnag', '') + `
     <div class="main">
       <div class="sec-label">Projects</div>
@@ -999,7 +947,7 @@ function viewSnagDetail() {
   if (!snag) return viewSnagList();
   const p   = db.projects.find(p => p.id === snag.projectId);
   const co  = snag.assignedTo ? db.companies.find(c => c.id === snag.assignedTo) : null;
-  const isInspector  = S.currentUser?.role === 'engineer';
+  const isInspector  = S.currentUser?.role === 'inspector';
   const isContractor = S.currentUser?.role === 'contractor';
   const myCompany    = S.currentUser?.companyId;
 
@@ -1057,8 +1005,8 @@ function viewSnagDetail() {
   }).join('');
 
   const statusAlert = {
-    pending:  `<div class="alert alert-info">Awaiting engineer review.</div>`,
-    accepted: `<div class="alert alert-success">Snag closed — accepted by engineer.</div>`,
+    pending:  `<div class="alert alert-info">Awaiting inspector review.</div>`,
+    accepted: `<div class="alert alert-success">Snag closed — accepted by inspector.</div>`,
     rejected: `<div class="alert alert-danger">Rejected — rectification required again.</div>`,
   }[snag.status] || '';
 
@@ -1581,7 +1529,7 @@ function navBar(active) {
     : db.projects.length === 1
       ? `selectProject('${db.projects[0].id}')`
       : "go('projects')";
-  const isInspector = S.currentUser?.role === 'engineer';
+  const isInspector = S.currentUser?.role === 'inspector';
   return `<nav class="bottom-nav">
     <button class="nav-btn ${active==='projects'?'active':''}" onclick="go('projects')">
       <span class="ico">📂</span>Projects
