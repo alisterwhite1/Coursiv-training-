@@ -453,6 +453,32 @@
   </style>
 </head>
 <body>
+
+<!-- ── Static login screen — event listeners attached in JS, never injected via innerHTML ── -->
+<div id="login-screen" style="display:none">
+  <div class="login-wrap">
+    <div class="login-logo">🏗</div>
+    <div class="login-title">SiteSnag</div>
+    <div class="login-sub">Construction Quality Inspection</div>
+
+    <!-- Shown when no users exist -->
+    <div id="ls-setup" style="display:none;width:100%;max-width:480px">
+      <div class="card card-body" style="text-align:center">
+        <div style="font-size:1.5rem;margin-bottom:.5rem">👋</div>
+        <div style="font-weight:700;margin-bottom:.4rem">First time setup</div>
+        <div style="font-size:.88rem;color:var(--muted);margin-bottom:1rem">Create your first user to get started.</div>
+        <button id="btn-first-user" class="btn btn-primary btn-block">Create First User</button>
+      </div>
+    </div>
+
+    <!-- Shown when users exist -->
+    <div id="ls-users" style="display:none;width:100%;max-width:480px">
+      <div id="ls-user-grid" class="user-grid"></div>
+      <div id="ls-pin" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
 <div id="app"></div>
 
 <script>
@@ -643,11 +669,19 @@ function fillDesc(sel) {
 
 // ── RENDER ─────────────────────────────────────────────────────────────────────
 function render() {
-  // Redirect to login if not logged in
+  const loginScreen = document.getElementById('login-screen');
+  const appDiv      = document.getElementById('app');
+
   if (!S.currentUser) {
-    document.getElementById('app').innerHTML = viewLogin();
+    loginScreen.style.display = 'block';
+    appDiv.style.display = 'none';
+    renderLoginScreen();
     return;
   }
+
+  loginScreen.style.display = 'none';
+  appDiv.style.display = 'block';
+
   const views = {
     projects:             viewProjects,
     'snag-list':          viewSnagList,
@@ -658,58 +692,63 @@ function render() {
     users:                viewUsers,
     reports:              viewReports,
   };
-  document.getElementById('app').innerHTML = (views[S.view] || viewProjects)();
+  appDiv.innerHTML = (views[S.view] || viewProjects)();
+}
+
+function renderLoginScreen() {
+  const hasUsers = db.users.length > 0;
+  document.getElementById('ls-setup').style.display = hasUsers ? 'none' : 'block';
+  document.getElementById('ls-users').style.display = hasUsers ? 'block' : 'none';
+
+  if (!hasUsers) return;
+
+  // Render user selection cards
+  const grid = document.getElementById('ls-user-grid');
+  grid.innerHTML = db.users.map(u => `
+    <div class="user-card ${u.id === S.loginUserId ? 'selected' : ''}" data-uid="${u.id}">
+      <div class="uc-avatar" style="background:${avatarColour(u.name)}">${u.name.charAt(0).toUpperCase()}</div>
+      <div class="uc-name">${esc(u.name)}</div>
+      <div class="uc-role">${u.role === 'engineer' ? 'Engineer' : 'Contractor'}</div>
+    </div>`).join('');
+
+  // Attach card click listeners each render
+  grid.querySelectorAll('.user-card').forEach(card => {
+    card.addEventListener('click', function() {
+      selectLoginUser(this.getAttribute('data-uid'));
+    });
+  });
+
+  // Render PIN pad if user selected
+  const pinDiv = document.getElementById('ls-pin');
+  const sel = S.loginUserId ? db.users.find(u => u.id === S.loginUserId) : null;
+  if (sel) {
+    pinDiv.style.display = 'block';
+    pinDiv.innerHTML = `
+      <div class="pin-wrap">
+        <div class="pin-label">Enter PIN for ${esc(sel.name)}</div>
+        <div class="pin-dots">
+          ${[0,1,2,3].map(i => `<div class="pin-dot ${S.pinEntry.length > i ? 'filled' : ''}"></div>`).join('')}
+        </div>
+        <div class="pin-keypad" id="pin-keypad-grid">
+          ${[1,2,3,4,5,6,7,8,9].map(n => `<button class="pin-key" data-k="${n}">${n}</button>`).join('')}
+          <button class="pin-key del" data-k="del">⌫</button>
+          <button class="pin-key" data-k="0">0</button>
+          <button class="pin-key go" data-k="go">→</button>
+        </div>
+        ${S.pinError ? `<div class="pin-error">${esc(S.pinError)}</div>` : ''}
+      </div>`;
+    pinDiv.querySelectorAll('[data-k]').forEach(btn => {
+      btn.addEventListener('click', function() { pinKey(this.getAttribute('data-k')); });
+    });
+  } else {
+    pinDiv.style.display = 'none';
+    pinDiv.innerHTML = '';
+  }
 }
 
 // ══ VIEWS ══════════════════════════════════════════════════════════════════════
 
 // ── LOGIN ──────────────────────────────────────────────────────────────────────
-function viewLogin() {
-  const noUsers = !db.users.length;
-  const sel = S.loginUserId ? db.users.find(u => u.id === S.loginUserId) : null;
-
-  const userCards = db.users.map(u => `
-    <div class="user-card ${u.id === S.loginUserId ? 'selected' : ''}"
-         onclick="selectLoginUser('${u.id}')">
-      <div class="uc-avatar" style="background:${avatarColour(u.name)}">${u.name.charAt(0).toUpperCase()}</div>
-      <div class="uc-name">${esc(u.name)}</div>
-      <div class="uc-role">${u.role}</div>
-    </div>`).join('');
-
-  const pinUI = sel ? `
-    <div class="pin-wrap">
-      <div class="pin-label">Enter PIN for ${esc(sel.name)}</div>
-      <div class="pin-dots">
-        ${[0,1,2,3].map(i => `<div class="pin-dot ${S.pinEntry.length > i ? 'filled' : ''}"></div>`).join('')}
-      </div>
-      <div class="pin-keypad">
-        ${[1,2,3,4,5,6,7,8,9].map(n => `<button class="pin-key" onclick="pinKey('${n}')">${n}</button>`).join('')}
-        <button class="pin-key del" onclick="pinKey('del')">⌫</button>
-        <button class="pin-key" onclick="pinKey('0')">0</button>
-        <button class="pin-key go" onclick="pinKey('go')">→</button>
-      </div>
-      ${S.pinError ? `<div class="pin-error">${esc(S.pinError)}</div>` : ''}
-    </div>` : '';
-
-  return `
-    <div class="login-wrap" style="padding-bottom:1.5rem">
-      <div class="login-logo">🏗</div>
-      <div class="login-title">SiteSnag</div>
-      <div class="login-sub">Construction Quality Inspection</div>
-      ${noUsers ? `
-        <div class="card card-body" style="width:100%;max-width:480px;text-align:center">
-          <div style="font-size:1.5rem;margin-bottom:.5rem">👋</div>
-          <div style="font-weight:700;margin-bottom:.4rem">First time setup</div>
-          <div style="font-size:.88rem;color:var(--muted);margin-bottom:1rem">Create your first user to get started.</div>
-          <button class="btn btn-primary btn-block" onclick="startSetup()">
-            Create First User
-          </button>
-        </div>` : `
-        <div class="user-grid">${userCards}</div>
-        ${pinUI}`}
-    </div>`;
-}
-
 function startSetup() {
   S.currentUser = { id: '__setup__', name: 'Setup', role: 'engineer' };
   go('users');
@@ -1757,6 +1796,10 @@ function submitRect(snagId) {
 // ── INIT ───────────────────────────────────────────────────────────────────────
 loadDB();
 loadState();
+
+// Wire static login-screen buttons with addEventListener (never inline onclick)
+document.getElementById('btn-first-user').addEventListener('click', startSetup);
+
 render();
 </script>
 </body>
