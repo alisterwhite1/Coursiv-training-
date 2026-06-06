@@ -493,6 +493,34 @@ function loadDB() {
 function saveDB() { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
+// ── GLOBAL CLICK DELEGATION ──────────────────────────────────────────────────
+document.addEventListener('click', function(e) {
+  const el = e.target.closest('[data-fn]');
+  if (!el) return;
+  const fn = el.getAttribute('data-fn');
+  const a1 = el.getAttribute('data-a1');
+  const a2 = el.getAttribute('data-a2');
+  if (typeof window[fn] === 'function') {
+    try {
+      if (a2 != null) window[fn](a1, a2);
+      else if (a1 != null) window[fn](a1);
+      else window[fn]();
+    } catch(err) {
+      console.error('Action error [' + fn + ']:', err);
+    }
+  }
+});
+
+function goView(v)         { go(v); }
+function goSnag(id)        { go('snag-detail', { snagId: id }); }
+function goSnagForm(id)    { go('snag-form', { snagId: id || null, fd: {} }); }
+function goContractor(id)  { go('contractor-respond', { snagId: id, fd: {} }); }
+function goProject(id)     { selectProject(id); }
+function fabNewSnag()      { S.fd = {}; S.snagId = null; go('snag-form'); }
+function removePhoto()     { snap(); S.fd.photo = null; render(); }
+function removeRectPhoto() { snap(); S.fd.rectPhoto = null; render(); }
+function cancelSnagForm()  { go(S.snagId ? 'snag-detail' : 'snag-list'); }
+
 // ── STATE ──────────────────────────────────────────────────────────────────────
 let S = {
   view: 'login',
@@ -825,7 +853,7 @@ function viewUsers() {
               ${co ? `<span style="font-size:.75rem;color:var(--soft)">${esc(co.name)}</span>` : ''}
             </div>
           </div>
-          ${canManage ? `<button class="del-btn" onclick="deleteUser('${u.id}')">×</button>` : ''}
+          ${canManage ? `<button class="del-btn" data-fn="deleteUser" data-a1="${u.id}">×</button>` : ''}
         </div>`;
       }).join('')
     : `<div class="empty"><div class="eico">👤</div><p>No users yet.</p></div>`;
@@ -857,7 +885,7 @@ function viewUsers() {
                inputmode="numeric" pattern="[0-9]{4}" />
       </div>
       <div style="margin-top:.75rem">
-        <button class="btn btn-primary btn-block" onclick="createUser()">+ Add User</button>
+        <button class="btn btn-primary btn-block" data-fn="createUser">+ Add User</button>
       </div>
       <div id="nu_err" style="display:none;margin-top:.6rem;padding:.6rem .8rem;background:var(--red-bg);color:var(--red);border-radius:8px;font-size:.85rem;font-weight:600"></div>
     </div>` : '';
@@ -866,7 +894,7 @@ function viewUsers() {
   const backupTools = !isSetup && canManage ? `
     <div class="sec-label">Data Backup</div>
     <div class="card card-body" style="display:flex;gap:.5rem;flex-wrap:wrap">
-      <button class="btn btn-outline btn-sm" onclick="exportData()" style="flex:1">⬇ Export All Data</button>
+      <button class="btn btn-outline btn-sm" data-fn="exportData" style="flex:1">⬇ Export All Data</button>
       <label class="btn btn-outline btn-sm" style="flex:1;cursor:pointer">⬆ Import Data
         <input type="file" accept=".json" style="display:none" onchange="importData(this)" />
       </label>
@@ -952,7 +980,7 @@ function deleteUser(id) {
 function viewProjects() {
   const items = db.projects.length
     ? db.projects.map(p => `
-        <div class="list-item" onclick="selectProject('${p.id}')">
+        <div class="list-item" data-fn="goProject" data-a1="${p.id}">
           <div class="proj-icon">🏗</div>
           <div><div class="proj-name">${esc(p.name)}</div>
                <div class="proj-count">${snagCount(p.id)} snag${snagCount(p.id)!==1?'s':''}</div></div>
@@ -973,7 +1001,7 @@ function viewProjects() {
             <input type="text" id="newProjName" placeholder="e.g. Block A – Ground Floor" />
           </div>
           <div style="margin-top:.75rem">
-            <button class="btn btn-primary btn-block" onclick="createProject()">+ Create Project</button>
+            <button class="btn btn-primary btn-block" data-fn="createProject">+ Create Project</button>
           </div>
         </div>` : ''}
     </div>` + navBar('projects');
@@ -1000,13 +1028,13 @@ function viewSnagList() {
   snags = snags.slice().sort((a,b) => b.createdAt - a.createdAt);
 
   const chips = filters.map(f => `
-    <button class="filter-chip ${S.filter===f?'active':''}" onclick="setFilter('${f}')">
+    <button class="filter-chip ${S.filter===f?'active':''}" data-fn="setFilter" data-a1="${f}">
       ${f==='all' ? 'All' : STATUSES[f]?.label || f}
     </button>`).join('');
 
   const items = snags.length
     ? snags.map(s => `
-        <div class="list-item" onclick="go('snag-detail',{snagId:'${s.id}'})">
+        <div class="list-item" data-fn="goSnag" data-a1="${s.id}">
           <div class="snag-num">${numStr(s.number)}</div>
           <div class="snag-info">
             <div class="snag-title">${esc(s.title)}</div>
@@ -1026,7 +1054,7 @@ function viewSnagList() {
       <div class="filter-row">${chips}</div>
       <div class="card">${items}</div>
     </div>
-    ${!isContractor ? `<button class="fab" onclick="go('snag-form',{snagId:null,fd:{}})">+</button>` : ''}
+    ${!isContractor ? `<button class="fab" data-fn="fabNewSnag">+</button>` : ''}
     ` + navBar('snag-list');
 }
 
@@ -1044,23 +1072,23 @@ function viewSnagDetail() {
   if (isInspector) {
     if (snag.status === 'open') {
       actionBar = `<div class="action-bar">
-        <button class="btn btn-primary" onclick="openAssignModal('${snag.id}')">Assign to Contractor →</button>
-        <button class="btn btn-outline btn-sm" onclick="go('snag-form',{snagId:'${snag.id}',fd:{}})">Edit</button>
+        <button class="btn btn-primary" data-fn="openAssignModal" data-a1="${snag.id}">Assign to Contractor →</button>
+        <button class="btn btn-outline btn-sm" data-fn="goSnagForm" data-a1="${snag.id}">Edit</button>
       </div>`;
     } else if (snag.status === 'assigned' || snag.status === 'rejected') {
       actionBar = `<div class="action-bar">
-        <button class="btn btn-outline" onclick="openAssignModal('${snag.id}')">Reassign</button>
-        <button class="btn btn-outline" onclick="go('snag-form',{snagId:'${snag.id}',fd:{}})">Edit</button>
+        <button class="btn btn-outline" data-fn="openAssignModal" data-a1="${snag.id}">Reassign</button>
+        <button class="btn btn-outline" data-fn="goSnagForm" data-a1="${snag.id}">Edit</button>
       </div>`;
     } else if (snag.status === 'pending') {
       actionBar = `<div class="action-bar">
-        <button class="btn btn-success" onclick="acceptSnag('${snag.id}')">✓ Accept</button>
-        <button class="btn btn-danger"  onclick="openRejectModal('${snag.id}')">✗ Reject</button>
+        <button class="btn btn-success" data-fn="acceptSnag" data-a1="${snag.id}">✓ Accept</button>
+        <button class="btn btn-danger"  data-fn="openRejectModal" data-a1="${snag.id}">✗ Reject</button>
       </div>`;
     }
   } else if (isContractor && snag.assignedTo === myCompany && (snag.status==='assigned'||snag.status==='rejected')) {
     actionBar = `<div class="action-bar">
-      <button class="btn btn-primary btn-block" onclick="go('contractor-respond',{snagId:'${snag.id}',fd:{}})">
+      <button class="btn btn-primary btn-block" data-fn="goContractor" data-a1="${snag.id}">
         📸 Submit Rectification
       </button>
     </div>`;
@@ -1137,7 +1165,7 @@ function viewSnagDetail() {
         ${actionBar}
       </div>
       ${isInspector ? `<div style="margin-top:.75rem;text-align:center">
-        <button onclick="deleteSnag('${snag.id}')"
+        <button data-fn="deleteSnag" data-a1="${snag.id}"
           style="font-size:.78rem;color:var(--red);background:none;border:none;cursor:pointer;text-decoration:underline">
           Delete snag
         </button>
@@ -1198,7 +1226,7 @@ function viewSnagForm() {
           <label class="form-label">Photo</label>
           ${photo
             ? `<div class="photo-wrap"><img src="${photo}" />
-               <button class="photo-remove" onclick="snap();S.fd.photo=null;render()">×</button></div>`
+               <button class="photo-remove" data-fn="removePhoto">×</button></div>`
             : `<label class="photo-trigger" for="photoIn">📷 Take / Choose Photo</label>
                <input type="file" id="photoIn" accept="image/*" capture="environment" style="display:none"
                       onchange="handlePhoto(this)" />`}
@@ -1207,7 +1235,7 @@ function viewSnagForm() {
           <label class="form-label">GPS Location <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">(optional)</span></label>
           <div class="loc-row">
             <span class="loc-chip" id="gpsChip">${esc(locTxt)}</span>
-            <button class="btn btn-outline btn-sm" id="gpsBtn" onclick="getGPS()">📍 Get GPS</button>
+            <button class="btn btn-outline btn-sm" id="gpsBtn" data-fn="getGPS">📍 Get GPS</button>
           </div>
           <div id="gpsManual" style="display:none;margin-top:.6rem;padding:.8rem;background:var(--bg);border-radius:10px;border:1.5px solid var(--border)">
             <div id="gpsHint" style="font-size:.8rem;color:var(--soft);margin-bottom:.6rem;line-height:1.45"></div>
@@ -1230,13 +1258,13 @@ function viewSnagForm() {
                        value="${esc(S.fd.location?.lng??'')}" style="border-radius:8px;padding:.5rem .7rem;font-size:.9rem" />
               </div>
             </div>
-            <button class="btn btn-primary btn-sm" onclick="saveManualCoords()">✓ Set Location</button>
+            <button class="btn btn-primary btn-sm" data-fn="saveManualCoords">✓ Set Location</button>
           </div>
         </div>
       </div>
       <div style="margin-top:.75rem;display:flex;gap:.55rem">
-        <button class="btn btn-outline" style="flex:1" onclick="go(S.snagId?'snag-detail':'snag-list')">Cancel</button>
-        <button class="btn btn-primary" style="flex:2" onclick="saveSnag()">${editing?'Save Changes':'+ Add Snag'}</button>
+        <button class="btn btn-outline" style="flex:1" data-fn="cancelSnagForm">Cancel</button>
+        <button class="btn btn-primary" style="flex:2" data-fn="saveSnag">${editing?'Save Changes':'+ Add Snag'}</button>
       </div>
     </div>` + navBar('');
 }
@@ -1257,7 +1285,7 @@ function viewContractorRespond() {
           <label class="form-label">Rectification Photo *</label>
           ${photo
             ? `<div class="photo-wrap"><img src="${photo}" />
-               <button class="photo-remove" onclick="snap();S.fd.rectPhoto=null;render()">×</button></div>`
+               <button class="photo-remove" data-fn="removeRectPhoto">×</button></div>`
             : `<label class="photo-trigger" for="rectPhotoIn">📷 Photograph Completed Work</label>
                <input type="file" id="rectPhotoIn" accept="image/*" capture="environment" style="display:none"
                       onchange="handleRectPhoto(this)" />`}
@@ -1268,8 +1296,8 @@ function viewContractorRespond() {
         </div>
       </div>
       <div style="margin-top:.75rem;display:flex;gap:.55rem">
-        <button class="btn btn-outline" style="flex:1" onclick="go('snag-detail',{snagId:'${snag.id}'})">Cancel</button>
-        <button class="btn btn-success" style="flex:2" onclick="submitRect('${snag.id}')">✓ Submit for Inspection</button>
+        <button class="btn btn-outline" style="flex:1" data-fn="goSnag" data-a1="${snag.id}">Cancel</button>
+        <button class="btn btn-success" style="flex:2" data-fn="submitRect" data-a1="${snag.id}">✓ Submit for Inspection</button>
       </div>
     </div>` + navBar('');
 }
@@ -1281,7 +1309,7 @@ function viewCompanies() {
         <div class="list-item">
           <div class="co-avatar">${c.name.charAt(0).toUpperCase()}</div>
           <span class="co-name">${esc(c.name)}</span>
-          <button class="del-btn" onclick="deleteCo('${c.id}')">×</button>
+          <button class="del-btn" data-fn="deleteCo" data-a1="${c.id}">×</button>
         </div>`).join('')
     : `<div class="empty"><div class="eico">🏢</div><p>No companies yet.</p></div>`;
 
@@ -1295,7 +1323,7 @@ function viewCompanies() {
           <input type="text" id="newCoName" placeholder="e.g. Smith Plastering Ltd" />
         </div>
         <div style="margin-top:.75rem">
-          <button class="btn btn-primary btn-block" onclick="addCo()">+ Add Company</button>
+          <button class="btn btn-primary btn-block" data-fn="addCo">+ Add Company</button>
         </div>
       </div>
     </div>` + navBar('companies');
@@ -1601,38 +1629,43 @@ function viewReports() {
 
 // ── CHROME ─────────────────────────────────────────────────────────────────────
 function appBar(title, backView, sub) {
-  const back = backView ? `<button class="back-btn" onclick="go('${backView}')">&#8592;</button>` : '';
+  const back = backView ? `<button class="back-btn" data-fn="goView" data-a1="${backView}">&#8592;</button>` : '';
   const user = S.currentUser && S.currentUser.id !== '__setup__'
     ? `<div class="user-chip">
          <div class="avatar" style="background:${avatarColour(S.currentUser.name)}">${S.currentUser.name.charAt(0).toUpperCase()}</div>
          <span class="uname">${esc(S.currentUser.name)}</span>
        </div>
-       <button class="logout-btn" onclick="logout()">Log out</button>`
+       <button class="logout-btn" data-fn="logout">Log out</button>`
     : '';
   return `<div class="app-bar">${back}<h1>${title}${sub?`<small>${sub}</small>`:''}</h1>${user}</div>`;
 }
 
 function navBar(active) {
-  const snagClick = S.projectId
-    ? "go('snag-list')"
+  const snagFn = S.projectId
+    ? 'goView'
     : db.projects.length === 1
-      ? `selectProject('${db.projects[0].id}')`
-      : "go('projects')";
+      ? 'goProject'
+      : 'goView';
+  const snagA1 = S.projectId
+    ? 'snag-list'
+    : db.projects.length === 1
+      ? db.projects[0].id
+      : 'projects';
   const isInspector = S.currentUser?.role === 'engineer';
   return `<nav class="bottom-nav">
-    <button class="nav-btn ${active==='projects'?'active':''}" onclick="go('projects')">
+    <button class="nav-btn ${active==='projects'?'active':''}" data-fn="goView" data-a1="projects">
       <span class="ico">📂</span>Projects
     </button>
-    <button class="nav-btn ${active==='snag-list'?'active':''}" onclick="${snagClick}">
+    <button class="nav-btn ${active==='snag-list'?'active':''}" data-fn="${snagFn}" data-a1="${snagA1}">
       <span class="ico">📋</span>Snags
     </button>
-    ${isInspector ? `<button class="nav-btn ${active==='reports'?'active':''}" onclick="go('reports')">
+    ${isInspector ? `<button class="nav-btn ${active==='reports'?'active':''}" data-fn="goView" data-a1="reports">
       <span class="ico">📊</span>Reports
     </button>` : ''}
-    <button class="nav-btn ${active==='companies'?'active':''}" onclick="go('companies')">
+    <button class="nav-btn ${active==='companies'?'active':''}" data-fn="goView" data-a1="companies">
       <span class="ico">🏢</span>Companies
     </button>
-    <button class="nav-btn ${active==='users'?'active':''}" onclick="go('users')">
+    <button class="nav-btn ${active==='users'?'active':''}" data-fn="goView" data-a1="users">
       <span class="ico">👤</span>Users
     </button>
   </nav>`;
@@ -1650,8 +1683,8 @@ function openAssignModal(snagId) {
       <select id="m_co">${opts}</select>
     </div>
     <div class="modal-actions">
-      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="doAssign('${snagId}')">Assign →</button>
+      <button class="btn btn-outline" data-fn="closeModal">Cancel</button>
+      <button class="btn btn-primary" data-fn="doAssign" data-a1="${snagId}">Assign →</button>
     </div>`);
 }
 
@@ -1662,15 +1695,15 @@ function openRejectModal(snagId) {
       <textarea id="m_note" placeholder="Why is this not acceptable?" style="min-height:80px"></textarea>
     </div>
     <div class="modal-actions">
-      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-danger" onclick="doReject('${snagId}')">✗ Reject</button>
+      <button class="btn btn-outline" data-fn="closeModal">Cancel</button>
+      <button class="btn btn-danger" data-fn="doReject" data-a1="${snagId}">✗ Reject</button>
     </div>`);
 }
 
 function modal(html) {
   closeModal();
   document.body.insertAdjacentHTML('beforeend',
-    `<div class="modal-back" id="modalBack" onclick="if(event.target===this)closeModal()">
+    `<div class="modal-back" id="modalBack" data-fn="closeModal">
        <div class="modal-box">${html}</div>
      </div>`);
 }
