@@ -455,7 +455,7 @@
 <body>
 
 <!-- ── Static login screen — event listeners attached in JS, never injected via innerHTML ── -->
-<div id="login-screen" style="display:none">
+<div id="login-screen">
   <div class="login-wrap">
     <div class="login-logo">🏗</div>
     <div class="login-title">SiteSnag</div>
@@ -479,7 +479,7 @@
   </div>
 </div>
 
-<div id="app"></div>
+<div id="app" style="display:none"></div>
 
 <script>
 // ── DB ─────────────────────────────────────────────────────────────────────────
@@ -493,10 +493,24 @@ function loadDB() {
 function saveDB() { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
+// ── GLOBAL ERROR DISPLAY ─────────────────────────────────────────────────────
+window.onerror = function(msg, src, line, col, err) {
+  var d = document.getElementById('js-error-bar');
+  if (!d) { d = document.createElement('div'); d.id = 'js-error-bar';
+    d.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#dc2626;color:#fff;padding:.75rem 1rem;font-size:.82rem;z-index:9999;white-space:pre-wrap';
+    document.body.appendChild(d); }
+  d.textContent = 'JS Error: ' + msg + ' (line ' + line + ')';
+};
+
 // ── GLOBAL CLICK DELEGATION ──────────────────────────────────────────────────
+// Uses manual parent-walk instead of .closest() for maximum browser compatibility
 document.addEventListener('click', function(e) {
-  const el = e.target.closest('[data-fn]');
-  if (!el) return;
+  var el = e.target;
+  while (el && el !== document) {
+    if (el.getAttribute && el.getAttribute('data-fn')) break;
+    el = el.parentNode;
+  }
+  if (!el || el === document) return;
   const fn = el.getAttribute('data-fn');
   const a1 = el.getAttribute('data-a1');
   const a2 = el.getAttribute('data-a2');
@@ -697,30 +711,42 @@ function fillDesc(sel) {
 
 // ── RENDER ─────────────────────────────────────────────────────────────────────
 function render() {
-  const loginScreen = document.getElementById('login-screen');
-  const appDiv      = document.getElementById('app');
+  try {
+    const loginScreen = document.getElementById('login-screen');
+    const appDiv      = document.getElementById('app');
 
-  if (!S.currentUser) {
-    loginScreen.style.display = 'block';
-    appDiv.style.display = 'none';
-    renderLoginScreen();
-    return;
+    if (!S.currentUser) {
+      loginScreen.style.display = 'block';
+      appDiv.style.display = 'none';
+      renderLoginScreen();
+      return;
+    }
+
+    loginScreen.style.display = 'none';
+    appDiv.style.display = 'block';
+
+    const views = {
+      projects:             viewProjects,
+      'snag-list':          viewSnagList,
+      'snag-detail':        viewSnagDetail,
+      'snag-form':          viewSnagForm,
+      'contractor-respond': viewContractorRespond,
+      companies:            viewCompanies,
+      users:                viewUsers,
+      reports:              viewReports,
+    };
+    appDiv.innerHTML = (views[S.view] || viewProjects)();
+  } catch(e) {
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').innerHTML =
+      '<div style="background:#fee2e2;color:#7f1d1d;padding:1.5rem;margin:1rem;border-radius:12px;font-size:.9rem">' +
+      '<strong>Error rendering view:</strong><br>' + (e.message || e) +
+      '<br><br><button style="padding:.5rem 1rem;background:#1d4ed8;color:#fff;border:none;border-radius:8px;cursor:pointer" ' +
+      'id="err-back-btn">← Go Back</button></div>';
+    var bb = document.getElementById('err-back-btn');
+    if (bb) { bb.onclick = function() { S.currentUser = null; render(); }; }
   }
-
-  loginScreen.style.display = 'none';
-  appDiv.style.display = 'block';
-
-  const views = {
-    projects:             viewProjects,
-    'snag-list':          viewSnagList,
-    'snag-detail':        viewSnagDetail,
-    'snag-form':          viewSnagForm,
-    'contractor-respond': viewContractorRespond,
-    companies:            viewCompanies,
-    users:                viewUsers,
-    reports:              viewReports,
-  };
-  appDiv.innerHTML = (views[S.view] || viewProjects)();
 }
 
 function renderLoginScreen() {
@@ -1830,8 +1856,12 @@ function submitRect(snagId) {
 loadDB();
 loadState();
 
-// Wire static login-screen buttons with addEventListener (never inline onclick)
-document.getElementById('btn-first-user').addEventListener('click', startSetup);
+// Wire static login-screen button — addEventListener + direct .onclick for maximum compatibility
+var _setupBtn = document.getElementById('btn-first-user');
+if (_setupBtn) {
+  _setupBtn.addEventListener('click', startSetup);
+  _setupBtn.onclick = startSetup;  // direct property as second fallback
+}
 
 render();
 </script>
