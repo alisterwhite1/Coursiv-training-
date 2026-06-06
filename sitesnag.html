@@ -815,15 +815,58 @@ function viewUsers() {
       <div style="margin-top:.75rem">
         <button class="btn btn-primary btn-block" onclick="createUser()">+ Add User</button>
       </div>
+      <div id="nu_err" style="display:none;margin-top:.6rem;padding:.6rem .8rem;background:var(--red-bg);color:var(--red);border-radius:8px;font-size:.85rem;font-weight:600"></div>
     </div>` : '';
 
   const isSetup = S.currentUser?.id === '__setup__';
+  const backupTools = !isSetup && canManage ? `
+    <div class="sec-label">Data Backup</div>
+    <div class="card card-body" style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" onclick="exportData()" style="flex:1">⬇ Export All Data</button>
+      <label class="btn btn-outline btn-sm" style="flex:1;cursor:pointer">⬆ Import Data
+        <input type="file" accept=".json" style="display:none" onchange="importData(this)" />
+      </label>
+    </div>` : '';
+
   return appBar('Users', isSetup ? '' : 'projects') + `
     <div class="main">
       ${isSetup ? `<div class="alert alert-info">Create your first inspector to start using the app.</div>` : ''}
       <div class="card">${items}</div>
       ${addForm}
+      ${backupTools}
     </div>` + (isSetup ? '' : navBar('users'));
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'sitesnag-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importData(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.projects || !data.snags) {
+        document.getElementById('nu_err') && (document.getElementById('nu_err').textContent = 'Invalid backup file.', document.getElementById('nu_err').style.display = 'block');
+        return;
+      }
+      if (!confirm('Replace ALL current data with this backup?\n\nProjects: ' + data.projects.length + '  Snags: ' + data.snags.length + '  Users: ' + (data.users||[]).length + '\n\nThis cannot be undone.')) return;
+      db = { projects: [], companies: [], snags: [], users: [], loginLog: [], ...data };
+      saveDB();
+      S.currentUser = null;
+      saveState();
+      render();
+    } catch(err) {
+      alert('Could not read the file — make sure it is a SiteSnag backup (.json).');
+    }
+  };
+  reader.readAsText(file);
 }
 
 function toggleCoField() {
@@ -833,16 +876,18 @@ function toggleCoField() {
 }
 
 function createUser() {
-  const name = document.getElementById('nu_name').value.trim();
-  const role = document.getElementById('nu_role').value;
-  const co   = document.getElementById('nu_co')?.value || null;
-  const pin  = document.getElementById('nu_pin').value.trim();
-  if (!name) { alert('Enter a name.'); return; }
-  if (!/^\d{4}$/.test(pin)) { alert('PIN must be exactly 4 digits.'); return; }
-  if (role === 'contractor' && !co) { alert('Select a company for this contractor.'); return; }
+  const name  = document.getElementById('nu_name').value.trim();
+  const role  = document.getElementById('nu_role').value;
+  const co    = document.getElementById('nu_co')?.value || null;
+  const pin   = document.getElementById('nu_pin').value.trim();
+  const errEl = document.getElementById('nu_err');
+  if (errEl) errEl.style.display = 'none';
+  const fail = msg => { if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; } };
+  if (!name)                              { fail('Please enter a full name.'); return; }
+  if (!/^\d{4}$/.test(pin))              { fail('PIN must be exactly 4 digits (numbers only).'); return; }
+  if (role === 'contractor' && !co)       { fail('Please select a company for this contractor.'); return; }
   db.users.push({ id: uid(), name, role, companyId: co || null, pin, createdAt: Date.now() });
   saveDB();
-  // If this was the setup flow, log them in as the first inspector
   if (S.currentUser?.id === '__setup__') {
     S.currentUser = null;
     render();
