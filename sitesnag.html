@@ -507,10 +507,24 @@ function saveManualCoords() {
 
 // ── SNAPSHOT FORM FIELDS ───────────────────────────────────────────────────────
 function snap() {
-  ['f_title','f_desc','f_rect_comment'].forEach(id => {
+  ['f_title','f_desc','f_building','f_floor','f_room','f_rect_comment'].forEach(id => {
     const el = document.getElementById(id);
     if (el) S.fd[id] = el.value;
   });
+}
+
+// Collect unique values for a field across all snags in the current project
+function fieldOptions(field) {
+  const seen = new Set();
+  db.snags
+    .filter(s => s.projectId === S.projectId && s[field])
+    .forEach(s => seen.add(s[field].trim()));
+  return [...seen].sort((a, b) => a.localeCompare(b));
+}
+
+function datalist(id, field) {
+  const opts = fieldOptions(field).map(v => `<option value="${esc(v)}">`).join('');
+  return `<datalist id="${id}">${opts}</datalist>`;
 }
 
 // ── RENDER ─────────────────────────────────────────────────────────────────────
@@ -611,7 +625,13 @@ function viewSnagList() {
           <div class="snag-num">${numStr(s.number)}</div>
           <div class="snag-info">
             <div class="snag-title">${esc(s.title)}</div>
-            <div class="snag-meta">${badge(s.status)}<span class="snag-co">${esc(coName(s.assignedTo))}</span></div>
+            <div class="snag-meta">
+              ${badge(s.status)}
+              ${s.building||s.floor||s.room ? `<span class="snag-co">
+                ${[s.building?`Bldg ${s.building}`:'', s.floor?`Fl ${s.floor}`:'', s.room?`Rm ${s.room}`:''].filter(Boolean).join(' · ')}
+              </span>` : ''}
+              <span class="snag-co">${esc(coName(s.assignedTo))}</span>
+            </div>
           </div>
           ${s.photo
             ? `<img class="snag-thumb" src="${s.photo}" />`
@@ -711,6 +731,14 @@ function viewSnagDetail() {
           </div>
           <div class="detail-row"><span class="detail-label">Project</span>
             <span class="detail-val">${esc(p?.name)}</span></div>
+          <div class="detail-row"><span class="detail-label">Location</span>
+            <span class="detail-val" style="display:flex;gap:.5rem;flex-wrap:wrap">
+              ${snag.building ? `<span style="background:var(--blue-bg);color:var(--blue);font-size:.78rem;font-weight:700;padding:.18rem .6rem;border-radius:999px">🏢 Bldg ${esc(snag.building)}</span>` : ''}
+              ${snag.floor    ? `<span style="background:var(--bg);color:var(--soft);font-size:.78rem;font-weight:700;padding:.18rem .6rem;border-radius:999px;border:1.5px solid var(--border)">Floor ${esc(snag.floor)}</span>` : ''}
+              ${snag.room     ? `<span style="background:var(--bg);color:var(--soft);font-size:.78rem;font-weight:700;padding:.18rem .6rem;border-radius:999px;border:1.5px solid var(--border)">Room ${esc(snag.room)}</span>` : ''}
+              ${!snag.building && !snag.floor && !snag.room ? '<em style="color:var(--muted)">Not specified</em>' : ''}
+            </span>
+          </div>
           <div class="detail-row"><span class="detail-label">Assigned to</span>
             <span class="detail-val">${co ? esc(co.name) : '<em style="color:var(--muted)">Unassigned</em>'}</span></div>
           <div class="detail-row"><span class="detail-label">Description</span>
@@ -752,6 +780,26 @@ function viewSnagForm() {
           <label class="form-label">Title *</label>
           <input type="text" id="f_title" placeholder="e.g. Cracked render at column B3"
                  value="${esc(S.fd.f_title ?? editing?.title ?? '')}" />
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem">
+          <div class="form-group">
+            <label class="form-label">Building</label>
+            ${datalist('dl_building','building')}
+            <input type="text" id="f_building" list="dl_building" placeholder="e.g. A"
+                   value="${esc(S.fd.f_building ?? editing?.building ?? '')}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Floor</label>
+            ${datalist('dl_floor','floor')}
+            <input type="text" id="f_floor" list="dl_floor" placeholder="e.g. G, 1, 2"
+                   value="${esc(S.fd.f_floor ?? editing?.floor ?? '')}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Room</label>
+            ${datalist('dl_room','room')}
+            <input type="text" id="f_room" list="dl_room" placeholder="e.g. 101"
+                   value="${esc(S.fd.f_room ?? editing?.room ?? '')}" />
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Description</label>
@@ -993,12 +1041,18 @@ function saveSnag() {
   const titleEl = document.getElementById('f_title');
   const title   = titleEl.value.trim();
   if (!title) { titleEl.focus(); alert('Title is required.'); return; }
-  const desc = document.getElementById('f_desc').value.trim();
+  const desc     = document.getElementById('f_desc').value.trim();
+  const building = document.getElementById('f_building').value.trim();
+  const floor    = document.getElementById('f_floor').value.trim();
+  const room     = document.getElementById('f_room').value.trim();
 
   if (S.snagId) {
     const snag = db.snags.find(s => s.id === S.snagId);
     snag.title = title;
     snag.description = desc;
+    snag.building = building;
+    snag.floor    = floor;
+    snag.room     = room;
     if (S.fd.photo !== undefined) snag.photo = S.fd.photo;
     if (S.fd.location) snag.location = S.fd.location;
     snag.history = snag.history || [];
@@ -1010,6 +1064,7 @@ function saveSnag() {
     const snag = {
       id: uid(), projectId: S.projectId, number: nextNum(S.projectId),
       title, description: desc,
+      building, floor, room,
       photo: S.fd.photo || null, location: S.fd.location || null,
       status: 'open', assignedTo: null,
       createdAt: Date.now(), rectification: null,
