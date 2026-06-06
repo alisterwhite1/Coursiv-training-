@@ -447,17 +447,14 @@ function resizePhoto(file) {
 
 // ── GPS ────────────────────────────────────────────────────────────────────────
 function getGPS() {
-  const btn  = document.getElementById('gpsBtn');
-  const chip = document.getElementById('gpsChip');
-  const err  = document.getElementById('gpsErr');
+  const btn = document.getElementById('gpsBtn');
+  if (btn) { btn.textContent = '⏳ Getting…'; btn.disabled = true; }
 
   if (!navigator.geolocation) {
-    if (err) { err.textContent = 'Geolocation is not supported by this browser.'; err.style.display = 'block'; }
+    showManualEntry('Automatic GPS is not available in this browser. Enter coordinates manually below.');
+    if (btn) { btn.textContent = '📍 Try Auto'; btn.disabled = false; }
     return;
   }
-
-  if (btn)  { btn.textContent = '⏳ Getting…'; btn.disabled = true; }
-  if (err)  { err.style.display = 'none'; }
 
   navigator.geolocation.getCurrentPosition(
     pos => {
@@ -466,23 +463,46 @@ function getGPS() {
         lng: pos.coords.longitude.toFixed(6),
         acc: Math.round(pos.coords.accuracy)
       };
-      if (chip) chip.textContent = `${S.fd.location.lat}, ${S.fd.location.lng} (±${S.fd.location.acc}m)`;
-      if (btn)  { btn.textContent = '📍 Update'; btn.disabled = false; }
+      applyLocation(S.fd.location);
+      if (btn) { btn.textContent = '📍 Update'; btn.disabled = false; }
     },
     e => {
-      if (btn) { btn.textContent = '📍 Try Again'; btn.disabled = false; }
-      if (err) {
-        const msgs = {
-          1: 'Location permission denied. To fix: tap the 🔒 icon in your browser\'s address bar and allow Location, then try again.',
-          2: 'Location unavailable. Make sure GPS is enabled on your device.',
-          3: 'Location request timed out. Move to an area with better signal and try again.',
-        };
-        err.textContent = msgs[e.code] || 'Could not get location — GPS is optional, you can save without it.';
-        err.style.display = 'block';
-      }
+      if (btn) { btn.textContent = '📍 Try Auto'; btn.disabled = false; }
+      // Automatic GPS blocked (common when opening file:// in browser)
+      const hint = e.code === 3
+        ? 'GPS timed out — try again outdoors, or enter coordinates manually.'
+        : 'Automatic GPS is blocked when opening the file directly. Enter coordinates manually using Google Maps (see link below).';
+      showManualEntry(hint);
     },
-    { enableHighAccuracy: true, timeout: 12000 }
+    { enableHighAccuracy: true, timeout: 10000 }
   );
+}
+
+function showManualEntry(hint) {
+  const box = document.getElementById('gpsManual');
+  const msg = document.getElementById('gpsHint');
+  if (msg) msg.textContent = hint;
+  if (box) box.style.display = 'block';
+}
+
+function applyLocation(loc) {
+  S.fd.location = loc;
+  const chip = document.getElementById('gpsChip');
+  if (chip) chip.textContent = `${loc.lat}, ${loc.lng}${loc.acc ? ` (±${loc.acc}m)` : ''}`;
+  const box = document.getElementById('gpsManual');
+  if (box) box.style.display = 'none';
+}
+
+function saveManualCoords() {
+  const latEl = document.getElementById('manualLat');
+  const lngEl = document.getElementById('manualLng');
+  const lat = parseFloat(latEl?.value);
+  const lng = parseFloat(lngEl?.value);
+  if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    alert('Enter valid coordinates. Latitude: -90 to 90. Longitude: -180 to 180.');
+    return;
+  }
+  applyLocation({ lat: lat.toFixed(6), lng: lng.toFixed(6), acc: null });
 }
 
 // ── SNAPSHOT FORM FIELDS ───────────────────────────────────────────────────────
@@ -754,7 +774,33 @@ function viewSnagForm() {
             <span class="loc-chip" id="gpsChip">${esc(locTxt)}</span>
             <button class="btn btn-outline btn-sm" id="gpsBtn" onclick="getGPS()">📍 Get GPS</button>
           </div>
-          <div id="gpsErr" style="display:none;margin-top:.4rem;font-size:.8rem;color:var(--red);background:var(--red-bg);padding:.5rem .75rem;border-radius:8px;line-height:1.45"></div>
+
+          <!-- Manual entry panel — shown when auto GPS is blocked -->
+          <div id="gpsManual" style="display:${S.fd._showManual?'block':'none'};margin-top:.6rem;padding:.8rem;background:var(--bg);border-radius:10px;border:1.5px solid var(--border)">
+            <div id="gpsHint" style="font-size:.8rem;color:var(--soft);margin-bottom:.6rem;line-height:1.45"></div>
+            <a href="https://maps.google.com" target="_blank"
+               style="display:inline-flex;align-items:center;gap:.3rem;font-size:.82rem;font-weight:700;color:var(--blue);text-decoration:none;margin-bottom:.7rem">
+              🗺 Open Google Maps to find your coordinates
+            </a>
+            <div style="font-size:.75rem;color:var(--muted);margin-bottom:.6rem">
+              In Google Maps: tap &amp; hold your location → the coordinates appear at the top — copy them here.
+            </div>
+            <div style="display:flex;gap:.5rem;margin-bottom:.5rem">
+              <div style="flex:1">
+                <div style="font-size:.72rem;font-weight:700;color:var(--soft);margin-bottom:.25rem">LATITUDE</div>
+                <input type="text" id="manualLat" placeholder="e.g. 25.197525"
+                       value="${esc(S.fd.location?.lat ?? '')}"
+                       style="border-radius:8px;padding:.5rem .7rem;font-size:.9rem" />
+              </div>
+              <div style="flex:1">
+                <div style="font-size:.72rem;font-weight:700;color:var(--soft);margin-bottom:.25rem">LONGITUDE</div>
+                <input type="text" id="manualLng" placeholder="e.g. 55.274288"
+                       value="${esc(S.fd.location?.lng ?? '')}"
+                       style="border-radius:8px;padding:.5rem .7rem;font-size:.9rem" />
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="saveManualCoords()">✓ Set Location</button>
+          </div>
         </div>
       </div>
       <div style="margin-top:.75rem;display:flex;gap:.55rem">
