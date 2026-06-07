@@ -2795,7 +2795,6 @@ function _autoAddLocation(building, floor, room) {
   if (!f) { f = { id: uid(), name: floor, rooms: [] }; b.floors.push(f); }
   if (room && !f.rooms.includes(room)) f.rooms.push(room);
 }
-}
 
 function onDisciplineChange(val) {
   snap();
