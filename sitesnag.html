@@ -1336,11 +1336,12 @@ function viewSnagDetail() {
   const p   = db.projects.find(p => p.id === snag.projectId);
   const co  = snag.assignedTo ? db.companies.find(c => c.id === snag.assignedTo) : null;
   const isInspector  = S.currentUser?.role === 'engineer';
+  const isAdmin      = S.currentUser?.role === 'administrator';
   const isContractor = S.currentUser?.role === 'contractor';
   const myCompany    = S.currentUser?.companyId;
 
   let actionBar = '';
-  if (isInspector) {
+  if (isInspector || isAdmin) {
     if (snag.status === 'open') {
       actionBar = `<div class="action-bar">
         <button class="btn btn-primary" data-fn="openAssignModal" data-a1="${snag.id}">Assign to Contractor →</button>
