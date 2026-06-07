@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
   <title>SiteSnag — Construction Inspection</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.2/dist/umd/supabase.min.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -514,6 +515,81 @@ var storageOK = (function() {
   try { localStorage.setItem('__test__', '1'); localStorage.removeItem('__test__'); return true; } catch(e) { return false; }
 })();
 
+// ── SUPABASE ────────────────────────────────────────────────────────────────────
+const SUPA_URL = 'https://wacvuqwyfrdilljemkqx.supabase.co';
+const SUPA_KEY = 'sb_publishable_G4nzhH6QwF7qOjR424f94g_SV2XJJjC';
+let _supa = null;
+let _syncStatus = 'idle'; // idle | syncing | ok | error
+let _syncMsg    = '';
+
+function supaClient() {
+  if (!_supa && window.supabase) {
+    _supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+  }
+  return _supa;
+}
+
+async function _syncToSupabase() {
+  const cl = supaClient(); if (!cl) return;
+  _syncStatus = 'syncing';
+  try {
+    const { error } = await cl.from('app_data').upsert({
+      id: 'main', data: db, updated_at: new Date().toISOString()
+    });
+    _syncStatus = error ? 'error' : 'ok';
+    _syncMsg = error ? error.message : '';
+  } catch(e) {
+    _syncStatus = 'error';
+    _syncMsg = e.message;
+  }
+}
+
+async function pushToSupabase() {
+  const cl = supaClient();
+  if (!cl) { alert('Supabase library not ready. Please wait a moment and try again.'); return; }
+  const sizeMB = (JSON.stringify(db).length / 1048576).toFixed(1);
+  if (!confirm(`Push all local data to the cloud?\n\nSnags: ${db.snags.length}  Users: ${db.users.length}\nData size: ~${sizeMB} MB\n\nThis will overwrite any existing cloud data.`)) return;
+  _syncStatus = 'syncing';
+  try {
+    const { error } = await cl.from('app_data').upsert({ id: 'main', data: db, updated_at: new Date().toISOString() });
+    if (error) throw error;
+    _syncStatus = 'ok';
+    _syncMsg = '';
+    alert('✓ Data pushed to cloud. All users on other devices can now pull this data.');
+  } catch(e) {
+    _syncStatus = 'error';
+    _syncMsg = e.message;
+    alert('Push failed: ' + e.message);
+  }
+}
+
+async function pullFromSupabase() {
+  const cl = supaClient();
+  if (!cl) { alert('Supabase library not ready. Please wait a moment and try again.'); return; }
+  _syncStatus = 'syncing';
+  try {
+    const { data, error } = await cl.from('app_data').select('data, updated_at').eq('id', 'main').maybeSingle();
+    if (error) throw error;
+    if (!data) { _syncStatus = 'idle'; alert('No cloud data found. Use "Push to Cloud" from the device that has your data first.'); return; }
+    const cloudDate = new Date(data.updated_at).toLocaleString('en-GB');
+    if (!confirm(`Load cloud data?\n\nCloud last updated: ${cloudDate}\nCloud snags: ${(data.data?.snags||[]).length}\nCloud users: ${(data.data?.users||[]).length}\n\nThis will replace your current local data.`)) { _syncStatus = 'idle'; return; }
+    db = { projects: [], companies: [], snags: [], users: [], locations: [], subsystems: [], splashConfig: { projectImage: null, logos: [] }, ...data.data };
+    if (!db.subsystems) db.subsystems = [];
+    if (!db.splashConfig) db.splashConfig = { projectImage: null, logos: [] };
+    if (storageOK) localStorage.setItem(DB_KEY, JSON.stringify(db));
+    _syncStatus = 'ok';
+    _syncMsg = '';
+    S.currentUser = null;
+    saveState();
+    render();
+    alert('✓ Cloud data loaded successfully. Please log in again.');
+  } catch(e) {
+    _syncStatus = 'error';
+    _syncMsg = e.message;
+    alert('Pull failed: ' + e.message);
+  }
+}
+
 function showStorageWarning() {
   var w = document.getElementById('storage-warn');
   if (w) return;
@@ -531,8 +607,10 @@ function loadDB() {
   if (!db.splashConfig) db.splashConfig = { projectImage: null, logos: [] };
 }
 function saveDB() {
-  if (!storageOK) return;
-  try { localStorage.setItem(DB_KEY, JSON.stringify(db)); } catch {}
+  if (storageOK) {
+    try { localStorage.setItem(DB_KEY, JSON.stringify(db)); } catch {}
+  }
+  _syncToSupabase(); // fire-and-forget background sync
 }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
@@ -2642,6 +2720,22 @@ function viewLocations() {
           </div>
         </div>`;
       }).join('')}
+    </div>
+
+    <div class="card card-body" style="margin-bottom:.75rem">
+      <div style="font-weight:700;font-size:1rem;margin-bottom:.75rem">☁️ Cloud Sync</div>
+      <div style="font-size:.82rem;color:var(--soft);margin-bottom:.75rem;line-height:1.5">
+        Push your data to the cloud so all users on all devices share the same snags, companies, and configuration.
+        Pull to load the latest cloud data onto this device.
+      </div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.6rem">
+        <button class="btn btn-primary" style="flex:1;min-width:130px" data-fn="pushToSupabase">⬆ Push to Cloud</button>
+        <button class="btn btn-outline" style="flex:1;min-width:130px" data-fn="pullFromSupabase">⬇ Pull from Cloud</button>
+      </div>
+      ${_syncStatus === 'ok' ? `<div style="font-size:.8rem;color:var(--green);font-weight:600">✓ Last sync successful</div>` :
+        _syncStatus === 'error' ? `<div style="font-size:.8rem;color:var(--red);font-weight:600">✗ Sync error — ${esc(_syncMsg)}</div>` :
+        _syncStatus === 'syncing' ? `<div style="font-size:.8rem;color:var(--blue)">↻ Syncing…</div>` :
+        `<div style="font-size:.8rem;color:var(--muted)">Not yet synced to cloud on this device</div>`}
     </div>
 
     <div class="card card-body" style="margin-bottom:.75rem">
