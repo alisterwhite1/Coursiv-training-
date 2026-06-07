@@ -1406,38 +1406,7 @@ function viewReports() {
       ${projOpts}
     </select></div>`;
 
-  if (!allSnags.length) {
-    const locs = db.locations || [];
-    const allFloors = [...new Set(locs.flatMap(b => b.floors.map(f => f.name)))].sort();
-    const locationPreview = locs.length && allFloors.length
-      ? `<div class="card card-body" style="margin-top:.75rem">
-          <div style="font-weight:700;margin-bottom:.6rem">📍 Location Map</div>
-          <div style="overflow-x:auto"><table class="rpt-table">
-            <thead><tr><th>Building \\ Floor</th>${allFloors.map(f=>`<th style="text-align:center">${esc(f)}</th>`).join('')}<th style="text-align:center">Total</th></tr></thead>
-            <tbody>${locs.map(b=>`<tr><td style="font-weight:700">${esc(b.building)}</td>${allFloors.map(f=>{
-              const hasFloor = b.floors.find(fl=>fl.name===f);
-              return `<td class="heat-cell" style="color:var(--muted)">${hasFloor?'·':'—'}</td>`;
-            }).join('')}<td style="text-align:center;color:var(--muted)">·</td></tr>`).join('')}
-            </tbody>
-          </table></div>
-        </div>`
-      : '';
-    const discPreview = `<div class="card card-body" style="margin-top:.75rem">
-      <div style="font-weight:700;margin-bottom:.6rem">⚙️ Disciplines</div>
-      ${DISCIPLINES.map(d => {
-        const subs = (db.subsystems||[]).filter(s=>s.discipline===d);
-        return `<div style="display:flex;justify-content:space-between;padding:.3rem 0;border-bottom:1px solid var(--border);font-size:.88rem">
-          <span style="font-weight:600;color:var(--blue)">${esc(d)}</span>
-          <span style="color:var(--muted)">${subs.length ? subs.map(s=>esc(s.name)).join(', ') : 'No subsystems yet'}</span>
-        </div>`;
-      }).join('')}
-    </div>`;
-    return appBar('Reports & Analytics', 'projects') + `<div class="main" style="max-width:640px">${projSel}
-      <div class="empty"><div class="eico">📊</div><p>No snag data for this selection.</p></div>
-      ${discPreview}
-      ${locationPreview}
-      </div>` + navBar('reports');
-  }
+  const noData = !allSnags.length;
 
   // ── KPIs ──
   const total = allSnags.length;
@@ -1723,6 +1692,7 @@ function viewReports() {
   return appBar('Reports & Analytics', 'projects') + `
     <div class="main" style="max-width:640px">
       ${projSel}
+      ${noData ? `<div class="alert alert-warn" style="margin-bottom:.5rem">No snags recorded yet. Add snags or import a backup via the Locations tab.</div>` : ''}
       ${kpiCards}
 
       <div class="sec-label">Status Breakdown</div>
