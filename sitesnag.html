@@ -454,6 +454,22 @@
 </head>
 <body>
 
+<!-- ── SPLASH SCREEN ─────────────────────────────────────────────────────────── -->
+<div id="splash" style="position:fixed;inset:0;z-index:99999;background:#002366;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer" onclick="dismissSplash()">
+  <div id="splash-app-name" style="opacity:0;transition:opacity .9s ease;text-align:center">
+    <div style="font-size:2.6rem;font-weight:900;color:#FFD700;letter-spacing:.08em;font-family:inherit">SiteSnag</div>
+    <div style="font-size:.85rem;color:rgba(255,215,0,.65);letter-spacing:.18em;text-transform:uppercase;margin-top:.35rem">Construction Quality Inspection</div>
+  </div>
+  <div id="splash-project" style="opacity:0;transition:opacity .9s ease;text-align:center;padding:0 2rem;max-width:420px;width:100%;position:absolute">
+    <div id="splash-logos" style="display:flex;justify-content:center;gap:1.2rem;margin-bottom:1.1rem;flex-wrap:wrap"></div>
+    <div id="splash-img-wrap" style="margin-bottom:1rem;display:none">
+      <img id="splash-proj-img" style="max-width:100%;max-height:160px;object-fit:cover;border-radius:12px;border:2px solid rgba(255,215,0,.35)" />
+    </div>
+    <div id="splash-proj-name" style="font-size:1.4rem;font-weight:800;color:#FFD700;letter-spacing:.04em"></div>
+    <div style="font-size:.72rem;color:rgba(255,215,0,.5);margin-top:.5rem;letter-spacing:.1em">TAP TO CONTINUE</div>
+  </div>
+</div>
+
 <!-- ── Static login screen — event listeners attached in JS, never injected via innerHTML ── -->
 <div id="login-screen">
   <div class="login-wrap">
@@ -485,7 +501,7 @@
 // ── DB ─────────────────────────────────────────────────────────────────────────
 const DB_KEY    = 'sitesnag_v1';
 const STATE_KEY = 'sitesnag_state';
-let db = { projects: [], companies: [], snags: [], users: [], locations: [], subsystems: [] };
+let db = { projects: [], companies: [], snags: [], users: [], locations: [], subsystems: [], splashConfig: { projectImage: null, logos: [] } };
 // locations:  [{ id, building, floors: [{ id, name, rooms: [string] }] }]
 // subsystems: [{ id, discipline, name }]  discipline ∈ DISCIPLINES
 const DISCIPLINES = ['Civil works', 'MEP works', 'System works'];
@@ -508,6 +524,7 @@ function loadDB() {
   if (!storageOK) return;
   try { const s = JSON.parse(localStorage.getItem(DB_KEY)); if (s) db = { ...db, ...s }; } catch {}
   if (!db.subsystems) db.subsystems = [];
+  if (!db.splashConfig) db.splashConfig = { projectImage: null, logos: [] };
 }
 function saveDB() {
   if (!storageOK) return;
@@ -2117,6 +2134,36 @@ function viewLocations() {
         <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(this)" />
       </div>
     </div>
+
+    <div class="card card-body" style="margin-bottom:.75rem">
+      <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">🎬 Splash Screen Config</div>
+      <div style="font-size:.82rem;color:var(--soft);margin-bottom:.75rem;line-height:1.5">
+        Images shown on the opening splash after the SiteSnag name fades out.
+      </div>
+      <div class="form-group">
+        <label class="form-label">Project Image</label>
+        ${db.splashConfig.projectImage
+          ? `<div class="photo-wrap" style="margin-bottom:.5rem"><img src="${db.splashConfig.projectImage}" style="max-height:120px;object-fit:cover;border-radius:8px;width:100%" />
+              <button class="photo-remove" data-fn="removeSplashProjectImage">×</button></div>`
+          : `<label class="photo-trigger" for="splashProjIn" style="display:block;padding:.7rem;text-align:center;border:2px dashed var(--border);border-radius:8px;cursor:pointer;font-size:.88rem;color:var(--soft)">📷 Upload project image</label>
+             <input type="file" id="splashProjIn" accept="image/*" style="display:none" onchange="handleSplashProjectImage(this)" />`}
+      </div>
+      <div class="form-group">
+        <label class="form-label">Stakeholder Logos (up to 4)</label>
+        <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem">
+          ${(db.splashConfig.logos||[]).map((src,i)=>`
+            <div style="position:relative;display:inline-block">
+              <img src="${src}" style="height:52px;border-radius:6px;border:1.5px solid var(--border);object-fit:contain;background:#fff;padding:2px" />
+              <button data-fn="removeSplashLogo" data-a1="${i}"
+                style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border:none;border-radius:999px;width:18px;height:18px;font-size:.7rem;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center">×</button>
+            </div>`).join('')}
+          ${(db.splashConfig.logos||[]).length < 4
+            ? `<label for="splashLogoIn" style="height:52px;width:52px;border:2px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.4rem;color:var(--soft)">+</label>
+               <input type="file" id="splashLogoIn" accept="image/*" style="display:none" onchange="handleSplashLogo(this)" />`
+            : ''}
+        </div>
+      </div>
+    </div>
     </div>` + navBar('locations');
 }
 
@@ -2253,6 +2300,21 @@ function deleteSubsystem(id) {
   saveDB(); render();
 }
 
+async function handleSplashProjectImage(input) {
+  const f = input.files[0]; if (!f) return;
+  db.splashConfig.projectImage = await resizePhoto(f);
+  saveDB(); render();
+}
+async function handleSplashLogo(input) {
+  const f = input.files[0]; if (!f) return;
+  if (!db.splashConfig.logos) db.splashConfig.logos = [];
+  if (db.splashConfig.logos.length >= 4) return;
+  db.splashConfig.logos.push(await resizePhoto(f));
+  saveDB(); render();
+}
+function removeSplashProjectImage() { db.splashConfig.projectImage = null; saveDB(); render(); }
+function removeSplashLogo(idx) { db.splashConfig.logos.splice(Number(idx), 1); saveDB(); render(); }
+
 function exportData() {
   const ts = new Date().toISOString().slice(0,10);
   const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
@@ -2293,6 +2355,66 @@ if (_setupBtn) {
 }
 
 render();
+
+// ── SPLASH ANIMATION ───────────────────────────────────────────────────────────
+(function() {
+  var splash = document.getElementById('splash');
+  if (!splash) return;
+
+  // Populate project phase content
+  var projName = (db.projects && db.projects.length)
+    ? db.projects[0].name
+    : '';
+  var cfg = db.splashConfig || {};
+
+  var nameEl  = document.getElementById('splash-proj-name');
+  var imgWrap = document.getElementById('splash-img-wrap');
+  var imgEl   = document.getElementById('splash-proj-img');
+  var logosEl = document.getElementById('splash-logos');
+
+  if (nameEl) nameEl.textContent = projName;
+  if (imgEl && cfg.projectImage) {
+    imgEl.src = cfg.projectImage;
+    if (imgWrap) imgWrap.style.display = 'block';
+  }
+  if (logosEl && cfg.logos && cfg.logos.length) {
+    logosEl.innerHTML = cfg.logos.map(function(src) {
+      return '<img src="' + src + '" style="height:48px;object-fit:contain;background:#fff;border-radius:6px;padding:3px;border:1.5px solid rgba(255,215,0,.3)" />';
+    }).join('');
+  }
+
+  var appNameEl   = document.getElementById('splash-app-name');
+  var projEl      = document.getElementById('splash-project');
+  var dismissed   = false;
+
+  function hideSplash() {
+    if (dismissed) return;
+    dismissed = true;
+    splash.style.transition = 'opacity .6s ease';
+    splash.style.opacity = '0';
+    setTimeout(function() { splash.style.display = 'none'; }, 650);
+  }
+
+  // Phase 1: fade in app name (0 → 0.9s)
+  setTimeout(function() { if (appNameEl) appNameEl.style.opacity = '1'; }, 80);
+
+  // Phase 2: fade out app name (2.4s → 3.3s)
+  setTimeout(function() { if (appNameEl) appNameEl.style.opacity = '0'; }, 2400);
+
+  // Phase 3: fade in project content (3.4s)
+  setTimeout(function() { if (projEl) projEl.style.opacity = '1'; }, 3400);
+
+  // Phase 4: auto-dismiss (6s)
+  setTimeout(hideSplash, 6000);
+})();
+
+function dismissSplash() {
+  var splash = document.getElementById('splash');
+  if (!splash || splash.style.display === 'none') return;
+  splash.style.transition = 'opacity .4s ease';
+  splash.style.opacity = '0';
+  setTimeout(function() { splash.style.display = 'none'; }, 420);
+}
 </script>
 </body>
 </html>
