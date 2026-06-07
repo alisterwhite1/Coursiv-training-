@@ -2878,9 +2878,14 @@ function viewLocations() {
         <div class="card card-body" style="margin-bottom:.75rem">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;gap:.5rem">
             ${el.type==='building'&&el.bldgId===b.id
-              ? `<input type="text" id="edit_bldg_${b.id}" value="${esc(b.building)}" style="flex:1;padding:.4rem .6rem;border:2px solid var(--blue);border-radius:8px;font-size:.95rem;font-family:inherit" />
-                 <button class="btn btn-primary" style="padding:.3rem .7rem;font-size:.8rem" data-fn="saveBuilding" data-a1="${b.id}">Save</button>
-                 <button class="btn" style="padding:.3rem .7rem;font-size:.8rem" data-fn="cancelEdit">Cancel</button>`
+              ? `<div style="flex:1;display:flex;flex-direction:column;gap:.4rem">
+                   <input type="text" id="edit_bldg_${b.id}" value="${esc(b.building)}" placeholder="Building code e.g. BB03" style="width:100%;padding:.4rem .6rem;border:2px solid var(--blue);border-radius:8px;font-size:.95rem;font-family:inherit" />
+                   <input type="text" id="edit_bldg_name_${b.id}" value="${esc(b.buildingName||'')}" placeholder="Building name e.g. Academic City Station" style="width:100%;padding:.4rem .6rem;border:2px solid var(--border);border-radius:8px;font-size:.9rem;font-family:inherit" />
+                 </div>
+                 <div style="display:flex;flex-direction:column;gap:.3rem;margin-left:.4rem">
+                   <button class="btn btn-primary" style="padding:.3rem .7rem;font-size:.8rem" data-fn="saveBuilding" data-a1="${b.id}">Save</button>
+                   <button class="btn" style="padding:.3rem .7rem;font-size:.8rem" data-fn="cancelEdit">Cancel</button>
+                 </div>`
               : `<strong style="font-size:1.05rem;flex:1">🏗 ${esc(b.building)}${b.buildingName?`<span style="font-weight:400;font-size:.85rem;color:var(--soft)"> — ${esc(b.buildingName)}</span>`:''}</strong>
                  <button class="btn" style="background:var(--blue-bg);color:var(--blue);padding:.3rem .7rem;font-size:.8rem" data-fn="startEditBuilding" data-a1="${b.id}">Edit</button>
                  <button class="btn" style="background:var(--red-bg);color:var(--red);padding:.3rem .7rem;font-size:.8rem" data-fn="deleteBuilding" data-a1="${b.id}">Delete</button>`}
@@ -3028,15 +3033,20 @@ function cancelEdit() { S.editingLoc = null; render(); }
 
 function saveBuilding(bldgId) {
   const inp = document.getElementById('edit_bldg_' + bldgId);
-  const newName = (inp?.value || '').trim();
-  if (!newName) return;
+  const newCode = (inp?.value || '').trim();
+  if (!newCode) return;
+  const nameInp = document.getElementById('edit_bldg_name_' + bldgId);
+  const newBuildingName = (nameInp?.value || '').trim();
   const b = db.locations.find(b => b.id === bldgId);
   if (!b) return;
-  const oldName = b.building;
-  if (newName === oldName) { cancelEdit(); return; }
-  if (db.locations.find(x => x.id !== bldgId && x.building.toLowerCase() === newName.toLowerCase())) { alert('Building name already exists.'); return; }
-  b.building = newName;
-  db.snags.forEach(s => { if (s.building === oldName) s.building = newName; });
+  const oldCode = b.building;
+  if (newCode !== oldCode) {
+    if (db.locations.find(x => x.id !== bldgId && x.building.toLowerCase() === newCode.toLowerCase())) { alert('Building code already exists.'); return; }
+    b.building = newCode;
+    db.snags.forEach(s => { if (s.building === oldCode) s.building = newCode; });
+  }
+  b.buildingName = newBuildingName;
+  db.snags.forEach(s => { if (s.building === newCode) s.buildingName = newBuildingName; });
   saveDB(); S.editingLoc = null; render();
 }
 
