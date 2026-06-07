@@ -2536,12 +2536,21 @@ async function doExportPDF() {
 
       async function _addPhoto(src, x, label) {
         try {
-          const dims = await new Promise(res => { const i=new Image(); i.onload=()=>res({w:i.naturalWidth,h:i.naturalHeight}); i.onerror=()=>res({w:1,h:1}); i.src=src; });
+          // If src is an external URL (R2), fetch and convert to base64 first
+          let imgSrc = src;
+          if (src && src.startsWith('http')) {
+            try {
+              const resp = await fetch(src);
+              const blob = await resp.blob();
+              imgSrc = await new Promise(res => { const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(blob); });
+            } catch(e) { return; } // skip photo if fetch fails
+          }
+          const dims = await new Promise(res => { const i=new Image(); i.onload=()=>res({w:i.naturalWidth,h:i.naturalHeight}); i.onerror=()=>res({w:1,h:1}); i.src=imgSrc; });
           const aspect = dims.h / dims.w;
           let iw = maxPhotoW, ih = iw * aspect;
           if (ih > maxPhotoH) { ih = maxPhotoH; iw = ih / aspect; }
-          const fmt = src.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-          doc.addImage(src, fmt, x, sy, iw, ih);
+          const fmt = imgSrc.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+          doc.addImage(imgSrc, fmt, x, sy, iw, ih);
           doc.setFontSize(7); doc.setTextColor(100,116,139);
           doc.text(label, x, sy + ih + 4);
         } catch(e) {}
