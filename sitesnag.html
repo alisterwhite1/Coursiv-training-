@@ -769,7 +769,7 @@ const STATUSES = {
   open:     { label: 'Open',           cls: 'b-open' },
   assigned: { label: 'Assigned',       cls: 'b-assigned' },
   pending:  { label: 'Pending Review', cls: 'b-pending' },
-  accepted: { label: 'Accepted ✓',     cls: 'b-accepted' },
+  accepted: { label: 'Accepted',     cls: 'b-accepted' },
   rejected: { label: 'Rejected',       cls: 'b-rejected' },
 };
 function badge(status) {
@@ -1417,7 +1417,7 @@ function viewSnagDetail() {
             <span class="detail-val">${esc(snag.subsystem)}</span></div>` : ''}
           <div class="detail-row"><span class="detail-label">Location</span>
             <span class="detail-val" style="display:flex;gap:.5rem;flex-wrap:wrap">
-              ${snag.building?`<span style="background:var(--blue-bg);color:var(--blue);font-size:.78rem;font-weight:700;padding:.18rem .6rem;border-radius:999px">🏢 Bldg ${esc(snag.building)}</span>`:''}
+              ${snag.building?`<span style="background:var(--blue-bg);color:var(--blue);font-size:.78rem;font-weight:700;padding:.18rem .6rem;border-radius:999px">🏢 ${esc(snag.building)}${snag.buildingName?` — ${esc(snag.buildingName)}`:''}</span>`:''}
               ${snag.floor?`<span style="background:var(--bg);color:var(--soft);font-size:.78rem;font-weight:700;padding:.18rem .6rem;border-radius:999px;border:1.5px solid var(--border)">Floor ${esc(snag.floor)}</span>`:''}
               ${snag.room?`<span style="background:var(--bg);color:var(--soft);font-size:.78rem;font-weight:700;padding:.18rem .6rem;border-radius:999px;border:1.5px solid var(--border)">Room ${esc(snag.room)}</span>`:''}
               ${!snag.building&&!snag.floor&&!snag.room?'<em style="color:var(--muted)">Not specified</em>':''}
@@ -1496,7 +1496,7 @@ function viewSnagForm() {
                  value="${esc(S.fd.f_title??editing?.title??'')}" autocomplete="off"
                  oninput="enforceComponentWords(this)" /></div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem">
-          ${locationSelects(S.fd.f_building??editing?.building??'', S.fd.f_floor??editing?.floor??'', S.fd.f_room??editing?.room??'')}
+          ${locationSelects(S.fd.f_building??editing?.building??'', S.fd.f_floor??editing?.floor??'', S.fd.f_room??editing?.room??'', S.fd.f_building_name??editing?.buildingName??'')}
         </div>
         <div class="form-group">
           <label class="form-label">Assign to Contractor</label>
@@ -2680,15 +2680,16 @@ function saveSnag() {
   const discipline  = document.getElementById('f_discipline').value.trim();
   const subsystem   = document.getElementById('f_subsystem')?.value.trim() || '';
   const assignedTo  = document.getElementById('f_assigned_to')?.value || '';
-  const building    = document.getElementById('f_building').value.trim();
-  const floor       = document.getElementById('f_floor').value.trim();
-  const room        = document.getElementById('f_room').value.trim();
+  const building     = document.getElementById('f_building').value.trim();
+  const buildingName = document.getElementById('f_building_name')?.value.trim() || '';
+  const floor        = document.getElementById('f_floor').value.trim();
+  const room         = document.getElementById('f_room').value.trim();
 
   if (S.snagId) {
     const snag = db.snags.find(s => s.id === S.snagId);
     snag.title = title; snag.description = desc;
     snag.discipline = discipline; snag.subsystem = subsystem;
-    snag.building = building; snag.floor = floor; snag.room = room;
+    snag.building = building; snag.buildingName = buildingName; snag.floor = floor; snag.room = room;
     if (assignedTo && assignedTo !== snag.assignedTo) {
       snag.assignedTo = assignedTo;
       snag.status = 'assigned';
@@ -2702,7 +2703,7 @@ function saveSnag() {
     if (S.fd.location) snag.location = S.fd.location;
     snag.history = snag.history || [];
     snag.history.push({ action: 'Edited', by: byMe(), at: Date.now() });
-    _autoAddLocation(building, floor, room);
+    _autoAddLocation(building, floor, room, buildingName);
     if (discipline && subsystem && !db.subsystems.find(s => s.discipline === discipline && s.name === subsystem))
       db.subsystems.push({ id: uid(), discipline, name: subsystem });
     saveDB(); S.fd = {};
@@ -2712,14 +2713,14 @@ function saveSnag() {
     if (assignedTo) history.push({ action: `Assigned to ${coName(assignedTo)}`, by: byMe(), at: Date.now() });
     const snag = {
       id: uid(), projectId: S.projectId, number: nextSnagId(S.projectId, discipline, subsystem, building),
-      title, description: desc, discipline, subsystem, building, floor, room,
+      title, description: desc, discipline, subsystem, building, buildingName, floor, room,
       photo: S.fd.photo||null, location: S.fd.location||null,
       status: assignedTo ? 'assigned' : 'open', assignedTo: assignedTo || null,
       createdAt: Date.now(), rectification: null,
       history
     };
     db.snags.push(snag);
-    _autoAddLocation(building, floor, room);
+    _autoAddLocation(building, floor, room, buildingName);
     if (discipline && subsystem && !db.subsystems.find(s => s.discipline === discipline && s.name === subsystem))
       db.subsystems.push({ id: uid(), discipline, name: subsystem });
     saveDB(); S.fd = {};
@@ -2749,7 +2750,7 @@ function acceptSnag(snagId) {
   const snag = db.snags.find(s => s.id === snagId);
   snag.status = 'accepted';
   snag.history = snag.history || [];
-  snag.history.push({ action: 'Accepted ✓ — Snag Closed', by: byMe(), at: Date.now() });
+  snag.history.push({ action: 'Accepted — Snag Closed', by: byMe(), at: Date.now() });
   saveDB(); render();
 }
 
@@ -2776,21 +2777,31 @@ function submitRect(snagId) {
 }
 
 // ── LOCATIONS CONFIG ──────────────────────────────────────────────────────────
-function locationSelects(selBuilding, selFloor, selRoom) {
+function locationSelects(selBuilding, selFloor, selRoom, selBuildingName) {
   const iStyle = 'width:100%;padding:.55rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.95rem;font-family:inherit';
   const buildings = (db.locations||[]).map(b => b.building);
+  const buildingNames = (db.locations||[]).map(b => b.buildingName).filter(Boolean);
   const bldgObj   = (db.locations||[]).find(b => b.building === selBuilding);
   const bldgFloors = bldgObj ? bldgObj.floors.map(f => f.name)
     : [...new Set((db.locations||[]).flatMap(b => b.floors.map(f => f.name)))].sort();
   const floorObj  = bldgObj?.floors.find(f => f.name === selFloor);
   const floorRooms = floorObj ? floorObj.rooms
     : [...new Set((db.locations||[]).flatMap(b => b.floors.flatMap(f => f.rooms)))].sort();
+  // Auto-fill building name hint from stored locations
+  const autoName = bldgObj?.buildingName || selBuildingName || '';
   return `
     <div class="form-group">
-      <label class="form-label">Building</label>
-      <input type="text" id="f_building" list="dl_buildings" placeholder="Building…"
-        value="${esc(selBuilding)}" autocomplete="off" style="${iStyle}" />
+      <label class="form-label">Building Code</label>
+      <input type="text" id="f_building" list="dl_buildings" placeholder="e.g. BB03"
+        value="${esc(selBuilding)}" autocomplete="off" style="${iStyle}"
+        oninput="onBuildingCodeChange(this.value)" />
       <datalist id="dl_buildings">${buildings.map(b=>`<option value="${esc(b)}">`).join('')}</datalist>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Building Name <span style="font-weight:400;color:var(--muted)">(for reference only)</span></label>
+      <input type="text" id="f_building_name" list="dl_building_names" placeholder="e.g. Academic City Station"
+        value="${esc(autoName)}" autocomplete="off" style="${iStyle}" />
+      <datalist id="dl_building_names">${buildingNames.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
     </div>
     <div class="form-group">
       <label class="form-label">Floor</label>
@@ -2806,15 +2817,23 @@ function locationSelects(selBuilding, selFloor, selRoom) {
     </div>`;
 }
 
-function _autoAddLocation(building, floor, room) {
+function _autoAddLocation(building, floor, room, buildingName) {
   if (!building) return;
   if (!db.locations) db.locations = [];
   let b = db.locations.find(x => x.building === building);
-  if (!b) { b = { id: uid(), building, floors: [] }; db.locations.push(b); }
+  if (!b) { b = { id: uid(), building, buildingName: buildingName||'', floors: [] }; db.locations.push(b); }
+  else if (buildingName && !b.buildingName) b.buildingName = buildingName;
   if (!floor) return;
   let f = b.floors.find(x => x.name === floor);
   if (!f) { f = { id: uid(), name: floor, rooms: [] }; b.floors.push(f); }
   if (room && !f.rooms.includes(room)) f.rooms.push(room);
+}
+
+function onBuildingCodeChange(val) {
+  // When building code changes, auto-fill building name from stored locations
+  const bldgObj = (db.locations||[]).find(b => b.building === val);
+  const nameEl = document.getElementById('f_building_name');
+  if (nameEl && bldgObj?.buildingName && !nameEl.value) nameEl.value = bldgObj.buildingName;
 }
 
 function onDisciplineChange(val) {
