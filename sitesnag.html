@@ -975,6 +975,14 @@ function viewUsers() {
     </div>` : '';
 
   const isSetup = S.currentUser?.id === '__setup__';
+  const noAdminExists = !db.users.some(u => u.role === 'administrator');
+  const selfUpgradeBar = !isSetup && noAdminExists && S.currentUser && S.currentUser.role !== 'administrator'
+    ? `<div class="alert alert-warn" style="margin-top:.75rem">
+        <strong>No Administrator exists.</strong> To unlock the Config tab, upgrade your account:
+        <button class="btn btn-primary btn-block" style="margin-top:.6rem" data-fn="upgradeSelfToAdmin">⬆ Make my account Administrator</button>
+      </div>`
+    : '';
+
   const backupTools = !isSetup && canManage ? `
     <div class="sec-label">Data Backup</div>
     <div class="card card-body" style="display:flex;gap:.5rem;flex-wrap:wrap">
@@ -988,9 +996,20 @@ function viewUsers() {
     <div class="main">
       ${isSetup ? `<div class="alert alert-info">Create your first engineer to start using the app.</div>` : ''}
       <div class="card">${items}</div>
+      ${selfUpgradeBar}
       ${addForm}
       ${backupTools}
     </div>` + (isSetup ? '' : navBar('users'));
+}
+
+function upgradeSelfToAdmin() {
+  if (db.users.some(u => u.role === 'administrator')) { alert('An Administrator already exists.'); return; }
+  const u = db.users.find(u => u.id === S.currentUser?.id);
+  if (!u) return;
+  if (!confirm('Upgrade "' + u.name + '" to Administrator? This cannot be undone from this screen.')) return;
+  u.role = 'administrator';
+  S.currentUser = { ...S.currentUser, role: 'administrator' };
+  saveDB(); saveState(); render();
 }
 
 function exportData() {
