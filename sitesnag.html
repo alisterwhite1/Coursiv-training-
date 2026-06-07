@@ -224,8 +224,9 @@
       padding: .15rem .5rem; border-radius: 999px;
       font-size: .68rem; font-weight: 800; letter-spacing: .05em; white-space: nowrap;
     }
-    .role-engineer  { background: var(--blue-bg);  color: var(--blue); }
-    .role-contractor { background: var(--orange-bg); color: var(--orange); }
+    .role-engineer    { background: var(--blue-bg);   color: var(--blue); }
+    .role-administrator { background: var(--purple-bg); color: var(--purple); }
+    .role-contractor  { background: var(--orange-bg); color: var(--orange); }
 
     /* ── Buttons ── */
     .btn {
@@ -817,7 +818,7 @@ function renderLoginScreen() {
     <div class="user-card ${u.id === S.loginUserId ? 'selected' : ''}" data-uid="${u.id}">
       <div class="uc-avatar" style="background:${avatarColour(u.name)}">${u.name.charAt(0).toUpperCase()}</div>
       <div class="uc-name">${esc(u.name)}</div>
-      <div class="uc-role">${u.role === 'engineer' ? 'Engineer' : 'Contractor'}</div>
+      <div class="uc-role">${u.role === 'engineer' ? 'Engineer' : u.role === 'administrator' ? 'Administrator' : 'Contractor'}</div>
     </div>`).join('');
 
   // Attach card click listeners each render
@@ -950,6 +951,7 @@ function viewUsers() {
         <label class="form-label">Role</label>
         <select id="nu_role" onchange="toggleCoField()">
           <option value="engineer">Engineer</option>
+          <option value="administrator">Administrator</option>
           <option value="contractor">Contractor</option>
         </select>
       </div>
@@ -1778,6 +1780,7 @@ function navBar(active) {
       ? db.projects[0].id
       : 'projects';
   const isInspector = S.currentUser?.role === 'engineer';
+  const isAdmin     = S.currentUser?.role === 'administrator';
   return `<nav class="bottom-nav">
     <button class="nav-btn ${active==='projects'?'active':''}" data-fn="goView" data-a1="projects">
       <span class="ico">📂</span>Projects
@@ -1785,11 +1788,11 @@ function navBar(active) {
     <button class="nav-btn ${active==='snag-list'?'active':''}" data-fn="${snagFn}" data-a1="${snagA1}">
       <span class="ico">📋</span>Snags
     </button>
-    ${isInspector ? `<button class="nav-btn ${active==='reports'?'active':''}" data-fn="goView" data-a1="reports">
+    ${isInspector||isAdmin ? `<button class="nav-btn ${active==='reports'?'active':''}" data-fn="goView" data-a1="reports">
       <span class="ico">📊</span>Reports
     </button>` : ''}
-    ${isInspector ? `<button class="nav-btn ${active==='locations'?'active':''}" data-fn="goView" data-a1="locations">
-      <span class="ico">📍</span>Locations
+    ${isAdmin ? `<button class="nav-btn ${active==='locations'?'active':''}" data-fn="goView" data-a1="locations">
+      <span class="ico">⚙️</span>Config
     </button>` : ''}
     <button class="nav-btn ${active==='companies'?'active':''}" data-fn="goView" data-a1="companies">
       <span class="ico">🏢</span>Companies
@@ -2040,11 +2043,11 @@ function onFloorChange(val) {
 }
 
 function viewLocations() {
-  const isEng = S.currentUser?.role === 'engineer';
-  if (!isEng) return viewProjects();
+  const isAdmin = S.currentUser?.role === 'administrator';
+  if (!isAdmin) return viewProjects();
   const locs = db.locations || [];
   const el = S.editingLoc || {};
-  return appBar('Locations', null) + `
+  return appBar('Configuration', null) + `
     <div class="main">
       <div class="card card-body" style="margin-bottom:.75rem">
         <div style="display:flex;gap:.5rem;align-items:center">
