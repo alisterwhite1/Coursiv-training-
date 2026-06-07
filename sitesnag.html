@@ -2197,7 +2197,9 @@ async function doExportPDF() {
   const projName = proj ? proj.name : 'All Projects';
   const cfg = db.splashConfig || {};
   const exportedBy = S.currentUser?.name || '';
-  const exportDate = new Date().toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'});
+  const _now = new Date();
+  const exportDate = _now.toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'});
+  const exportTime = _now.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'});
 
   // ── COVER PAGE ──
   doc.setFillColor(...NAVY);
@@ -2254,7 +2256,7 @@ async function doExportPDF() {
   doc.setFontSize(10);
   doc.setTextColor(180, 195, 220);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Exported: ${exportDate}`, W / 2, logoY, { align: 'center' });
+  doc.text(`Exported: ${exportDate} at ${exportTime}`, W / 2, logoY, { align: 'center' });
   doc.text(`Prepared by: ${exportedBy}`, W / 2, logoY + 6, { align: 'center' });
   doc.text(`${snags.length} snags in this report`, W / 2, logoY + 12, { align: 'center' });
 
@@ -2559,7 +2561,7 @@ async function doExportPDF() {
     doc.text('SiteSnag — Construction Inspection', 14, H - 8);
   }
 
-  doc.save(`SiteSnag_Report_${new Date().toISOString().slice(0,10)}.pdf`);
+  doc.save(`SiteSnag_Report_${_now.toISOString().slice(0,10)}_${_now.toTimeString().slice(0,5).replace(':','')}.pdf`);
 }
 
 function _drawPieCanvas(data, size) {
