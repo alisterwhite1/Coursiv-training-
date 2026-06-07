@@ -2439,9 +2439,9 @@ async function _doExportPDFInner() {
       margin: { left: 14, right: 14 },
       theme: 'grid',
       didParseCell: (data) => {
-        if (data.section==='body' && data.col.index>0 && data.col.index<=heatFloors.length) {
+        if (data.section==='body' && data.row && data.column && data.column.index>0 && data.column.index<=heatFloors.length) {
           const bldg = heatBuildings[data.row.index];
-          const fl   = heatFloors[data.col.index-1];
+          const fl   = heatFloors[data.column.index-1];
           const n    = snags.filter(s=>s.building===bldg&&s.floor===fl).length;
           if (n>0) { const alpha = Math.min(0.75, 0.15+(n/heatMax)*0.6); const r=Math.round(220*(1-alpha)+255*alpha); const g=Math.round(38*(1-alpha)+255*alpha); const bv=Math.round(38*(1-alpha)+255*alpha); data.cell.styles.fillColor=[r,g,bv]; }
         }
@@ -2488,7 +2488,7 @@ async function _doExportPDFInner() {
     margin: { left: 14, right: 14 },
     theme: 'grid',
     didParseCell: (data) => {
-      if (data.section === 'body') {
+      if (data.section === 'body' && data.row) {
         const status = snags[data.row.index]?.status;
         if (status === 'accepted') data.cell.styles.textColor = [21, 128, 61];
         else if (status === 'open') data.cell.styles.textColor = [220, 38, 38];
