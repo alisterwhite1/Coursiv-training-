@@ -714,7 +714,7 @@ function saveManualCoords() {
 
 // ── FORM HELPERS ───────────────────────────────────────────────────────────────
 function snap() {
-  ['f_title','f_desc','f_discipline','f_subsystem','f_building','f_floor','f_room','f_rect_comment'].forEach(id => {
+  ['f_title','f_desc','f_discipline','f_subsystem','f_assigned_to','f_building','f_floor','f_room','f_rect_comment'].forEach(id => {
     const el = document.getElementById(id);
     if (el) S.fd[id] = el.value;
   });
@@ -1276,6 +1276,13 @@ function viewSnagForm() {
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem">
           ${locationSelects(S.fd.f_building??editing?.building??'', S.fd.f_floor??editing?.floor??'', S.fd.f_room??editing?.room??'')}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Assign to Contractor</label>
+          <select id="f_assigned_to" style="width:100%;padding:.55rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.95rem;font-family:inherit;background:#fff">
+            <option value="">— Unassigned —</option>
+            ${db.companies.map(c=>`<option value="${c.id}" ${(S.fd.f_assigned_to??editing?.assignedTo??'')=== c.id?'selected':''}>${esc(c.name)}</option>`).join('')}
+          </select>
         </div>
         <div class="form-group">
           <label class="form-label">Description</label>
@@ -1850,18 +1857,28 @@ function saveSnag() {
   const titleEl  = document.getElementById('f_title');
   const title    = titleEl.value.trim();
   if (!title) { titleEl.focus(); alert('Title is required.'); return; }
-  const desc       = document.getElementById('f_desc').value.trim();
-  const discipline = document.getElementById('f_discipline').value.trim();
-  const subsystem  = document.getElementById('f_subsystem')?.value.trim() || '';
-  const building   = document.getElementById('f_building').value.trim();
-  const floor      = document.getElementById('f_floor').value.trim();
-  const room       = document.getElementById('f_room').value.trim();
+  const desc        = document.getElementById('f_desc').value.trim();
+  const discipline  = document.getElementById('f_discipline').value.trim();
+  const subsystem   = document.getElementById('f_subsystem')?.value.trim() || '';
+  const assignedTo  = document.getElementById('f_assigned_to')?.value || '';
+  const building    = document.getElementById('f_building').value.trim();
+  const floor       = document.getElementById('f_floor').value.trim();
+  const room        = document.getElementById('f_room').value.trim();
 
   if (S.snagId) {
     const snag = db.snags.find(s => s.id === S.snagId);
     snag.title = title; snag.description = desc;
     snag.discipline = discipline; snag.subsystem = subsystem;
     snag.building = building; snag.floor = floor; snag.room = room;
+    if (assignedTo && assignedTo !== snag.assignedTo) {
+      snag.assignedTo = assignedTo;
+      snag.status = 'assigned';
+      snag.history = snag.history || [];
+      snag.history.push({ action: `Assigned to ${coName(assignedTo)}`, by: byMe(), at: Date.now() });
+    } else if (!assignedTo && snag.assignedTo) {
+      snag.assignedTo = null;
+      snag.status = 'open';
+    }
     if (S.fd.photo !== undefined) snag.photo = S.fd.photo;
     if (S.fd.location) snag.location = S.fd.location;
     snag.history = snag.history || [];
@@ -1869,13 +1886,15 @@ function saveSnag() {
     saveDB(); S.fd = {};
     go('snag-detail', { snagId: S.snagId });
   } else {
+    const history = [{ action: 'Created', by: byMe(), at: Date.now() }];
+    if (assignedTo) history.push({ action: `Assigned to ${coName(assignedTo)}`, by: byMe(), at: Date.now() });
     const snag = {
       id: uid(), projectId: S.projectId, number: nextNum(S.projectId),
       title, description: desc, discipline, subsystem, building, floor, room,
       photo: S.fd.photo||null, location: S.fd.location||null,
-      status: 'open', assignedTo: null,
+      status: assignedTo ? 'assigned' : 'open', assignedTo: assignedTo || null,
       createdAt: Date.now(), rectification: null,
-      history: [{ action: 'Created', by: byMe(), at: Date.now() }]
+      history
     };
     db.snags.push(snag);
     saveDB(); S.fd = {};
