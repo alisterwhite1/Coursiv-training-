@@ -746,25 +746,20 @@ function _discCode(disc) {
 }
 function nextSnagId(pid, discipline, subsystem, building) {
   if (!db.snagCounter) db.snagCounter = {};
-  if (!db.snagCounter[pid]) {
-    // Seed counter from existing snags so we never reuse a number
-    let maxSeq = 0;
-    db.snags.filter(s => s.projectId === pid).forEach(s => {
-      if (typeof s.number === 'string') {
-        const seq = parseInt(s.number.split('-').pop());
-        if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
-      } else if (typeof s.number === 'number' && s.number > maxSeq) {
-        maxSeq = s.number;
-      }
-    });
-    db.snagCounter[pid] = maxSeq;
-  }
-  db.snagCounter[pid]++;
-  const seq  = String(db.snagCounter[pid]).padStart(6,'0');
   const disc = _discCode(discipline);
   const sub  = (subsystem||'GEN').substring(0,3).toUpperCase().replace(/[^A-Z0-9]/g,'') || 'GEN';
   const bldg = (building||'XXX').toUpperCase().replace(/\s+/g,'');
-  return `${disc}-${sub}-${bldg}-${seq}`;
+  const prefix     = `${disc}-${sub}-${bldg}`;
+  const counterKey = `${pid}:${prefix}`;
+  if (!db.snagCounter[counterKey]) {
+    // Seed from any existing snags with the same prefix so numbers are never reused
+    let maxSeq = 0;
+    db.snags.filter(s => s.projectId === pid && typeof s.number === 'string' && s.number.startsWith(prefix + '-'))
+      .forEach(s => { const seq = parseInt(s.number.split('-').pop()); if (!isNaN(seq) && seq > maxSeq) maxSeq = seq; });
+    db.snagCounter[counterKey] = maxSeq;
+  }
+  db.snagCounter[counterKey]++;
+  return `${prefix}-${String(db.snagCounter[counterKey]).padStart(6,'0')}`;
 }
 function numStr(n) {
   if (n === null || n === undefined) return '—';
