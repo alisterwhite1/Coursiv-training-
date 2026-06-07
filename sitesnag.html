@@ -921,7 +921,8 @@ function logout() {
 
 // ── USERS ──────────────────────────────────────────────────────────────────────
 function viewUsers() {
-  const canManage = S.currentUser?.role === 'engineer' || S.currentUser?.id === '__setup__';
+  const canManage = S.currentUser?.role === 'engineer' || S.currentUser?.role === 'administrator' || S.currentUser?.id === '__setup__';
+  const canAddAdmin = S.currentUser?.role === 'administrator' || S.currentUser?.id === '__setup__';
 
   const items = db.users.length
     ? db.users.map(u => {
@@ -950,8 +951,8 @@ function viewUsers() {
       <div class="form-group">
         <label class="form-label">Role</label>
         <select id="nu_role" onchange="toggleCoField()">
+          ${canAddAdmin ? `<option value="administrator">Administrator</option>` : ''}
           <option value="engineer">Engineer</option>
-          <option value="administrator">Administrator</option>
           <option value="contractor">Contractor</option>
         </select>
       </div>
@@ -1041,6 +1042,9 @@ function createUser() {
   if (!name)                              { fail('Please enter a full name.'); return; }
   if (!/^\d{4}$/.test(pin))              { fail('PIN must be exactly 4 digits (numbers only).'); return; }
   if (role === 'contractor' && !co)       { fail('Please select a company for this contractor.'); return; }
+  if (role === 'administrator' && S.currentUser?.role !== 'administrator' && S.currentUser?.id !== '__setup__') {
+    fail('Only an Administrator can create another Administrator.'); return;
+  }
   db.users.push({ id: uid(), name, role, companyId: co || null, pin, createdAt: Date.now() });
   saveDB();
   if (S.currentUser?.id === '__setup__') {
