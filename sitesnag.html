@@ -506,7 +506,7 @@
 // ── DB ─────────────────────────────────────────────────────────────────────────
 const DB_KEY    = 'sitesnag_v1';
 const STATE_KEY = 'sitesnag_state';
-let db = { projects: [], companies: [], snags: [], users: [], locations: [], subsystems: [], splashConfig: { projectImage: null, logos: [] } };
+let db = { projects: [], companies: [], snags: [], users: [], locations: [], subsystems: [], splashConfig: { projectImage: null, logos: [] }, snagCounter: {} };
 // locations:  [{ id, building, floors: [{ id, name, rooms: [string] }] }]
 // subsystems: [{ id, discipline, name }]  discipline ∈ DISCIPLINES
 const DISCIPLINES = ['Civil works', 'MEP works', 'System works'];
@@ -603,8 +603,9 @@ function showStorageWarning() {
 function loadDB() {
   if (!storageOK) return;
   try { const s = JSON.parse(localStorage.getItem(DB_KEY)); if (s) db = { ...db, ...s }; } catch {}
-  if (!db.subsystems) db.subsystems = [];
+  if (!db.subsystems)   db.subsystems   = [];
   if (!db.splashConfig) db.splashConfig = { projectImage: null, logos: [] };
+  if (!db.snagCounter)  db.snagCounter  = {};
 }
 function saveDB() {
   if (storageOK) {
@@ -735,8 +736,41 @@ function esc(s) {
 function proj()        { return db.projects.find(p => p.id === S.projectId); }
 function coName(id)    { const c = db.companies.find(c => c.id === id); return c ? c.name : '—'; }
 function snagCount(pid){ return db.snags.filter(s => s.projectId === pid).length; }
-function nextNum(pid)  { const ns = db.snags.filter(s => s.projectId === pid).map(s => s.number); return ns.length ? Math.max(...ns)+1 : 1; }
-function numStr(n)     { return '#' + String(n).padStart(3,'0'); }
+function _discCode(disc) {
+  if (!disc) return 'GEN';
+  const d = disc.toLowerCase();
+  if (d.includes('civil'))  return 'CIV';
+  if (d.includes('mep'))    return 'MEP';
+  if (d.includes('system')) return 'SYS';
+  return disc.replace(/\s+works$/i,'').substring(0,3).toUpperCase();
+}
+function nextSnagId(pid, discipline, subsystem, building) {
+  if (!db.snagCounter) db.snagCounter = {};
+  if (!db.snagCounter[pid]) {
+    // Seed counter from existing snags so we never reuse a number
+    let maxSeq = 0;
+    db.snags.filter(s => s.projectId === pid).forEach(s => {
+      if (typeof s.number === 'string') {
+        const seq = parseInt(s.number.split('-').pop());
+        if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
+      } else if (typeof s.number === 'number' && s.number > maxSeq) {
+        maxSeq = s.number;
+      }
+    });
+    db.snagCounter[pid] = maxSeq;
+  }
+  db.snagCounter[pid]++;
+  const seq  = String(db.snagCounter[pid]).padStart(6,'0');
+  const disc = _discCode(discipline);
+  const sub  = (subsystem||'GEN').substring(0,3).toUpperCase().replace(/[^A-Z0-9]/g,'') || 'GEN';
+  const bldg = (building||'XXX').toUpperCase().replace(/\s+/g,'');
+  return `${disc}-${sub}-${bldg}-${seq}`;
+}
+function numStr(n) {
+  if (n === null || n === undefined) return '—';
+  if (typeof n === 'number') return '#' + String(n).padStart(3,'0'); // legacy integer snags
+  return String(n);
+}
 function byMe()        { return S.currentUser ? S.currentUser.name : 'Unknown'; }
 
 // Avatar colour based on name
@@ -2357,7 +2391,7 @@ async function doExportPDF() {
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(...NAVY);
-      doc.text(`#${snag.number || ''} — ${snag.title || ''}`, 18, sy + 9);
+      doc.text(`${numStr(snag.number)} — ${snag.title || ''}`, 18, sy + 9);
       sy += 18;
 
       // Meta row
@@ -2510,7 +2544,7 @@ function saveSnag() {
     const history = [{ action: 'Created', by: byMe(), at: Date.now() }];
     if (assignedTo) history.push({ action: `Assigned to ${coName(assignedTo)}`, by: byMe(), at: Date.now() });
     const snag = {
-      id: uid(), projectId: S.projectId, number: nextNum(S.projectId),
+      id: uid(), projectId: S.projectId, number: nextSnagId(S.projectId, discipline, subsystem, building),
       title, description: desc, discipline, subsystem, building, floor, room,
       photo: S.fd.photo||null, location: S.fd.location||null,
       status: assignedTo ? 'assigned' : 'open', assignedTo: assignedTo || null,
