@@ -719,6 +719,18 @@ function snap() {
     if (el) S.fd[id] = el.value;
   });
 }
+function isValidComponent(val) {
+  const parts = val.trim().split(/\s+/);
+  if (parts.length === 2) return true;
+  if (parts.length === 3 && parts.some(p => p.includes('-'))) return true;
+  return false;
+}
+function enforceComponentWords(input) {
+  const parts = input.value.trim().split(/\s+/);
+  if (parts.length > 3) {
+    input.value = parts.slice(0, 3).join(' ');
+  }
+}
 function fieldOptions(field) {
   const seen = new Set();
   db.snags.filter(s => s.projectId === S.projectId && s[field]).forEach(s => seen.add(s[field].trim()));
@@ -1269,11 +1281,11 @@ function viewSnagForm() {
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Title *</label>
+          <label class="form-label">Component snagged *</label>
           ${datalist('dl_title','title')}
-          <input type="text" id="f_title" list="dl_title" placeholder="e.g. Cracked render at column B3"
-                 value="${esc(S.fd.f_title??editing?.title??'')}" autocomplete="off" />
-        </div>
+          <input type="text" id="f_title" list="dl_title" placeholder="e.g. Cracked render"
+                 value="${esc(S.fd.f_title??editing?.title??'')}" autocomplete="off"
+                 oninput="enforceComponentWords(this)" /></div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem">
           ${locationSelects(S.fd.f_building??editing?.building??'', S.fd.f_floor??editing?.floor??'', S.fd.f_room??editing?.room??'')}
         </div>
@@ -1648,9 +1660,9 @@ function viewReports() {
   });
   const wordFreq = {};
   allSnags.forEach(s => {
-    ((s.title||'')+' '+(s.description||'')).toLowerCase()
-      .replace(/[^a-z\s]/g,' ').split(/\s+/)
-      .filter(w => w.length > 2 && !STOP.has(w))
+    (s.title||'').toLowerCase()
+      .replace(/[-]/g,' ').replace(/[^a-z\s]/g,' ').split(/\s+/)
+      .filter(w => w.length > 1 && !STOP.has(w))
       .forEach(w => { wordFreq[w] = (wordFreq[w]||0)+1; });
   });
   const topWords = Object.entries(wordFreq).sort((a,b)=>b[1]-a[1]).slice(0,14);
@@ -1723,8 +1735,8 @@ function viewReports() {
       <div class="sec-label">Location Heatmap — Building × Floor</div>
       <div class="card card-body">${heatHtml}</div>
 
-      <div class="sec-label">Snag Type Keywords</div>
-      <div class="card card-body">${topWords.length ? wordBars : '<div style="font-size:.85rem;color:var(--muted)">Add snag titles and descriptions to see keyword analysis.</div>'}</div>
+      <div class="sec-label">Component Keywords</div>
+      <div class="card card-body">${topWords.length ? wordBars : '<div style="font-size:.85rem;color:var(--muted)">Add snags to see component keyword analysis.</div>'}</div>
 
       <div class="sec-label">Recent User Activity</div>
       <div class="card card-body" style="padding:0 1rem">${actLog}</div>
@@ -1856,7 +1868,8 @@ async function handleRectPhoto(input) {
 function saveSnag() {
   const titleEl  = document.getElementById('f_title');
   const title    = titleEl.value.trim();
-  if (!title) { titleEl.focus(); alert('Title is required.'); return; }
+  if (!title) { titleEl.focus(); alert('Component snagged is required.'); return; }
+  if (!isValidComponent(title)) { titleEl.focus(); alert('Component snagged must be 2 words, or 3 words when one uses a hyphen (e.g. "Cracked render" or "Powder-coated panel frame").'); return; }
   const desc        = document.getElementById('f_desc').value.trim();
   const discipline  = document.getElementById('f_discipline').value.trim();
   const subsystem   = document.getElementById('f_subsystem')?.value.trim() || '';
