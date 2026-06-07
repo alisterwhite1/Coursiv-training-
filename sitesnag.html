@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
   <title>SiteSnag — Construction Inspection</title>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1774,6 +1777,17 @@ function viewReports() {
       <div class="sec-label">Recent User Activity</div>
       <div class="card card-body" style="padding:0 1rem">${actLog}</div>
 
+      ${S.currentUser?.role === 'administrator' ? `
+      <div class="sec-label">Export</div>
+      <div class="card card-body" style="margin-bottom:.75rem">
+        <div style="font-size:.85rem;color:var(--soft);margin-bottom:.75rem;line-height:1.5">
+          Export snag data filtered by date range, building, or contractor.
+          Exports available in <strong>Excel</strong>, <strong>CSV</strong>, and <strong>PDF</strong> formats.
+          PDF includes photos and a branded cover page.
+        </div>
+        <button class="btn btn-primary" data-fn="openExportModal" style="width:100%;font-size:1rem;padding:.65rem">⬇ Export Snag Data…</button>
+      </div>` : ''}
+
       <div style="height:.5rem"></div>
     </div>` + navBar('reports');
 }
@@ -1863,6 +1877,488 @@ function modal(html) {
      </div>`);
 }
 function closeModal() { document.getElementById('modalBack')?.remove(); }
+
+// ── EXPORT ─────────────────────────────────────────────────────────────────────
+function openExportModal() {
+  const rptPid = S.rptProjectId || '';
+  const buildings = [...new Set(db.snags.filter(s => !rptPid || s.projectId === rptPid).map(s => s.building).filter(Boolean))].sort();
+  const bldgOpts = ['<option value="">All Buildings</option>', ...buildings.map(b => `<option value="${esc(b)}">${esc(b)}</option>`)].join('');
+  const coOpts   = ['<option value="">All Contractors</option>', ...db.companies.map(c => `<option value="${c.id}">${esc(c.name)}</option>`)].join('');
+  modal(`
+    <div class="modal-title">⬇ Export Snag Data</div>
+    <div class="form-group">
+      <label class="form-label">Date Range (optional)</label>
+      <div style="display:flex;gap:.5rem;align-items:center">
+        <input type="date" id="exp_from" style="flex:1;padding:.45rem .6rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
+        <span style="color:var(--muted);font-size:.85rem">to</span>
+        <input type="date" id="exp_to" style="flex:1;padding:.45rem .6rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Building</label>
+      <select id="exp_building" style="width:100%;padding:.45rem .6rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit">${bldgOpts}</select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Contractor</label>
+      <select id="exp_co" style="width:100%;padding:.45rem .6rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit">${coOpts}</select>
+    </div>
+    <div class="form-group" style="background:var(--amber-bg);border-radius:8px;padding:.6rem .75rem">
+      <label style="display:flex;align-items:center;gap:.5rem;font-size:.88rem;cursor:pointer">
+        <input type="checkbox" id="exp_photos" checked style="width:16px;height:16px;cursor:pointer" />
+        <span>Include photos in PDF <span style="color:var(--amber);font-size:.78rem">(larger file)</span></span>
+      </label>
+    </div>
+    <div class="modal-actions" style="flex-wrap:wrap;gap:.4rem">
+      <button class="btn btn-outline" data-fn="closeModal" style="flex:1;min-width:80px">Cancel</button>
+      <button class="btn" style="flex:1;min-width:80px;background:var(--green-bg);color:var(--green);font-weight:700" data-fn="doExportCSV">📄 CSV</button>
+      <button class="btn" style="flex:1;min-width:80px;background:var(--blue-bg);color:var(--blue);font-weight:700" data-fn="doExportExcel">📊 Excel</button>
+      <button class="btn btn-primary" style="flex:1;min-width:80px" data-fn="doExportPDF">📑 PDF</button>
+    </div>`);
+}
+
+function _getExportSnags() {
+  const rptPid = S.rptProjectId || '';
+  let snags = rptPid ? db.snags.filter(s => s.projectId === rptPid) : db.snags.slice();
+  const from = document.getElementById('exp_from')?.value;
+  const to   = document.getElementById('exp_to')?.value;
+  const bldg = document.getElementById('exp_building')?.value;
+  const co   = document.getElementById('exp_co')?.value;
+  if (from) snags = snags.filter(s => s.createdAt >= new Date(from).getTime());
+  if (to)   snags = snags.filter(s => s.createdAt <= new Date(to).getTime() + 86399999);
+  if (bldg) snags = snags.filter(s => s.building === bldg);
+  if (co)   snags = snags.filter(s => s.assignedTo === co);
+  return snags.sort((a,b) => a.createdAt - b.createdAt);
+}
+
+function _snagToRow(s) {
+  const closedEv = (s.history||[]).slice().reverse().find(h => h.action.includes('Accepted'));
+  const closedBy = closedEv ? closedEv.by : '';
+  const closedAt = closedEv ? new Date(closedEv.at).toLocaleDateString('en-GB') : '';
+  return [
+    s.number || '',
+    new Date(s.createdAt).toLocaleDateString('en-GB'),
+    s.discipline || '',
+    s.subsystem  || '',
+    s.title      || '',
+    s.building   || '',
+    s.floor      || '',
+    s.room       || '',
+    coName(s.assignedTo),
+    (STATUSES[s.status]?.label || s.status),
+    s.description|| '',
+    closedAt,
+    closedBy,
+    s.location ? `${s.location.lat?.toFixed(6)},${s.location.lng?.toFixed(6)}` : '',
+  ];
+}
+
+function doExportCSV() {
+  const snags = _getExportSnags();
+  const headers = ['Snag No','Date Raised','Discipline','Subsystem','Component Snagged','Building','Floor','Room','Contractor','Status','Description','Date Closed','Closed By','GPS Coordinates'];
+  const rows = [headers, ...snags.map(_snagToRow)];
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `SiteSnag_Export_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  closeModal();
+}
+
+function doExportExcel() {
+  if (!window.XLSX) { alert('Excel library not loaded yet. Please wait a moment and try again.'); return; }
+  const snags = _getExportSnags();
+  const proj = db.projects.find(p => p.id === S.rptProjectId) || db.projects[0];
+  const projName = proj ? proj.name : 'All Projects';
+  const total = snags.length;
+  const closed = snags.filter(s => s.status === 'accepted').length;
+  const open   = snags.filter(s => s.status === 'open' || s.status === 'assigned').length;
+  const pct    = total ? Math.round(100 * closed / total) : 0;
+  const exportedBy = S.currentUser?.name || '';
+
+  const coverData = [
+    ['SiteSnag — Snag Register'],
+    [],
+    ['Project', projName],
+    ['Exported', new Date().toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'})],
+    ['Exported By', exportedBy],
+    [],
+    ['Summary'],
+    ['Total Snags', total],
+    ['Outstanding', open],
+    ['Closed', closed],
+    ['Completion', pct + '%'],
+  ];
+
+  const headers = ['Snag No','Date Raised','Discipline','Subsystem','Component Snagged','Building','Floor','Room','Contractor','Status','Description','Date Closed','Closed By','GPS Coordinates'];
+  const registerData = [headers, ...snags.map(_snagToRow)];
+
+  const wb = XLSX.utils.book_new();
+
+  const wsCover = XLSX.utils.aoa_to_sheet(coverData);
+  wsCover['!cols'] = [{wch:18},{wch:40}];
+  XLSX.utils.book_append_sheet(wb, wsCover, 'Cover');
+
+  const wsReg = XLSX.utils.aoa_to_sheet(registerData);
+  wsReg['!cols'] = [
+    {wch:8},{wch:14},{wch:14},{wch:16},{wch:22},{wch:12},{wch:12},{wch:12},
+    {wch:16},{wch:14},{wch:36},{wch:14},{wch:18},{wch:22}
+  ];
+  wsReg['!autofilter'] = { ref: `A1:N1` };
+  XLSX.utils.book_append_sheet(wb, wsReg, 'Snag Register');
+
+  XLSX.writeFile(wb, `SiteSnag_Export_${new Date().toISOString().slice(0,10)}.xlsx`);
+  closeModal();
+}
+
+async function doExportPDF() {
+  if (!window.jspdf) { alert('PDF library not loaded yet. Please wait a moment and try again.'); return; }
+  const snags = _getExportSnags();
+  const includePhotos = document.getElementById('exp_photos')?.checked !== false;
+  const photoSnags = snags.filter(s => s.photo || s.rectification?.photo);
+
+  if (includePhotos && photoSnags.length > 75) {
+    const estimatedMB = Math.round(photoSnags.length * 2 * 0.15);
+    if (!confirm(`This report contains ${photoSnags.length} snags with photos.\nEstimated file size: ~${estimatedMB} MB.\n\nContinue?`)) return;
+  }
+
+  closeModal();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const W = 210, H = 297;
+  const NAVY = [0, 35, 102];
+  const GOLD = [255, 215, 0];
+  const WHITE = [255, 255, 255];
+  const proj = db.projects.find(p => p.id === S.rptProjectId) || db.projects[0];
+  const projName = proj ? proj.name : 'All Projects';
+  const cfg = db.splashConfig || {};
+  const exportedBy = S.currentUser?.name || '';
+  const exportDate = new Date().toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'});
+
+  // ── COVER PAGE ──
+  doc.setFillColor(...NAVY);
+  doc.rect(0, 0, W, H, 'F');
+
+  // Gold accent bar top
+  doc.setFillColor(...GOLD);
+  doc.rect(0, 0, W, 6, 'F');
+
+  // App name
+  doc.setTextColor(...GOLD);
+  doc.setFontSize(36);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SiteSnag', W / 2, 55, { align: 'center' });
+
+  doc.setFontSize(11);
+  doc.setTextColor(200, 210, 230);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Construction Inspection Report', W / 2, 65, { align: 'center' });
+
+  // Logos row
+  let logoY = 85;
+  if (cfg.logos && cfg.logos.length) {
+    let lx = 20;
+    const logoH = 18, logoW = 32;
+    for (const src of cfg.logos.slice(0, 5)) {
+      try {
+        const fmt = src.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+        doc.addImage(src, fmt, lx, logoY, logoW, logoH);
+        lx += logoW + 6;
+      } catch(e) {}
+    }
+    logoY += 24;
+  }
+
+  // Project image
+  if (cfg.projectImage) {
+    try {
+      const fmt = cfg.projectImage.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+      doc.addImage(cfg.projectImage, fmt, 30, logoY, W - 60, 55);
+      logoY += 60;
+    } catch(e) {}
+  }
+
+  // Project name
+  doc.setTextColor(...GOLD);
+  doc.setFontSize(22);
+  doc.setFont('helvetica', 'bold');
+  const projLines = doc.splitTextToSize(projName, W - 40);
+  doc.text(projLines, W / 2, logoY + 12, { align: 'center' });
+  logoY += projLines.length * 10 + 14;
+
+  // Report meta
+  doc.setFontSize(10);
+  doc.setTextColor(180, 195, 220);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Exported: ${exportDate}`, W / 2, logoY, { align: 'center' });
+  doc.text(`Prepared by: ${exportedBy}`, W / 2, logoY + 6, { align: 'center' });
+  doc.text(`${snags.length} snags in this report`, W / 2, logoY + 12, { align: 'center' });
+
+  // Gold accent bar bottom
+  doc.setFillColor(...GOLD);
+  doc.rect(0, H - 6, W, 6, 'F');
+
+  // ── EXECUTIVE SUMMARY PAGE ──
+  doc.addPage();
+  const total = snags.length;
+  const sc = {};
+  ['open','assigned','pending','accepted','rejected'].forEach(k => { sc[k] = snags.filter(x => x.status === k).length; });
+  const outstanding = sc.open + sc.assigned;
+  const pct = total ? Math.round(100 * sc.accepted / total) : 0;
+
+  // Header bar
+  doc.setFillColor(...NAVY);
+  doc.rect(0, 0, W, 20, 'F');
+  doc.setTextColor(...WHITE);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Executive Summary', 14, 13);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(180, 195, 220);
+  doc.text(projName, W - 14, 13, { align: 'right' });
+
+  let y = 32;
+
+  // KPI boxes (2×3 grid)
+  const kpis = [
+    { label: 'Total Snags', val: total, col: NAVY },
+    { label: 'Outstanding', val: outstanding, col: [180, 83, 9] },
+    { label: 'Closed', val: sc.accepted, col: [21, 128, 61] },
+    { label: 'Pending Review', val: sc.pending, col: [109, 40, 217] },
+    { label: 'Open', val: sc.open, col: [220, 38, 38] },
+    { label: 'Completion', val: pct + '%', col: [21, 128, 61] },
+  ];
+  const bw = (W - 28 - 10) / 3, bh = 24;
+  kpis.forEach((k, i) => {
+    const col = i % 3, row = Math.floor(i / 3);
+    const bx = 14 + col * (bw + 5);
+    const by = y + row * (bh + 4);
+    doc.setFillColor(245, 247, 250);
+    doc.roundedRect(bx, by, bw, bh, 3, 3, 'F');
+    doc.setTextColor(...k.col);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text(String(k.val), bx + bw / 2, by + 13, { align: 'center' });
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'normal');
+    doc.text(k.label, bx + bw / 2, by + 20, { align: 'center' });
+  });
+  y += 2 * (bh + 4) + 10;
+
+  // Status breakdown table
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...NAVY);
+  doc.text('Status Breakdown', 14, y);
+  y += 5;
+  doc.autoTable({
+    startY: y,
+    head: [['Status', 'Count', '% of Total']],
+    body: ['open','assigned','pending','accepted','rejected'].map(k => [
+      STATUSES[k]?.label || k,
+      sc[k],
+      total ? Math.round(100 * sc[k] / total) + '%' : '0%'
+    ]),
+    headStyles: { fillColor: NAVY, textColor: WHITE, fontSize: 9 },
+    bodyStyles: { fontSize: 9 },
+    alternateRowStyles: { fillColor: [245, 247, 250] },
+    margin: { left: 14, right: 14 },
+    theme: 'grid',
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  // Discipline breakdown
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...NAVY);
+  doc.text('Discipline Breakdown', 14, y);
+  y += 5;
+  doc.autoTable({
+    startY: y,
+    head: [['Discipline', 'Total', 'Open', 'Closed', '% Done']],
+    body: DISCIPLINES.map(d => {
+      const ds = snags.filter(s => s.discipline === d);
+      const dOpen   = ds.filter(s => s.status === 'open' || s.status === 'assigned').length;
+      const dClosed = ds.filter(s => s.status === 'accepted').length;
+      const dPct    = ds.length ? Math.round(100 * dClosed / ds.length) : 0;
+      return [d, ds.length, dOpen, dClosed, dPct + '%'];
+    }),
+    headStyles: { fillColor: NAVY, textColor: WHITE, fontSize: 9 },
+    bodyStyles: { fontSize: 9 },
+    alternateRowStyles: { fillColor: [245, 247, 250] },
+    margin: { left: 14, right: 14 },
+    theme: 'grid',
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  // Contractor summary
+  const coRows = db.companies.map(c => {
+    const cs = snags.filter(s => s.assignedTo === c.id);
+    if (!cs.length) return null;
+    return [c.name, cs.length, cs.filter(s => s.status==='open'||s.status==='assigned').length, cs.filter(s=>s.status==='accepted').length, cs.filter(s=>s.status==='pending').length];
+  }).filter(Boolean);
+  if (coRows.length) {
+    if (y > 220) { doc.addPage(); _pdfPageHeader(doc, projName, W, NAVY, WHITE); y = 32; }
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...NAVY);
+    doc.text('Contractor Summary', 14, y);
+    y += 5;
+    doc.autoTable({
+      startY: y,
+      head: [['Contractor', 'Total', 'Open', 'Closed', 'Pending']],
+      body: coRows,
+      headStyles: { fillColor: NAVY, textColor: WHITE, fontSize: 9 },
+      bodyStyles: { fontSize: 9 },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { left: 14, right: 14 },
+      theme: 'grid',
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  }
+
+  // ── FULL SNAG REGISTER PAGE ──
+  doc.addPage();
+  _pdfPageHeader(doc, projName, W, NAVY, WHITE);
+  y = 32;
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...NAVY);
+  doc.text('Snag Register', 14, y);
+  y += 5;
+  doc.autoTable({
+    startY: y,
+    head: [['No','Date','Discipline','Component','Building','Floor','Contractor','Status']],
+    body: snags.map(s => [
+      s.number || '',
+      new Date(s.createdAt).toLocaleDateString('en-GB'),
+      s.discipline || '',
+      s.title || '',
+      s.building || '',
+      s.floor || '',
+      coName(s.assignedTo),
+      STATUSES[s.status]?.label || s.status,
+    ]),
+    headStyles: { fillColor: NAVY, textColor: WHITE, fontSize: 8 },
+    bodyStyles: { fontSize: 8 },
+    alternateRowStyles: { fillColor: [245, 247, 250] },
+    columnStyles: {
+      0: { cellWidth: 10 },
+      1: { cellWidth: 18 },
+      2: { cellWidth: 24 },
+      3: { cellWidth: 34 },
+      4: { cellWidth: 18 },
+      5: { cellWidth: 14 },
+      6: { cellWidth: 22 },
+      7: { cellWidth: 22 },
+    },
+    margin: { left: 14, right: 14 },
+    theme: 'grid',
+    didParseCell: (data) => {
+      if (data.section === 'body') {
+        const status = snags[data.row.index]?.status;
+        if (status === 'accepted') data.cell.styles.textColor = [21, 128, 61];
+        else if (status === 'open') data.cell.styles.textColor = [220, 38, 38];
+        else if (status === 'assigned') data.cell.styles.textColor = [29, 78, 216];
+      }
+    }
+  });
+
+  // ── SNAG DETAIL PAGES (with photos) ──
+  if (includePhotos) {
+    for (const snag of snags) {
+      doc.addPage();
+      _pdfPageHeader(doc, projName, W, NAVY, WHITE);
+      let sy = 28;
+
+      // Snag header bar
+      doc.setFillColor(245, 247, 250);
+      doc.rect(14, sy, W - 28, 14, 'F');
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...NAVY);
+      doc.text(`#${snag.number || ''} — ${snag.title || ''}`, 18, sy + 9);
+      sy += 18;
+
+      // Meta row
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+      const meta = [
+        snag.discipline || '',
+        snag.subsystem  || '',
+        [snag.building, snag.floor, snag.room].filter(Boolean).join(' › '),
+        coName(snag.assignedTo) || '',
+        STATUSES[snag.status]?.label || snag.status,
+        new Date(snag.createdAt).toLocaleDateString('en-GB'),
+      ].filter(Boolean).join('  ·  ');
+      doc.text(doc.splitTextToSize(meta, W - 28), 14, sy);
+      sy += 8;
+
+      // Description
+      if (snag.description) {
+        doc.setFontSize(9);
+        doc.setTextColor(15, 23, 42);
+        const descLines = doc.splitTextToSize(snag.description, W - 28);
+        doc.text(descLines, 14, sy);
+        sy += descLines.length * 4.5 + 4;
+      }
+
+      // Photos side by side
+      const hasOpen = !!snag.photo;
+      const hasRect = !!snag.rectification?.photo;
+      const photoAreaW = (W - 28 - (hasOpen && hasRect ? 6 : 0)) / (hasOpen && hasRect ? 2 : 1);
+      const photoH = Math.min(65, H - sy - 30);
+
+      if (hasOpen) {
+        try {
+          const fmt = snag.photo.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+          doc.addImage(snag.photo, fmt, 14, sy, photoAreaW, photoH);
+          doc.setFontSize(7);
+          doc.setTextColor(100, 116, 139);
+          doc.text('Opening Photo', 14, sy + photoH + 4);
+        } catch(e) {}
+      }
+      if (hasRect) {
+        const rx = hasOpen ? 14 + photoAreaW + 6 : 14;
+        try {
+          const fmt = snag.rectification.photo.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+          doc.addImage(snag.rectification.photo, fmt, rx, sy, photoAreaW, photoH);
+          doc.setFontSize(7);
+          doc.setTextColor(100, 116, 139);
+          doc.text('Closing Photo', rx, sy + photoH + 4);
+        } catch(e) {}
+      }
+    }
+  }
+
+  // ── PAGE NUMBERS ──
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Page ${i} of ${totalPages}`, W - 14, H - 8, { align: 'right' });
+    doc.text('SiteSnag — Construction Inspection', 14, H - 8);
+  }
+
+  doc.save(`SiteSnag_Report_${new Date().toISOString().slice(0,10)}.pdf`);
+}
+
+function _pdfPageHeader(doc, projName, W, NAVY, WHITE) {
+  doc.setFillColor(...NAVY);
+  doc.rect(0, 0, W, 20, 'F');
+  doc.setTextColor(...WHITE);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SiteSnag', 14, 13);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(180, 195, 220);
+  doc.text(projName, W - 14, 13, { align: 'right' });
+}
 
 // ── ACTIONS ────────────────────────────────────────────────────────────────────
 function setFilter(f) { S.filter = f; render(); }
