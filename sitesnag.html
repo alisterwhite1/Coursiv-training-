@@ -1311,7 +1311,7 @@ function viewSnagList() {
             <div class="snag-meta">
               ${badge(s.status)}
               ${s.discipline ? `<span class="snag-co" style="color:var(--blue)">${esc(s.discipline)}${s.subsystem?` › ${esc(s.subsystem)}`:''}</span>` : ''}
-              ${s.building||s.floor||s.room ? `<span class="snag-co">${[s.building?`Bldg ${s.building}`:'',s.floor?`Fl ${s.floor}`:'',s.room?`Rm ${s.room}`:''].filter(Boolean).join(' · ')}</span>` : ''}
+              ${s.building||s.floor||s.room ? `<span class="snag-co">${[s.building?`${esc(s.building)}${s.buildingName?` (${esc(s.buildingName)})`:''}`:'',s.floor?`Fl ${esc(s.floor)}`:'',s.room?`Rm ${esc(s.room)}`:''].filter(Boolean).join(' · ')}</span>` : ''}
               <span class="snag-co">${esc(coName(s.assignedTo))}</span>
             </div>
           </div>
@@ -2104,9 +2104,10 @@ function _snagToRow(s) {
     s.discipline || '',
     s.subsystem  || '',
     s.title      || '',
-    s.building   || '',
-    s.floor      || '',
-    s.room       || '',
+    s.building      || '',
+    s.buildingName  || '',
+    s.floor         || '',
+    s.room          || '',
     coName(s.assignedTo),
     (STATUSES[s.status]?.label || s.status),
     s.description|| '',
@@ -2118,7 +2119,7 @@ function _snagToRow(s) {
 
 function doExportCSV() {
   const snags = _getExportSnags();
-  const headers = ['Snag No','Date Raised','Discipline','Subsystem','Component Snagged','Building','Floor','Room','Contractor','Status','Description','Date Closed','Closed By','GPS Coordinates'];
+  const headers = ['Snag No','Date Raised','Discipline','Subsystem','Component Snagged','Building Code','Building Name','Floor','Room','Contractor','Status','Description','Date Closed','Closed By','GPS Coordinates'];
   const rows = [headers, ...snags.map(_snagToRow)];
   const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -2154,7 +2155,7 @@ function doExportExcel() {
     ['Completion', pct + '%'],
   ];
 
-  const headers = ['Snag No','Date Raised','Discipline','Subsystem','Component Snagged','Building','Floor','Room','Contractor','Status','Description','Date Closed','Closed By','GPS Coordinates'];
+  const headers = ['Snag No','Date Raised','Discipline','Subsystem','Component Snagged','Building Code','Building Name','Floor','Room','Contractor','Status','Description','Date Closed','Closed By','GPS Coordinates'];
   const registerData = [headers, ...snags.map(_snagToRow)];
 
   const wb = XLSX.utils.book_new();
@@ -2165,10 +2166,10 @@ function doExportExcel() {
 
   const wsReg = XLSX.utils.aoa_to_sheet(registerData);
   wsReg['!cols'] = [
-    {wch:8},{wch:14},{wch:14},{wch:16},{wch:22},{wch:12},{wch:12},{wch:12},
+    {wch:8},{wch:14},{wch:14},{wch:16},{wch:22},{wch:12},{wch:22},{wch:12},{wch:12},
     {wch:16},{wch:14},{wch:36},{wch:14},{wch:18},{wch:22}
   ];
-  wsReg['!autofilter'] = { ref: `A1:N1` };
+  wsReg['!autofilter'] = { ref: `A1:O1` };
   XLSX.utils.book_append_sheet(wb, wsReg, 'Snag Register');
 
   XLSX.writeFile(wb, `SiteSnag_Export_${new Date().toISOString().slice(0,10)}.xlsx`);
@@ -2461,13 +2462,14 @@ async function _doExportPDFInner() {
   y += 5;
   doc.autoTable({
     startY: y,
-    head: [['No','Date','Discipline','Component','Building','Floor','Contractor','Status']],
+    head: [['No','Date','Discipline','Component','Building','Building Name','Floor','Contractor','Status']],
     body: snags.map(s => [
       s.number || '',
       new Date(s.createdAt).toLocaleDateString('en-GB'),
       s.discipline || '',
       s.title || '',
       s.building || '',
+      s.buildingName || '',
       s.floor || '',
       coName(s.assignedTo),
       STATUSES[s.status]?.label || s.status,
@@ -2477,13 +2479,14 @@ async function _doExportPDFInner() {
     alternateRowStyles: { fillColor: [245, 247, 250] },
     columnStyles: {
       0: { cellWidth: 10 },
-      1: { cellWidth: 18 },
-      2: { cellWidth: 24 },
-      3: { cellWidth: 34 },
-      4: { cellWidth: 18 },
-      5: { cellWidth: 14 },
-      6: { cellWidth: 22 },
-      7: { cellWidth: 22 },
+      1: { cellWidth: 16 },
+      2: { cellWidth: 20 },
+      3: { cellWidth: 28 },
+      4: { cellWidth: 12 },
+      5: { cellWidth: 26 },
+      6: { cellWidth: 12 },
+      7: { cellWidth: 20 },
+      8: { cellWidth: 18 },
     },
     margin: { left: 14, right: 14 },
     theme: 'grid',
@@ -2520,7 +2523,7 @@ async function _doExportPDFInner() {
       const meta = [
         snag.discipline || '',
         snag.subsystem  || '',
-        [snag.building, snag.floor, snag.room].filter(Boolean).join(' › '),
+        [snag.building + (snag.buildingName ? ` (${snag.buildingName})` : ''), snag.floor, snag.room].filter(Boolean).join(' › '),
         coName(snag.assignedTo) || '',
         STATUSES[snag.status]?.label || snag.status,
         new Date(snag.createdAt).toLocaleDateString('en-GB'),
@@ -2878,7 +2881,7 @@ function viewLocations() {
               ? `<input type="text" id="edit_bldg_${b.id}" value="${esc(b.building)}" style="flex:1;padding:.4rem .6rem;border:2px solid var(--blue);border-radius:8px;font-size:.95rem;font-family:inherit" />
                  <button class="btn btn-primary" style="padding:.3rem .7rem;font-size:.8rem" data-fn="saveBuilding" data-a1="${b.id}">Save</button>
                  <button class="btn" style="padding:.3rem .7rem;font-size:.8rem" data-fn="cancelEdit">Cancel</button>`
-              : `<strong style="font-size:1.05rem;flex:1">🏗 ${esc(b.building)}</strong>
+              : `<strong style="font-size:1.05rem;flex:1">🏗 ${esc(b.building)}${b.buildingName?`<span style="font-weight:400;font-size:.85rem;color:var(--soft)"> — ${esc(b.buildingName)}</span>`:''}</strong>
                  <button class="btn" style="background:var(--blue-bg);color:var(--blue);padding:.3rem .7rem;font-size:.8rem" data-fn="startEditBuilding" data-a1="${b.id}">Edit</button>
                  <button class="btn" style="background:var(--red-bg);color:var(--red);padding:.3rem .7rem;font-size:.8rem" data-fn="deleteBuilding" data-a1="${b.id}">Delete</button>`}
           </div>
