@@ -563,6 +563,60 @@ async function pushToSupabase() {
   }
 }
 
+// ── CLOUDFLARE R2 PHOTO UPLOAD ─────────────────────────────────────────────────
+const R2_ENDPOINT   = 'https://3a326bcdee249cc88cd07e68cc06b1c4.r2.cloudflarestorage.com';
+const R2_BUCKET     = 'sitesnag-photos';
+const R2_ACCESS_KEY = '4dcbbc6314ea8025f2303b94e8d103ee';
+const R2_SECRET_KEY = '6dfddb8c727c16fc45736dc53ec219965053b2869167885060c94488cd3a20db';
+let   R2_PUBLIC_URL = ''; // set after enabling r2.dev subdomain in Cloudflare dashboard
+
+async function _sha256Hex(data) {
+  const buf = await crypto.subtle.digest('SHA-256', typeof data === 'string' ? new TextEncoder().encode(data) : data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+async function _hmacSha256(keyData, message) {
+  const k = await crypto.subtle.importKey('raw',
+    typeof keyData === 'string' ? new TextEncoder().encode(keyData) : keyData,
+    { name:'HMAC', hash:'SHA-256' }, false, ['sign']);
+  return crypto.subtle.sign('HMAC', k, typeof message === 'string' ? new TextEncoder().encode(message) : message);
+}
+async function _hmacSha256Hex(keyData, message) {
+  return Array.from(new Uint8Array(await _hmacSha256(keyData, message))).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function uploadPhotoToR2(dataUrl, path) {
+  if (!R2_PUBLIC_URL) return null; // R2 not yet configured with public URL
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
+    const contentType = 'image/jpeg';
+    const now = new Date();
+    const dateStamp = now.toISOString().slice(0,10).replace(/-/g,'');
+    const amzDate   = now.toISOString().replace(/[:-]|\.\d{3}/g,'');
+    const payloadHash = await _sha256Hex(await blob.arrayBuffer());
+    const host = R2_ENDPOINT.replace('https://','');
+    const canonHeaders = `content-type:${contentType}\nhost:${host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${amzDate}\n`;
+    const signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
+    const canonRequest = `PUT\n/${R2_BUCKET}/${path}\n\n${canonHeaders}\n${signedHeaders}\n${payloadHash}`;
+    const credScope = `${dateStamp}/auto/s3/aws4_request`;
+    const strToSign = `AWS4-HMAC-SHA256\n${amzDate}\n${credScope}\n${await _sha256Hex(new TextEncoder().encode(canonRequest))}`;
+    const sigKey = await _hmacSha256(
+      await _hmacSha256(await _hmacSha256(await _hmacSha256('AWS4'+R2_SECRET_KEY, dateStamp), 'auto'), 's3'),
+      'aws4_request');
+    const signature = await _hmacSha256Hex(sigKey, strToSign);
+    const auth = `AWS4-HMAC-SHA256 Credential=${R2_ACCESS_KEY}/${credScope},SignedHeaders=${signedHeaders},Signature=${signature}`;
+    const resp = await fetch(`${R2_ENDPOINT}/${R2_BUCKET}/${path}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': contentType, 'x-amz-date': amzDate, 'x-amz-content-sha256': payloadHash, 'Authorization': auth },
+      body: blob
+    });
+    if (!resp.ok) throw new Error(resp.status);
+    return `${R2_PUBLIC_URL}/${path}`;
+  } catch(e) {
+    console.warn('R2 upload failed, keeping base64:', e.message);
+    return null;
+  }
+}
+
 async function pullFromSupabase() {
   const cl = supaClient();
   if (!cl) { alert('Supabase library not ready. Please wait a moment and try again.'); return; }
@@ -2543,6 +2597,15 @@ function _pdfPageHeader(doc, projName, W, NAVY, WHITE) {
 }
 
 // ── ACTIONS ────────────────────────────────────────────────────────────────────
+function saveR2Url() {
+  const v = document.getElementById('r2_public_url')?.value.trim().replace(/\/+$/,'');
+  if (v && !v.startsWith('https://')) { alert('URL must start with https://'); return; }
+  R2_PUBLIC_URL = v || '';
+  if (storageOK) localStorage.setItem('sitesnag_r2url', R2_PUBLIC_URL);
+  render();
+  alert(R2_PUBLIC_URL ? '✓ R2 photo upload enabled. New photos will upload to Cloudflare.' : 'R2 URL cleared — photos will store in Supabase.');
+}
+
 function setFilter(f) { S.filter = f; render(); }
 function selectProject(id) { S.projectId = id; S.filter = 'all'; go('snag-list'); }
 
@@ -2570,11 +2633,21 @@ function deleteCo(id) {
 
 async function handlePhoto(input) {
   const f = input.files[0]; if (!f) return;
-  snap(); S.fd.photo = await resizePhoto(f); render();
+  snap();
+  const base64 = await resizePhoto(f);
+  const path = `${S.projectId||'p'}/${Date.now()}_open.jpg`;
+  const r2url = await uploadPhotoToR2(base64, path);
+  S.fd.photo = r2url || base64;
+  render();
 }
 async function handleRectPhoto(input) {
   const f = input.files[0]; if (!f) return;
-  snap(); S.fd.rectPhoto = await resizePhoto(f); render();
+  snap();
+  const base64 = await resizePhoto(f);
+  const path = `${S.projectId||'p'}/${Date.now()}_close.jpg`;
+  const r2url = await uploadPhotoToR2(base64, path);
+  S.fd.rectPhoto = r2url || base64;
+  render();
 }
 
 function saveSnag() {
@@ -2829,6 +2902,20 @@ function viewLocations() {
     </div>
 
     <div class="card card-body" style="margin-bottom:.75rem">
+      <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">📸 Photo Storage (Cloudflare R2)</div>
+      <div style="font-size:.82rem;color:var(--soft);margin-bottom:.75rem;line-height:1.5">
+        Paste your R2 public URL to enable direct photo uploads to Cloudflare R2.
+        Until set, photos are stored in the Supabase database.
+      </div>
+      <div style="display:flex;gap:.5rem;align-items:center">
+        <input type="url" id="r2_public_url" placeholder="https://pub-XXXX.r2.dev"
+          value="${esc(R2_PUBLIC_URL)}" style="flex:1;padding:.5rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
+        <button class="btn btn-primary" style="white-space:nowrap" data-fn="saveR2Url">Save</button>
+      </div>
+      ${R2_PUBLIC_URL ? `<div style="font-size:.8rem;color:var(--green);margin-top:.4rem;font-weight:600">✓ R2 photo upload active</div>` : `<div style="font-size:.8rem;color:var(--muted);margin-top:.4rem">Not yet configured — photos stored in Supabase</div>`}
+    </div>
+
+    <div class="card card-body" style="margin-bottom:.75rem">
       <div style="font-weight:700;font-size:1rem;margin-bottom:.75rem">☁️ Cloud Sync</div>
       <div style="font-size:.82rem;color:var(--soft);margin-bottom:.75rem;line-height:1.5">
         Push your data to the cloud so all users on all devices share the same snags, companies, and configuration.
@@ -3065,6 +3152,7 @@ function importData(input) {
 }
 
 // ── INIT ───────────────────────────────────────────────────────────────────────
+if (storageOK) { const r2 = localStorage.getItem('sitesnag_r2url'); if (r2) R2_PUBLIC_URL = r2; }
 loadDB();
 loadState();
 if (!storageOK) showStorageWarning();
