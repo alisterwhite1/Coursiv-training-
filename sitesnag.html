@@ -1590,30 +1590,32 @@ function viewReports() {
   // ── DISCIPLINE BREAKDOWN ──
   const discRows = DISCIPLINES.map(d => {
     const ds = allSnags.filter(s => s.discipline === d);
-    if (!ds.length) return null;
     const dOpen   = ds.filter(s => s.status === 'open' || s.status === 'assigned').length;
     const dClosed = ds.filter(s => s.status === 'accepted').length;
-    const dPct    = Math.round(100 * dClosed / ds.length);
-    const subs = [...new Set(ds.map(s => s.subsystem).filter(Boolean))].sort();
+    const dPct    = ds.length ? Math.round(100 * dClosed / ds.length) : 0;
+    const configSubs = (db.subsystems||[]).filter(s => s.discipline === d).map(s => s.name);
+    const activeSubs = [...new Set(ds.map(s => s.subsystem).filter(Boolean))].sort();
+    const subDisplay = configSubs.length ? configSubs.map(s => {
+      const active = activeSubs.includes(s);
+      return `<span style="color:${active?'var(--text)':'var(--muted)'}">${esc(s)}</span>`;
+    }).join(', ') : '<span style="color:var(--muted)">None configured</span>';
     return `<tr>
       <td style="font-weight:600">${esc(d)}</td>
       <td style="text-align:center">${ds.length}</td>
-      <td style="text-align:center;color:var(--amber);font-weight:700">${dOpen}</td>
-      <td style="text-align:center;color:var(--green);font-weight:700">${dClosed}</td>
+      <td style="text-align:center;color:var(--amber);font-weight:700">${dOpen||'·'}</td>
+      <td style="text-align:center;color:var(--green);font-weight:700">${dClosed||'·'}</td>
       <td style="text-align:center">${dPct}%</td>
-      <td style="font-size:.78rem;color:var(--soft)">${subs.length ? subs.map(s=>esc(s)).join(', ') : '—'}</td>
+      <td style="font-size:.78rem">${subDisplay}</td>
     </tr>`;
-  }).filter(Boolean).join('');
-  const disciplineTable = discRows
-    ? `<div style="overflow-x:auto"><table class="rpt-table">
-        <thead><tr>
-          <th>Discipline</th><th style="text-align:center">Total</th>
-          <th style="text-align:center">Open</th><th style="text-align:center">Closed</th>
-          <th style="text-align:center">% Done</th><th>Subsystems active</th>
-        </tr></thead>
-        <tbody>${discRows}</tbody>
-      </table></div>`
-    : '<div class="empty" style="padding:1rem"><p style="font-size:.85rem">No discipline data yet.</p></div>';
+  }).join('');
+  const disciplineTable = `<div style="overflow-x:auto"><table class="rpt-table">
+      <thead><tr>
+        <th>Discipline</th><th style="text-align:center">Total</th>
+        <th style="text-align:center">Open</th><th style="text-align:center">Closed</th>
+        <th style="text-align:center">% Done</th><th>Subsystems</th>
+      </tr></thead>
+      <tbody>${discRows}</tbody>
+    </table></div>`;
 
   // ── LOCATION HEATMAP ──
   // Use configured locations as the primary source; fall back to snag data if no locations configured
@@ -2109,6 +2111,19 @@ function viewLocations() {
         </div>`;
       }).join('')}
     </div>
+
+    <div class="card card-body" style="margin-bottom:.75rem">
+      <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">💾 Data Backup &amp; Restore</div>
+      <div style="font-size:.82rem;color:var(--soft);margin-bottom:.75rem;line-height:1.5">
+        Export saves all snags, locations, companies, users and configuration to a JSON file on your device.
+        Import replaces all current data with the backup file. <strong>Always export before clearing browser data.</strong>
+      </div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button class="btn btn-primary" style="flex:1;min-width:120px" data-fn="exportData">⬇ Export Backup</button>
+        <label class="btn btn-outline" style="flex:1;min-width:120px;text-align:center;cursor:pointer" for="importFile">⬆ Import Backup</label>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(this)" />
+      </div>
+    </div>
     </div>` + navBar('locations');
 }
 
@@ -2243,6 +2258,33 @@ function deleteSubsystem(id) {
   if (!confirm('Remove this subsystem?')) return;
   db.subsystems = db.subsystems.filter(s => s.id !== id);
   saveDB(); render();
+}
+
+function exportData() {
+  const ts = new Date().toISOString().slice(0,10);
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `sitesnag-backup-${ts}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importData(input) {
+  const f = input.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!imported.snags || !imported.projects) { alert('Invalid backup file.'); return; }
+      if (!confirm(`This will replace ALL current data with the backup (${imported.snags.length} snags, ${imported.projects.length} projects). Continue?`)) return;
+      db = { projects:[], companies:[], snags:[], users:[], locations:[], subsystems:[], ...imported };
+      saveDB(); render();
+      alert('Data restored successfully.');
+    } catch { alert('Could not read backup file — it may be corrupted.'); }
+  };
+  reader.readAsText(f);
+  input.value = '';
 }
 
 // ── INIT ───────────────────────────────────────────────────────────────────────
