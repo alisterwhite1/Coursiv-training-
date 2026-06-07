@@ -2177,6 +2177,15 @@ function doExportExcel() {
 
 async function doExportPDF() {
   if (!window.jspdf) { alert('PDF library not loaded yet. Please wait a moment and try again.'); return; }
+  try {
+    await _doExportPDFInner();
+  } catch(e) {
+    alert('PDF export failed: ' + (e.message || e) + '\n\nPlease try again or contact support.');
+    console.error('PDF export error:', e);
+  }
+}
+
+async function _doExportPDFInner() {
   const snags = _getExportSnags();
   const includePhotos = document.getElementById('exp_photos')?.checked !== false;
   const photoSnags = snags.filter(s => s.photo || s.rectification?.photo);
@@ -2571,7 +2580,7 @@ async function doExportPDF() {
   }
 
   doc.save(`SiteSnag_Report_${_now.toISOString().slice(0,10)}_${_now.toTimeString().slice(0,5).replace(':','')}.pdf`);
-}
+} // end _doExportPDFInner
 
 function _drawPieCanvas(data, size) {
   try {
