@@ -1,8 +1,16 @@
+require('dotenv').config();
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const Anthropic = require('@anthropic-ai/sdk');
+
+if (!process.env.ANTHROPIC_API_KEY) {
+  console.error('\n  ❌  ANTHROPIC_API_KEY is not set.');
+  console.error('  Add it to a .env file in this folder:');
+  console.error('\n      ANTHROPIC_API_KEY=sk-ant-...\n');
+  process.exit(1);
+}
 
 const app = express();
 const upload = multer({ dest: 'uploads/', limits: { fileSize: 20 * 1024 * 1024 } });
