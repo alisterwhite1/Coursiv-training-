@@ -206,9 +206,9 @@
     </div>
     <div class="key-hint">
       Get an API key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> (usage is billed per request).
-      Your key is saved only in this browser — never sent anywhere except directly to Anthropic.
+      Your key is saved only in this browser &mdash; never sent anywhere except directly to Anthropic.
     </div>
-    <div id="keySaved">&#10003; Key saved</div>
+    <div id="keySaved">&check; Key saved</div>
   </div>
 
   <!-- Upload -->
@@ -262,9 +262,11 @@
 
 </div>
 <script>
+  // PDF.js worker
   pdfjsLib.GlobalWorkerOptions.workerSrc =
     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+  // API key persistence
   const keyInput = document.getElementById('apiKeyInput');
   const saved = localStorage.getItem('anthropic_api_key');
   if (saved) { keyInput.value = saved; document.getElementById('keySaved').style.display = 'block'; }
@@ -282,6 +284,7 @@
   });
   keyInput.addEventListener('keydown', e => { if (e.key === 'Enter') saveKey(); });
 
+  // File handling
   const submittedInput = document.getElementById('submittedFile');
   const specInput      = document.getElementById('specFile');
 
@@ -304,14 +307,17 @@
   });
 
   function updateBtn() {
-    const hasKey   = keyInput.value.trim().length > 0;
+    const hasKey  = keyInput.value.trim().length > 0;
     const hasFiles = submittedInput.files.length && specInput.files.length;
     document.getElementById('submitBtn').disabled = !(hasKey && hasFiles);
   }
 
+  // Text extraction
   async function extractText(file) {
     const name = file.name.toLowerCase();
-    if (name.endsWith('.txt')) return file.text();
+    if (name.endsWith('.txt')) {
+      return file.text();
+    }
     if (name.endsWith('.pdf')) {
       const buf  = await file.arrayBuffer();
       const pdf  = await pdfjsLib.getDocument({ data: buf }).promise;
@@ -324,13 +330,14 @@
       return text;
     }
     if (name.endsWith('.docx') || name.endsWith('.doc')) {
-      const buf    = await file.arrayBuffer();
+      const buf = await file.arrayBuffer();
       const result = await mammoth.extractRawText({ arrayBuffer: buf });
       return result.value;
     }
     throw new Error('Unsupported file type: ' + file.name);
   }
 
+  // Main check
   async function runCheck() {
     const apiKey = keyInput.value.trim();
     document.getElementById('errorBox').innerHTML = '';
@@ -355,15 +362,33 @@
 
     setStatus('<span class="spinner"></span> Analysing compliance with AI…');
 
-    const prompt = `You are a compliance auditor. Compare a submitted document against a specification and produce a detailed compliance report.\n\n## Specification Document\n${specText}\n\n## Submitted Document\n${submittedText}\n\n## Your Task\nAnalyse the submitted document against every requirement in the specification. Produce a structured report with:\n\n1. **Overall Compliance Summary** — Verdict (Compliant / Partially Compliant / Non-Compliant) with a short paragraph.\n2. **Compliance Score** — A percentage (0–100%) with brief justification.\n3. **Requirements Met** — Bullet list of satisfied requirements, referencing relevant sections.\n4. **Requirements Not Met** — Bullet list of missing or inadequate requirements, explaining what is missing.\n5. **Partial Compliance** — Requirements partially addressed, with guidance on what needs to change.\n6. **Recommendations** — Prioritised action items to reach full compliance.\n\nBe specific, referencing actual content from both documents.`;
+    const prompt = `You are a compliance auditor. Compare a submitted document against a specification and produce a detailed compliance report.
+
+## Specification Document
+${specText}
+
+## Submitted Document
+${submittedText}
+
+## Your Task
+Analyse the submitted document against every requirement in the specification. Produce a structured report with:
+
+1. **Overall Compliance Summary** — Verdict (Compliant / Partially Compliant / Non-Compliant) with a short paragraph.
+2. **Compliance Score** — A percentage (0–100%) with brief justification.
+3. **Requirements Met** — Bullet list of satisfied requirements, referencing relevant sections.
+4. **Requirements Not Met** — Bullet list of missing or inadequate requirements, explaining what is missing.
+5. **Partial Compliance** — Requirements partially addressed, with guidance on what needs to change.
+6. **Recommendations** — Prioritised action items to reach full compliance.
+
+Be specific, referencing actual content from both documents.`;
 
     try {
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
-          'Content-Type':      'application/json',
-          'x-api-key':         apiKey,
-          'anthropic-version': '2023-06-01',
+          'Content-Type':         'application/json',
+          'x-api-key':            apiKey,
+          'anthropic-version':    '2023-06-01',
           'anthropic-dangerous-direct-browser-access': 'true'
         },
         body: JSON.stringify({
@@ -375,7 +400,7 @@
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        const msg = err?.error?.message || 'HTTP ' + res.status;
+        const msg = err && err.error && err.error.message ? err.error.message : 'HTTP ' + res.status;
         if (res.status === 401) throw new Error('Invalid API key. Check the key you entered.');
         throw new Error(msg);
       }
@@ -389,11 +414,13 @@
     }
   }
 
-  function setStatus(html) { document.getElementById('status').innerHTML = html; }
+  function setStatus(html) {
+    document.getElementById('status').innerHTML = html;
+  }
 
   function showError(msg) {
     setStatus('');
-    document.getElementById('errorBox').innerHTML = '<div class="error-box">&#9888;&#65039; ' + msg + '</div>';
+    document.getElementById('errorBox').innerHTML = '<div class="error-box">⚠️ ' + msg + '</div>';
     document.getElementById('submitBtn').disabled = false;
   }
 
@@ -414,7 +441,7 @@
     const lower = text.toLowerCase();
     let verdict = 'Unknown', cls = '';
     if (lower.includes('non-compliant') || lower.includes('noncompliant')) {
-      verdict = 'Non-Compliant';       cls = 'verdict-noncompliant';
+      verdict = 'Non-Compliant';      cls = 'verdict-noncompliant';
     } else if (lower.includes('partially compliant') || lower.includes('partial compliance')) {
       verdict = 'Partially Compliant'; cls = 'verdict-partial';
     } else if (lower.includes('compliant')) {
@@ -434,8 +461,8 @@
       arc.style.strokeDashoffset = offset;
       arc.style.stroke = color;
       const st = document.getElementById('scoreText');
-      st.textContent = score + '%';
-      st.style.color = color;
+      st.textContent  = score + '%';
+      st.style.color  = color;
     }
 
     document.getElementById('reportBody').innerHTML = mdToHtml(text);
