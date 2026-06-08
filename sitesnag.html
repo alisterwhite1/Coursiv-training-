@@ -630,6 +630,7 @@ async function pullFromSupabase() {
     db = { projects: [], companies: [], snags: [], users: [], locations: [], subsystems: [], splashConfig: { projectImage: null, logos: [] }, ...data.data };
     if (!db.subsystems) db.subsystems = [];
     if (!db.splashConfig) db.splashConfig = { projectImage: null, logos: [] };
+    if (db.settings?.r2PublicUrl) { R2_PUBLIC_URL = db.settings.r2PublicUrl; if (storageOK) localStorage.setItem('sitesnag_r2url', R2_PUBLIC_URL); }
     if (storageOK) localStorage.setItem(DB_KEY, JSON.stringify(db));
     _syncStatus = 'ok';
     _syncMsg = '';
@@ -2626,6 +2627,9 @@ function saveR2Url() {
   if (v && !v.startsWith('https://')) { alert('URL must start with https://'); return; }
   R2_PUBLIC_URL = v || '';
   if (storageOK) localStorage.setItem('sitesnag_r2url', R2_PUBLIC_URL);
+  if (!db.settings) db.settings = {};
+  db.settings.r2PublicUrl = R2_PUBLIC_URL;
+  saveDB();
   render();
   alert(R2_PUBLIC_URL ? '✓ R2 photo upload enabled. New photos will upload to Cloudflare.' : 'R2 URL cleared — photos will store in Supabase.');
 }
@@ -3206,6 +3210,8 @@ function importData(input) {
 // ── INIT ───────────────────────────────────────────────────────────────────────
 if (storageOK) { const r2 = localStorage.getItem('sitesnag_r2url'); if (r2) R2_PUBLIC_URL = r2; }
 loadDB();
+// R2 URL also stored in db.settings so it syncs via Supabase — override localStorage if db has a value
+if (db.settings?.r2PublicUrl) { R2_PUBLIC_URL = db.settings.r2PublicUrl; if (storageOK) localStorage.setItem('sitesnag_r2url', R2_PUBLIC_URL); }
 loadState();
 if (!storageOK) showStorageWarning();
 
