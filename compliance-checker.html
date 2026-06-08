@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Compliance Checker</title>
+  <!-- PDF parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- Word (.docx) parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:        #2563eb;
+      --blue-dark:   #1d4ed8;
+      --blue-light:  #dbeafe;
+      --blue-xlight: #eff6ff;
+      --green:       #16a34a;
+      --green-light: #dcfce7;
+      --amber:       #d97706;
+      --amber-light: #fef3c7;
+      --red:         #dc2626;
+      --red-light:   #fee2e2;
+      --bg:          #f8fafc;
+      --card:        #ffffff;
+      --border:      #e2e8f0;
+      --text:        #0f172a;
+      --muted:       #64748b;
+      --radius:      10px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .container { max-width: 860px; margin: 0 auto; }
+
+    header { text-align: center; margin-bottom: 2rem; }
+    header h1 { font-size: 2rem; font-weight: 700; color: var(--blue-dark); }
+    header p { margin-top: .5rem; color: var(--muted); font-size: 1rem; }
+
+    /* API key banner */
+    #keySection {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.75rem;
+    }
+    #keySection label { display: block; font-size: .85rem; font-weight: 600; margin-bottom: .5rem; }
+    #keySection .row { display: flex; gap: .75rem; align-items: center; }
+    #apiKeyInput {
+      flex: 1; padding: .6rem .85rem;
+      border: 1px solid var(--border); border-radius: 7px;
+      font-size: .9rem; font-family: monospace;
+      background: var(--bg);
+    }
+    #apiKeyInput:focus { outline: 2px solid var(--blue); border-color: transparent; }
+    .save-btn {
+      padding: .6rem 1.1rem; background: var(--blue); color: #fff;
+      border: none; border-radius: 7px; font-size: .85rem; font-weight: 600;
+      cursor: pointer; white-space: nowrap;
+    }
+    .save-btn:hover { background: var(--blue-dark); }
+    .key-hint { font-size: .78rem; color: var(--muted); margin-top: .5rem; }
+    .key-hint a { color: var(--blue); }
+    #keySaved {
+      display: none; font-size: .8rem; color: var(--green);
+      font-weight: 600; margin-top: .4rem;
+    }
+
+    /* Upload cards */
+    .upload-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    @media (max-width: 600px) { .upload-grid { grid-template-columns: 1fr; } }
+
+    .upload-card {
+      background: var(--card);
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      position: relative;
+    }
+    .upload-card:hover, .upload-card.dragover {
+      border-color: var(--blue);
+      background: var(--blue-xlight);
+    }
+    .upload-card.has-file {
+      border-color: var(--green);
+      background: var(--green-light);
+    }
+    .upload-card input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .upload-icon { font-size: 2.5rem; margin-bottom: .75rem; }
+    .upload-card h3 { font-size: .95rem; font-weight: 600; margin-bottom: .35rem; }
+    .upload-card .hint { font-size: .8rem; color: var(--muted); }
+    .badge {
+      display: inline-block; font-size: .7rem; font-weight: 600;
+      padding: .15rem .5rem; border-radius: 99px; margin-bottom: .5rem;
+    }
+    .badge-blue { background: var(--blue-light); color: var(--blue-dark); }
+    .badge-amber { background: var(--amber-light); color: var(--amber); }
+    .file-name {
+      margin-top: .6rem; font-size: .8rem; font-weight: 500;
+      color: var(--green); word-break: break-all;
+    }
+
+    /* Submit */
+    .btn {
+      display: block; width: 100%; padding: .85rem;
+      background: var(--blue); color: #fff;
+      border: none; border-radius: var(--radius);
+      font-size: 1rem; font-weight: 600; cursor: pointer;
+      transition: background .2s;
+    }
+    .btn:hover:not(:disabled) { background: var(--blue-dark); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    #status {
+      margin-top: 1.25rem; text-align: center;
+      font-size: .9rem; color: var(--muted); min-height: 1.5rem;
+    }
+    .spinner {
+      display: inline-block; width: 1.1rem; height: 1.1rem;
+      border: 2px solid var(--border); border-top-color: var(--blue);
+      border-radius: 50%; animation: spin .7s linear infinite;
+      vertical-align: middle; margin-right: .4rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-box {
+      background: var(--red-light); color: var(--red);
+      border: 1px solid #fca5a5; border-radius: var(--radius);
+      padding: 1rem 1.25rem; margin-top: 1rem; font-size: .9rem;
+    }
+
+    /* Results */
+    #result { margin-top: 2rem; display: none; }
+
+    .result-header {
+      display: flex; align-items: center; gap: 1rem;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.25rem 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .score-ring { width: 4rem; height: 4rem; position: relative; flex-shrink: 0; }
+    .score-ring svg { transform: rotate(-90deg); }
+    .score-text {
+      position: absolute; inset: 0; display: flex; align-items: center;
+      justify-content: center; font-weight: 700; font-size: .85rem;
+    }
+    .verdict-badge {
+      padding: .4rem 1rem; border-radius: 99px; font-weight: 700; font-size: .9rem;
+    }
+    .verdict-compliant    { background: var(--green-light); color: var(--green); }
+    .verdict-partial      { background: var(--amber-light); color: var(--amber); }
+    .verdict-noncompliant { background: var(--red-light); color: var(--red); }
+
+    .report-body {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.5rem;
+      line-height: 1.7; font-size: .92rem;
+    }
+    .report-body h2 { font-size: 1.1rem; margin: 1.25rem 0 .5rem; color: var(--blue-dark); }
+    .report-body h2:first-child { margin-top: 0; }
+    .report-body h3 { font-size: 1rem; margin: 1rem 0 .4rem; }
+    .report-body ul { padding-left: 1.4rem; }
+    .report-body li { margin-bottom: .35rem; }
+    .report-body p { margin-bottom: .6rem; }
+
+    .reset-btn {
+      margin-top: 1.5rem; background: transparent; border: 1px solid var(--border);
+      color: var(--muted); border-radius: var(--radius); padding: .65rem;
+      width: 100%; font-size: .85rem; cursor: pointer; transition: background .2s;
+    }
+    .reset-btn:hover { background: var(--border); }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>Compliance Checker</h1>
+    <p>Upload two documents to check whether the submitted document meets the specification.</p>
+  </header>
+
+  <!-- API Key -->
+  <div id="keySection">
+    <label for="apiKeyInput">Anthropic API Key</label>
+    <div class="row">
+      <input type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off" />
+      <button class="save-btn" onclick="saveKey()">Save</button>
+    </div>
+    <div class="key-hint">
+      Get a free key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>.
+      Your key is saved only in this browser — never sent anywhere except directly to Anthropic.
+    </div>
+    <div id="keySaved">✓ Key saved</div>
+  </div>
+
+  <!-- Upload -->
+  <div class="upload-grid">
+    <div class="upload-card" id="submittedCard">
+      <input type="file" id="submittedFile" accept=".pdf,.doc,.docx,.txt" />
+      <div class="upload-icon">📄</div>
+      <div class="badge badge-blue">Submitted Document</div>
+      <h3>Document for Review</h3>
+      <div class="hint">PDF, Word, or TXT</div>
+      <div class="file-name" id="submittedName"></div>
+    </div>
+
+    <div class="upload-card" id="specCard">
+      <input type="file" id="specFile" accept=".pdf,.doc,.docx,.txt" />
+      <div class="upload-icon">📋</div>
+      <div class="badge badge-amber">Specification</div>
+      <h3>Requirements / Specification</h3>
+      <div class="hint">PDF, Word, or TXT</div>
+      <div class="file-name" id="specName"></div>
+    </div>
+  </div>
+
+  <button class="btn" id="submitBtn" disabled onclick="runCheck()">
+    Check Compliance
+  </button>
+
+  <div id="status"></div>
+  <div id="errorBox"></div>
+
+  <!-- Results -->
+  <div id="result">
+    <div class="result-header">
+      <div class="score-ring">
+        <svg width="64" height="64" viewBox="0 0 64 64">
+          <circle cx="32" cy="32" r="26" fill="none" stroke="#e2e8f0" stroke-width="6"/>
+          <circle id="scoreArc" cx="32" cy="32" r="26" fill="none" stroke="#2563eb"
+                  stroke-width="6" stroke-linecap="round"
+                  stroke-dasharray="163.4" stroke-dashoffset="163.4"/>
+        </svg>
+        <div class="score-text" id="scoreText">–</div>
+      </div>
+      <div>
+        <div class="verdict-badge" id="verdictBadge">–</div>
+        <div style="font-size:.85rem;color:var(--muted);margin-top:.3rem;" id="verdictSub"></div>
+      </div>
+    </div>
+    <div class="report-body" id="reportBody"></div>
+    <button class="reset-btn" onclick="resetForm()">Start a new comparison</button>
+  </div>
+
+</div>
+<script>
+  // ── PDF.js worker ──────────────────────────────────────────────────────────
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  // ── API key persistence ────────────────────────────────────────────────────
+  const keyInput = document.getElementById('apiKeyInput');
+  const saved = localStorage.getItem('anthropic_api_key');
+  if (saved) { keyInput.value = saved; document.getElementById('keySaved').style.display = 'block'; }
+
+  function saveKey() {
+    const k = keyInput.value.trim();
+    if (!k) return;
+    localStorage.setItem('anthropic_api_key', k);
+    document.getElementById('keySaved').style.display = 'block';
+    updateBtn();
+  }
+  keyInput.addEventListener('input', () => {
+    document.getElementById('keySaved').style.display = 'none';
+    updateBtn();
+  });
+  keyInput.addEventListener('keydown', e => { if (e.key === 'Enter') saveKey(); });
+
+  // ── File handling ──────────────────────────────────────────────────────────
+  const submittedInput = document.getElementById('submittedFile');
+  const specInput      = document.getElementById('specFile');
+
+  function bindFile(input, nameEl, cardEl) {
+    input.addEventListener('change', () => {
+      const f = input.files[0];
+      document.getElementById(nameEl).textContent = f ? f.name : '';
+      document.getElementById(cardEl).classList.toggle('has-file', !!f);
+      updateBtn();
+    });
+  }
+  bindFile(submittedInput, 'submittedName', 'submittedCard');
+  bindFile(specInput,      'specName',      'specCard');
+
+  ['submittedCard','specCard'].forEach(id => {
+    const card = document.getElementById(id);
+    card.addEventListener('dragover',  e => { e.preventDefault(); card.classList.add('dragover'); });
+    card.addEventListener('dragleave', ()  => card.classList.remove('dragover'));
+    card.addEventListener('drop',      ()  => card.classList.remove('dragover'));
+  });
+
+  function updateBtn() {
+    const hasKey  = keyInput.value.trim().length > 0;
+    const hasFiles = submittedInput.files.length && specInput.files.length;
+    document.getElementById('submitBtn').disabled = !(hasKey && hasFiles);
+  }
+
+  // ── Text extraction ────────────────────────────────────────────────────────
+  async function extractText(file) {
+    const name = file.name.toLowerCase();
+    if (name.endsWith('.txt')) {
+      return file.text();
+    }
+    if (name.endsWith('.pdf')) {
+      const buf  = await file.arrayBuffer();
+      const pdf  = await pdfjsLib.getDocument({ data: buf }).promise;
+      let text   = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page    = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map(s => s.str).join(' ') + '\n';
+      }
+      return text;
+    }
+    if (name.endsWith('.docx') || name.endsWith('.doc')) {
+      const buf = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({ arrayBuffer: buf });
+      return result.value;
+    }
+    throw new Error(`Unsupported file type: ${file.name}`);
+  }
+
+  // ── Main check ────────────────────────────────────────────────────────────
+  async function runCheck() {
+    const apiKey = keyInput.value.trim();
+    document.getElementById('errorBox').innerHTML = '';
+    document.getElementById('result').style.display = 'none';
+    document.getElementById('submitBtn').disabled = true;
+    setStatus('<span class="spinner"></span> Reading documents…');
+
+    let submittedText, specText;
+    try {
+      [submittedText, specText] = await Promise.all([
+        extractText(submittedInput.files[0]),
+        extractText(specInput.files[0])
+      ]);
+    } catch (err) {
+      showError('Could not read a file: ' + err.message);
+      return;
+    }
+
+    const MAX = 40000;
+    if (submittedText.length > MAX) submittedText = submittedText.slice(0, MAX) + '\n[truncated]';
+    if (specText.length > MAX)      specText      = specText.slice(0, MAX)      + '\n[truncated]';
+
+    setStatus('<span class="spinner"></span> Analysing compliance with AI…');
+
+    const prompt = `You are a compliance auditor. Compare a submitted document against a specification and produce a detailed compliance report.
+
+## Specification Document
+${specText}
+
+## Submitted Document
+${submittedText}
+
+## Your Task
+Analyse the submitted document against every requirement in the specification. Produce a structured report with:
+
+1. **Overall Compliance Summary** — Verdict (Compliant / Partially Compliant / Non-Compliant) with a short paragraph.
+2. **Compliance Score** — A percentage (0–100%) with brief justification.
+3. **Requirements Met** — Bullet list of satisfied requirements, referencing relevant sections.
+4. **Requirements Not Met** — Bullet list of missing or inadequate requirements, explaining what is missing.
+5. **Partial Compliance** — Requirements partially addressed, with guidance on what needs to change.
+6. **Recommendations** — Prioritised action items to reach full compliance.
+
+Be specific, referencing actual content from both documents.`;
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type':         'application/json',
+          'x-api-key':            apiKey,
+          'anthropic-version':    '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model:      'claude-opus-4-8',
+          max_tokens: 4096,
+          messages:   [{ role: 'user', content: prompt }]
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        const msg = err?.error?.message || `HTTP ${res.status}`;
+        if (res.status === 401) throw new Error('Invalid API key. Check the key you entered.');
+        throw new Error(msg);
+      }
+
+      const data   = await res.json();
+      const report = data.content[0].text;
+      setStatus('');
+      renderReport(report);
+    } catch (err) {
+      showError(err.message);
+    }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function setStatus(html) {
+    document.getElementById('status').innerHTML = html;
+  }
+
+  function showError(msg) {
+    setStatus('');
+    document.getElementById('errorBox').innerHTML = `<div class="error-box">⚠️ ${msg}</div>`;
+    document.getElementById('submitBtn').disabled = false;
+  }
+
+  function resetForm() {
+    submittedInput.value = '';
+    specInput.value = '';
+    ['submittedName','specName'].forEach(id => document.getElementById(id).textContent = '');
+    ['submittedCard','specCard'].forEach(id => document.getElementById(id).classList.remove('has-file'));
+    document.getElementById('result').style.display = 'none';
+    document.getElementById('errorBox').innerHTML = '';
+    updateBtn();
+  }
+
+  function renderReport(text) {
+    const scoreMatch = text.match(/(\d{1,3})\s*%/);
+    const score = scoreMatch ? Math.min(100, parseInt(scoreMatch[1])) : null;
+
+    const lower = text.toLowerCase();
+    let verdict = 'Unknown', cls = '';
+    if (lower.includes('non-compliant') || lower.includes('noncompliant')) {
+      verdict = 'Non-Compliant';      cls = 'verdict-noncompliant';
+    } else if (lower.includes('partially compliant') || lower.includes('partial compliance')) {
+      verdict = 'Partially Compliant'; cls = 'verdict-partial';
+    } else if (lower.includes('compliant')) {
+      verdict = 'Compliant';           cls = 'verdict-compliant';
+    }
+
+    const badge = document.getElementById('verdictBadge');
+    badge.textContent = verdict;
+    badge.className   = 'verdict-badge ' + cls;
+    document.getElementById('verdictSub').textContent =
+      score !== null ? `Compliance score: ${score}%` : '';
+
+    if (score !== null) {
+      const offset = 163.4 * (1 - score / 100);
+      const color  = score >= 80 ? '#16a34a' : score >= 50 ? '#d97706' : '#dc2626';
+      const arc    = document.getElementById('scoreArc');
+      arc.style.strokeDashoffset = offset;
+      arc.style.stroke = color;
+      const st = document.getElementById('scoreText');
+      st.textContent  = score + '%';
+      st.style.color  = color;
+    }
+
+    document.getElementById('reportBody').innerHTML = mdToHtml(text);
+    const result = document.getElementById('result');
+    result.style.display = 'block';
+    result.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function mdToHtml(md) {
+    return md
+      .replace(/^## (.+)$/gm,  '<h2>$1</h2>')
+      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+      .replace(/^# (.+)$/gm,   '<h2>$1</h2>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g,     '<em>$1</em>')
+      .replace(/^[\-\*]\s+(.+)$/gm, '<li>$1</li>')
+      .replace(/(<li>.*<\/li>\n?)+/g, m => '<ul>' + m + '</ul>')
+      .replace(/<\/ul>\s*<ul>/g, '')
+      .replace(/\n\n+/g, '</p><p>')
+      .replace(/^(?!<[hul\/])(.*\S.*)$/gm, '<p>$1</p>')
+      .replace(/<p>\s*<\/p>/g, '');
+  }
+</script>
+</body>
+</html>
