@@ -568,7 +568,7 @@ const R2_ENDPOINT   = 'https://3a326bcdee249cc88cd07e68cc06b1c4.r2.cloudflaresto
 const R2_BUCKET     = 'sitesnag-photos';
 const R2_ACCESS_KEY = '4dcbbc6314ea8025f2303b94e8d103ee';
 const R2_SECRET_KEY = '6dfddb8c727c16fc45736dc53ec219965053b2869167885060c94488cd3a20db';
-let   R2_PUBLIC_URL = ''; // set after enabling r2.dev subdomain in Cloudflare dashboard
+let   R2_PUBLIC_URL = 'https://pub-30485994f7b944fa9be367389d82e365.r2.dev'; // hardcoded — same for all users
 
 async function _sha256Hex(data) {
   const buf = await crypto.subtle.digest('SHA-256', typeof data === 'string' ? new TextEncoder().encode(data) : data);
@@ -630,7 +630,7 @@ async function pullFromSupabase() {
     db = { projects: [], companies: [], snags: [], users: [], locations: [], subsystems: [], splashConfig: { projectImage: null, logos: [] }, ...data.data };
     if (!db.subsystems) db.subsystems = [];
     if (!db.splashConfig) db.splashConfig = { projectImage: null, logos: [] };
-    if (db.settings?.r2PublicUrl) { R2_PUBLIC_URL = db.settings.r2PublicUrl; if (storageOK) localStorage.setItem('sitesnag_r2url', R2_PUBLIC_URL); }
+    if (db.settings?.r2PublicUrl) R2_PUBLIC_URL = db.settings.r2PublicUrl;
     if (storageOK) localStorage.setItem(DB_KEY, JSON.stringify(db));
     _syncStatus = 'ok';
     _syncMsg = '';
@@ -3208,10 +3208,9 @@ function importData(input) {
 }
 
 // ── INIT ───────────────────────────────────────────────────────────────────────
-if (storageOK) { const r2 = localStorage.getItem('sitesnag_r2url'); if (r2) R2_PUBLIC_URL = r2; }
 loadDB();
-// R2 URL also stored in db.settings so it syncs via Supabase — override localStorage if db has a value
-if (db.settings?.r2PublicUrl) { R2_PUBLIC_URL = db.settings.r2PublicUrl; if (storageOK) localStorage.setItem('sitesnag_r2url', R2_PUBLIC_URL); }
+// Allow admin override via db.settings (Config → Photo Storage), otherwise use hardcoded default
+if (db.settings?.r2PublicUrl) R2_PUBLIC_URL = db.settings.r2PublicUrl;
 loadState();
 if (!storageOK) showStorageWarning();
 
