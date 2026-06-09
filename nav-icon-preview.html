@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Nav Icon Styles</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #e8ecf2; padding: 1.5rem; }
+  h1 { color: #444; text-align: center; font-size: 1rem; margin-bottom: .3rem; font-weight: 500; }
+  p  { color: #999; text-align: center; font-size: .78rem; margin-bottom: 1.8rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.5rem; }
+  .label { font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #888; margin-bottom: .55rem; text-align: center; }
+
+  .shell { background: #f4f6f9; border-radius: 14px; overflow: hidden; border: 1px solid #dde3ec; box-shadow: 0 4px 20px rgba(0,0,0,.1); }
+  .bar { background: #0f2544; padding: .75rem 1rem; }
+  .bar-title { color: #fff; font-weight: 600; font-size: .95rem; }
+  .bar-sub { color: rgba(255,255,255,.45); font-size: .67rem; margin-top: .08rem; letter-spacing: .06em; text-transform: uppercase; }
+  .content { padding: .75rem; }
+  .item { display: flex; align-items: center; gap: .65rem; padding: .6rem .8rem; border-bottom: 1px solid #eef1f6; background: #fff; }
+  .item:first-child { border-radius: 7px 7px 0 0; }
+  .item:last-child { border-bottom: none; border-radius: 0 0 7px 7px; }
+  .num { background: #0f2544; color: #fff; font-size: .68rem; font-weight: 700; border-radius: 4px; padding: .18rem .4rem; min-width: 60px; text-align: center; }
+  .info .t { font-weight: 600; font-size: .82rem; color: #1a2a40; }
+  .info .m { font-size: .68rem; color: #6b7a90; margin-top: .08rem; }
+  .bx { display: inline-block; padding: .12rem .4rem; border-radius: 3px; font-size: .62rem; font-weight: 700; border: 1px solid; }
+  .bx-o { background: #fff8e8; color: #8a5a00; border-color: #e8c860; }
+  .bx-p { background: #f2eefb; color: #5030a0; border-color: #c0a8e8; }
+  .bx-a { background: #e8f4ee; color: #1a6640; border-color: #90c8a8; }
+
+  /* shared nav base */
+  nav { display: flex; border-top: 1px solid #dde3ec; background: #fff; }
+  nav button { flex: 1; border: none; background: none; padding: .6rem .3rem .5rem; display: flex; flex-direction: column; align-items: center; gap: .18rem; cursor: pointer; font-family: inherit; }
+  nav .lbl { font-size: .56rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+
+  /* Style A — thin line SVG, top indicator */
+  .A svg { stroke: #b0bac8; fill: none; transition: stroke .15s; }
+  .A .lbl { color: #b0bac8; }
+  .A button.act svg { stroke: #0f2544; }
+  .A button.act .lbl { color: #0f2544; }
+  .A button { position: relative; }
+  .A button.act::after { content:''; position:absolute; top:0; left:25%; right:25%; height:2px; background:#0f2544; border-radius:0 0 2px 2px; }
+
+  /* Style B — solid filled SVG, grey pill */
+  .B svg { fill: #b8c2cc; transition: fill .15s; }
+  .B .lbl { color: #b0bac8; }
+  .B button.act { background: #edf0f5; border-radius: 10px; }
+  .B button.act svg { fill: #0f2544; }
+  .B button.act .lbl { color: #0f2544; }
+  nav.B { padding: .4rem .5rem; gap: .3rem; border-radius: 0 0 14px 14px; }
+
+  /* Style C — duotone / two-tone SVG */
+  .C svg { transition: all .15s; }
+  .C .lbl { color: #b0bac8; }
+  .C button.act .lbl { color: #0f2544; }
+  .C .ico-bg { fill: #e8ecf4; transition: fill .15s; }
+  .C .ico-fg { fill: #b0bac8; transition: fill .15s; }
+  .C button.act .ico-bg { fill: #ccd5e8; }
+  .C button.act .ico-fg { fill: #0f2544; }
+
+  /* Style D — outline with accent colour active */
+  .D svg { stroke: #b0bac8; fill: none; transition: all .15s; }
+  .D .lbl { color: #b0bac8; }
+  .D button.act svg { stroke: #1a56c4; }
+  .D button.act .lbl { color: #1a56c4; }
+  .D button.act { border-top: 2px solid #1a56c4; }
+  nav.D { border-top: 1px solid #dde3ec; }
+  nav.D button { border-top: 2px solid transparent; margin-top: -1px; }
+
+  /* Style E — solid navy background pill */
+  .E svg { fill: rgba(255,255,255,.4); transition: all .15s; }
+  .E .lbl { color: #b0bac8; }
+  nav.E { padding: .45rem .55rem; gap: .35rem; background: #fff; border-radius: 0 0 14px 14px; }
+  nav.E button { border-radius: 10px; }
+  .E svg.ln { stroke: #b8c2cc; fill: none; }
+  .E button.act { background: #0f2544; }
+  .E button.act svg.ln { stroke: #fff; }
+  .E button.act .lbl { color: rgba(255,255,255,.8); }
+
+  /* Style F — large icon, no label, coloured dot */
+  nav.F { padding: .5rem 0; border-top: 1px solid #dde3ec; }
+  .F svg { stroke: #b8c2cc; fill: none; }
+  .F button { position: relative; padding: .5rem .3rem .4rem; }
+  .F button.act svg { stroke: #0f2544; }
+  .F button.act::after { content:''; position:absolute; bottom:5px; left:50%; transform:translateX(-50%); width:4px; height:4px; background:#0f2544; border-radius:50%; }
+</style>
+</head>
+<body>
+<h1>Nav Icon Style Options — Theme 3</h1>
+<p>All use clean SVG icons instead of emoji. Active = Snags.</p>
+<div class="grid">
+
+  <!-- A: thin line, top indicator -->
+  <div>
+    <div class="label">A — Thin line icons + top bar</div>
+    <div class="shell">
+      <div class="bar"><div class="bar-title">SiteSnag</div><div class="bar-sub">Citygate Residences</div></div>
+      <div class="content">
+        <div class="item"><div class="num">BB04-001</div><div class="info"><div class="t">Cracked render on column</div><div class="m">L3 · R301 &nbsp;<span class="bx bx-o">OPEN</span></div></div></div>
+        <div class="item"><div class="num">BB04-002</div><div class="info"><div class="t">Water ingress at window seal</div><div class="m">L2 · R210 &nbsp;<span class="bx bx-p">PENDING</span></div></div></div>
+        <div class="item"><div class="num">BB04-003</div><div class="info"><div class="t">Missing skirting board</div><div class="m">L1 · R104 &nbsp;<span class="bx bx-a">ACCEPTED</span></div></div></div>
+      </div>
+      <nav class="A">
+        <button class="act">
+          <svg width="22" height="22" viewBox="0 0 24 24" stroke-width="1.6"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg>
+          <span class="lbl">Snags</span>
+        </button>
+        <button>
+          <svg width="22" height="22" viewBox="0 0 24 24" stroke-width="1.6"><rect x="3" y="13" width="4" height="8" rx="1"/><rect x="10" y="9" width="4" height="12" rx="1"/><rect x="17" y="5" width="4" height="16" rx="1"/></svg>
+          <span class="lbl">Reports</span>
+        </button>
+        <button>
+          <svg width="22" height="22" viewBox="0 0 24 24" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          <span class="lbl">Config</span>
+        </button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- B: solid filled, pill bg -->
+  <div>
+    <div class="label">B — Filled icons + pill highlight</div>
+    <div class="shell">
+      <div class="bar"><div class="bar-title">SiteSnag</div><div class="bar-sub">Citygate Residences</div></div>
+      <div class="content">
+        <div class="item"><div class="num">BB04-001</div><div class="info"><div class="t">Cracked render on column</div><div class="m">L3 · R301 &nbsp;<span class="bx bx-o">OPEN</span></div></div></div>
+        <div class="item"><div class="num">BB04-002</div><div class="info"><div class="t">Water ingress at window seal</div><div class="m">L2 · R210 &nbsp;<span class="bx bx-p">PENDING</span></div></div></div>
+        <div class="item"><div class="num">BB04-003</div><div class="info"><div class="t">Missing skirting board</div><div class="m">L1 · R104 &nbsp;<span class="bx bx-a">ACCEPTED</span></div></div></div>
+      </div>
+      <nav class="B">
+        <button class="act">
+          <svg width="20" height="20" viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 00-2 2v16a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zM9 8h6v1.5H9V8zm0 4h6v1.5H9V12zm0 4h4v1.5H9V16z"/></svg>
+          <span class="lbl">Snags</span>
+        </button>
+        <button>
+          <svg width="20" height="20" viewBox="0 0 24 24"><path d="M3 13h4a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1v-6a1 1 0 011-1zm7-4h4a1 1 0 011 1v10a1 1 0 01-1 1h-4a1 1 0 01-1-1V10a1 1 0 011-1zm7-4h4a1 1 0 011 1v14a1 1 0 01-1 1h-4a1 1 0 01-1-1V6a1 1 0 011-1z"/></svg>
+          <span class="lbl">Reports</span>
+        </button>
+        <button>
+          <svg width="20" height="20" viewBox="0 0 24 24"><path d="M12 15a3 3 0 100-6 3 3 0 000 6zm7.94-2.06a7.5 7.5 0 00.06-1 7.5 7.5 0 00-.06-.94l2.03-1.58a.5.5 0 00.12-.63l-1.92-3.32a.5.5 0 00-.61-.22l-2.39.96a7.04 7.04 0 00-1.62-.94l-.36-2.54A.49.49 0 0015 3h-3.84a.49.49 0 00-.49.42l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 00-.61.22L3.77 9.48a.48.48 0 00.12.63l2.03 1.58C5.92 11.37 5.9 11.69 5.9 12s.02.63.06.94l-2.03 1.58a.48.48 0 00-.12.63l1.92 3.32c.12.22.37.3.61.22l2.39-.96c.49.37 1.03.7 1.62.94l.36 2.54c.07.24.29.42.54.42H15c.25 0 .47-.18.54-.42l.36-2.54c.59-.24 1.13-.57 1.62-.94l2.39.96c.24.09.49 0 .61-.22l1.92-3.32a.48.48 0 00-.12-.63l-2.03-1.58z"/></svg>
+          <span class="lbl">Config</span>
+        </button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- C: duotone -->
+  <div>
+    <div class="label">C — Duotone icons (two-tone)</div>
+    <div class="shell">
+      <div class="bar"><div class="bar-title">SiteSnag</div><div class="bar-sub">Citygate Residences</div></div>
+      <div class="content">
+        <div class="item"><div class="num">BB04-001</div><div class="info"><div class="t">Cracked render on column</div><div class="m">L3 · R301 &nbsp;<span class="bx bx-o">OPEN</span></div></div></div>
+        <div class="item"><div class="num">BB04-002</div><div class="info"><div class="t">Water ingress at window seal</div><div class="m">L2 · R210 &nbsp;<span class="bx bx-p">PENDING</span></div></div></div>
+        <div class="item"><div class="num">BB04-003</div><div class="info"><div class="t">Missing skirting board</div><div class="m">L1 · R104 &nbsp;<span class="bx bx-a">ACCEPTED</span></div></div></div>
+      </div>
+      <nav class="C">
+        <button class="act">
+          <svg width="22" height="22" viewBox="0 0 24 24"><rect class="ico-bg" x="4" y="2" width="16" height="20" rx="2"/><rect class="ico-fg" x="8" y="7" width="8" height="1.8" rx=".9"/><rect class="ico-fg" x="8" y="11" width="8" height="1.8" rx=".9"/><rect class="ico-fg" x="8" y="15" width="5" height="1.8" rx=".9"/></svg>
+          <span class="lbl">Snags</span>
+        </button>
+        <button>
+          <svg width="22" height="22" viewBox="0 0 24 24"><rect class="ico-bg" x="2" y="12" width="6" height="9" rx="1"/><rect class="ico-bg" x="9" y="8" width="6" height="13" rx="1"/><rect class="ico-fg" x="16" y="4" width="6" height="17" rx="1"/></svg>
+          <span class="lbl">Reports</span>
+        </button>
+        <button>
+          <svg width="22" height="22" viewBox="0 0 24 24"><circle class="ico-bg" cx="12" cy="12" r="10"/><circle class="ico-fg" cx="12" cy="12" r="3.5"/><rect class="ico-fg" x="11.1" y="2" width="1.8" height="4" rx=".9"/><rect class="ico-fg" x="11.1" y="18" width="1.8" height="4" rx=".9"/><rect class="ico-fg" x="2" y="11.1" width="4" height="1.8" rx=".9"/><rect class="ico-fg" x="18" y="11.1" width="4" height="1.8" rx=".9"/></svg>
+          <span class="lbl">Config</span>
+        </button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- D: outline + blue accent -->
+  <div>
+    <div class="label">D — Line icons + blue accent</div>
+    <div class="shell">
+      <div class="bar"><div class="bar-title">SiteSnag</div><div class="bar-sub">Citygate Residences</div></div>
+      <div class="content">
+        <div class="item"><div class="num">BB04-001</div><div class="info"><div class="t">Cracked render on column</div><div class="m">L3 · R301 &nbsp;<span class="bx bx-o">OPEN</span></div></div></div>
+        <div class="item"><div class="num">BB04-002</div><div class="info"><div class="t">Water ingress at window seal</div><div class="m">L2 · R210 &nbsp;<span class="bx bx-p">PENDING</span></div></div></div>
+        <div class="item"><div class="num">BB04-003</div><div class="info"><div class="t">Missing skirting board</div><div class="m">L1 · R104 &nbsp;<span class="bx bx-a">ACCEPTED</span></div></div></div>
+      </div>
+      <nav class="D">
+        <button class="act">
+          <svg width="22" height="22" viewBox="0 0 24 24" stroke-width="1.7"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg>
+          <span class="lbl">Snags</span>
+        </button>
+        <button>
+          <svg width="22" height="22" viewBox="0 0 24 24" stroke-width="1.7"><rect x="3" y="13" width="4" height="8" rx="1"/><rect x="10" y="9" width="4" height="12" rx="1"/><rect x="17" y="5" width="4" height="16" rx="1"/></svg>
+          <span class="lbl">Reports</span>
+        </button>
+        <button>
+          <svg width="22" height="22" viewBox="0 0 24 24" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          <span class="lbl">Config</span>
+        </button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- E: solid navy pill -->
+  <div>
+    <div class="label">E — Line icons + navy pill active</div>
+    <div class="shell">
+      <div class="bar"><div class="bar-title">SiteSnag</div><div class="bar-sub">Citygate Residences</div></div>
+      <div class="content">
+        <div class="item"><div class="num">BB04-001</div><div class="info"><div class="t">Cracked render on column</div><div class="m">L3 · R301 &nbsp;<span class="bx bx-o">OPEN</span></div></div></div>
+        <div class="item"><div class="num">BB04-002</div><div class="info"><div class="t">Water ingress at window seal</div><div class="m">L2 · R210 &nbsp;<span class="bx bx-p">PENDING</span></div></div></div>
+        <div class="item"><div class="num">BB04-003</div><div class="info"><div class="t">Missing skirting board</div><div class="m">L1 · R104 &nbsp;<span class="bx bx-a">ACCEPTED</span></div></div></div>
+      </div>
+      <nav class="E">
+        <button class="act">
+          <svg class="ln" width="20" height="20" viewBox="0 0 24 24" stroke-width="1.7"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg>
+          <span class="lbl">Snags</span>
+        </button>
+        <button>
+          <svg class="ln" width="20" height="20" viewBox="0 0 24 24" stroke-width="1.7"><rect x="3" y="13" width="4" height="8" rx="1"/><rect x="10" y="9" width="4" height="12" rx="1"/><rect x="17" y="5" width="4" height="16" rx="1"/></svg>
+          <span class="lbl">Reports</span>
+        </button>
+        <button>
+          <svg class="ln" width="20" height="20" viewBox="0 0 24 24" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          <span class="lbl">Config</span>
+        </button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- F: large icons, no label, dot -->
+  <div>
+    <div class="label">F — Large line icons, no labels</div>
+    <div class="shell">
+      <div class="bar"><div class="bar-title">SiteSnag</div><div class="bar-sub">Citygate Residences</div></div>
+      <div class="content">
+        <div class="item"><div class="num">BB04-001</div><div class="info"><div class="t">Cracked render on column</div><div class="m">L3 · R301 &nbsp;<span class="bx bx-o">OPEN</span></div></div></div>
+        <div class="item"><div class="num">BB04-002</div><div class="info"><div class="t">Water ingress at window seal</div><div class="m">L2 · R210 &nbsp;<span class="bx bx-p">PENDING</span></div></div></div>
+        <div class="item"><div class="num">BB04-003</div><div class="info"><div class="t">Missing skirting board</div><div class="m">L1 · R104 &nbsp;<span class="bx bx-a">ACCEPTED</span></div></div></div>
+      </div>
+      <nav class="F">
+        <button class="act">
+          <svg width="26" height="26" viewBox="0 0 24 24" stroke-width="1.5"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg>
+        </button>
+        <button>
+          <svg width="26" height="26" viewBox="0 0 24 24" stroke-width="1.5"><rect x="3" y="13" width="4" height="8" rx="1"/><rect x="10" y="9" width="4" height="12" rx="1"/><rect x="17" y="5" width="4" height="16" rx="1"/></svg>
+        </button>
+        <button>
+          <svg width="26" height="26" viewBox="0 0 24 24" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+      </nav>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
