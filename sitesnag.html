@@ -2530,7 +2530,7 @@ async function _doExportPDFInner() {
   });
 
   // ── SNAG DETAIL PAGES (3 snags per page) ──
-  const SNAGS_PER_PAGE = 6;
+  const SNAGS_PER_PAGE = 4;
   const SLOT_H = Math.floor((H - 28 - 14) / SNAGS_PER_PAGE); // usable height per slot
 
   async function _addPhoto(src, x, slotY, maxW, maxH, label) {
@@ -2549,8 +2549,8 @@ async function _doExportPDFInner() {
       if (ih > maxH) { ih = maxH; iw = ih / aspect; }
       const fmt = imgSrc.startsWith('data:image/png') ? 'PNG' : 'JPEG';
       doc.addImage(imgSrc, fmt, x, slotY, iw, ih);
-      doc.setFontSize(5.5); doc.setTextColor(120, 130, 145);
-      doc.text(label, x, slotY + ih + 2.5);
+      doc.setFontSize(6); doc.setTextColor(120, 130, 145);
+      doc.text(label, x, slotY + ih + 3);
       return ih + 4;
     } catch(e) { return 0; }
   }
@@ -2566,33 +2566,33 @@ async function _doExportPDFInner() {
 
     // Divider line between slots
     if (slotIndex > 0) {
-      doc.setDrawColor(220, 227, 236);
+      doc.setDrawColor(210, 218, 230);
       doc.setLineWidth(0.25);
-      doc.line(14, slotTop - 1.5, W - 14, slotTop - 1.5);
+      doc.line(14, slotTop - 1, W - 14, slotTop - 1);
     }
 
     // Snag header bar
     doc.setFillColor(237, 241, 248);
-    doc.rect(14, slotTop, W - 28, 8, 'F');
-    doc.setFontSize(7.5);
+    doc.rect(14, slotTop, W - 28, 9, 'F');
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...NAVY);
-    const titleText = doc.splitTextToSize(`${numStr(snag.number)}  —  ${snag.title || ''}`, W - 70);
-    doc.text(titleText[0], 17, slotTop + 5.5);
+    const titleText = doc.splitTextToSize(`${numStr(snag.number)}  —  ${snag.title || ''}`, W - 75);
+    doc.text(titleText[0], 17, slotTop + 6);
 
     // Status badge right-aligned in header
     const statusLabel = STATUSES[snag.status]?.label || snag.status;
     const statusColors = { open:[180,32,32], assigned:[26,86,196], pending:[80,48,160], accepted:[26,102,64], rejected:[100,100,100] };
     const sc2 = statusColors[snag.status] || [100,100,100];
-    doc.setFontSize(6.5);
+    doc.setFontSize(7);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...sc2);
-    doc.text(statusLabel.toUpperCase(), W - 16, slotTop + 5.5, { align: 'right' });
+    doc.text(statusLabel.toUpperCase(), W - 16, slotTop + 6, { align: 'right' });
 
-    let sy = slotTop + 11;
+    let sy = slotTop + 12;
 
     // Meta line
-    doc.setFontSize(6.5);
+    doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(80, 95, 115);
     const metaParts = [
@@ -2605,30 +2605,30 @@ async function _doExportPDFInner() {
     ].filter(Boolean);
     const metaLine = doc.splitTextToSize(metaParts.join('  ·  '), W - 28);
     doc.text(metaLine[0], 14, sy);
-    sy += 4;
+    sy += 4.5;
 
-    // Description — 1 line at this density
+    // Description — up to 2 lines
     if (snag.description) {
-      doc.setFontSize(7);
+      doc.setFontSize(7.5);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(30, 42, 64);
       const descLines = doc.splitTextToSize(snag.description, W - 28);
-      const truncated = descLines.slice(0, 1);
-      if (descLines.length > 1) truncated[0] = truncated[0].replace(/\s*$/, '…');
+      const truncated = descLines.slice(0, 2);
+      if (descLines.length > 2) truncated[1] = truncated[1].replace(/\s*$/, '…');
       doc.text(truncated, 14, sy);
-      sy += 4;
+      sy += truncated.length * 4 + 1;
     }
 
-    // Photos
+    // Photos — fill remaining slot space
     if (includePhotos) {
       const hasOpen = !!snag.photo;
       const hasRect = !!snag.rectification?.photo;
       const photoCount = (hasOpen ? 1 : 0) + (hasRect ? 1 : 0);
       if (photoCount > 0) {
-        const availH = slotTop + SLOT_H - sy - 5;
-        const maxPhotoH = Math.min(28, availH);
-        const gap = 3;
-        const maxPhotoW = photoCount === 2 ? (W - 28 - gap) / 2 : Math.min(45, W - 28);
+        const availH = (slotTop + SLOT_H) - sy - 6;
+        const maxPhotoH = Math.max(availH, 10);
+        const gap = 4;
+        const maxPhotoW = photoCount === 2 ? (W - 28 - gap) / 2 : W - 28;
         if (hasOpen) await _addPhoto(snag.photo, 14, sy, maxPhotoW, maxPhotoH, 'Opening Photo');
         if (hasRect) await _addPhoto(snag.rectification.photo, hasOpen ? 14 + maxPhotoW + gap : 14, sy, maxPhotoW, maxPhotoH, 'Closing Photo');
       }
