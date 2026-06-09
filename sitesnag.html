@@ -1,0 +1,3287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+  <title>SiteSnag — Construction Inspection</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.2/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:        #1d4ed8;
+      --blue-bg:     #dbeafe;
+      --orange:      #ea580c;
+      --orange-bg:   #ffedd5;
+      --green:       #15803d;
+      --green-bg:    #dcfce7;
+      --red:         #dc2626;
+      --red-bg:      #fee2e2;
+      --purple:      #7c3aed;
+      --purple-bg:   #ede9fe;
+      --amber:       #b45309;
+      --amber-bg:    #fef3c7;
+      --bg:          #f1f5f9;
+      --card:        #ffffff;
+      --text:        #0f172a;
+      --soft:        #475569;
+      --muted:       #94a3b8;
+      --border:      #e2e8f0;
+      --radius:      14px;
+      --shadow:      0 1px 4px rgba(0,0,0,.08);
+      --shadow-md:   0 4px 16px rgba(0,0,0,.12);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      padding-bottom: 76px;
+      font-size: 15px;
+    }
+
+    /* ── App header ── */
+    .app-bar {
+      background: var(--blue);
+      color: #fff;
+      padding: .75rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      position: sticky;
+      top: 0;
+      z-index: 90;
+      box-shadow: 0 2px 8px rgba(0,0,0,.18);
+    }
+    .app-bar h1 { font-size: 1.05rem; font-weight: 700; flex: 1; line-height: 1.2; }
+    .app-bar h1 small { display: block; font-size: .72rem; font-weight: 400; opacity: .7; }
+    .back-btn {
+      background: none; border: none; color: rgba(255,255,255,.85);
+      font-size: 1.4rem; cursor: pointer; padding: 0 .2rem; line-height: 1;
+    }
+    .back-btn:hover { color: #fff; }
+    .user-chip {
+      display: flex; align-items: center; gap: .35rem;
+      background: rgba(255,255,255,.18); border-radius: 999px;
+      padding: .28rem .65rem .28rem .45rem;
+      font-size: .78rem; font-weight: 700; cursor: default;
+      max-width: 160px;
+    }
+    .user-chip .avatar {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: rgba(255,255,255,.35);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .72rem; font-weight: 800; flex-shrink: 0;
+    }
+    .user-chip .uname {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .logout-btn {
+      background: rgba(255,255,255,.18); border: none; color: #fff;
+      border-radius: 8px; padding: .3rem .55rem; font-size: .78rem;
+      font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .logout-btn:hover { background: rgba(255,255,255,.3); }
+
+    /* ── Login screen ── */
+    .login-wrap {
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 1.5rem 1rem 3rem; background: var(--bg);
+    }
+    .login-logo { font-size: 2.8rem; margin-bottom: .4rem; }
+    .login-title { font-size: 1.6rem; font-weight: 800; color: var(--text); margin-bottom: .25rem; }
+    .login-sub { font-size: .88rem; color: var(--muted); margin-bottom: 2rem; }
+    .user-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: .6rem; width: 100%; max-width: 480px; margin-bottom: 1.2rem;
+    }
+    .user-card {
+      background: #fff; border-radius: var(--radius);
+      padding: .9rem .8rem; text-align: center; cursor: pointer;
+      border: 2.5px solid transparent;
+      box-shadow: var(--shadow); transition: all .15s;
+    }
+    .user-card:hover { border-color: var(--blue); }
+    .user-card.selected { border-color: var(--blue); background: var(--blue-bg); }
+    .user-card .uc-avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      margin: 0 auto .5rem;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; font-weight: 800; color: #fff;
+    }
+    .user-card .uc-name { font-weight: 700; font-size: .9rem; margin-bottom: .25rem; }
+    .user-card .uc-role {
+      font-size: .68rem; font-weight: 800; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .pin-wrap {
+      width: 100%; max-width: 480px;
+      background: #fff; border-radius: var(--radius);
+      padding: 1.2rem; box-shadow: var(--shadow);
+      margin-bottom: 1rem;
+    }
+    .pin-label { font-size: .78rem; font-weight: 800; color: var(--soft); text-transform: uppercase; letter-spacing: .07em; margin-bottom: .5rem; }
+    .pin-dots {
+      display: flex; gap: .5rem; justify-content: center;
+      margin-bottom: .9rem;
+    }
+    .pin-dot {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid var(--border); background: transparent;
+      transition: background .12s, border-color .12s;
+    }
+    .pin-dot.filled { background: var(--blue); border-color: var(--blue); }
+    .pin-keypad {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem;
+    }
+    .pin-key {
+      padding: .75rem; border: none; border-radius: 10px;
+      background: var(--bg); font-size: 1.1rem; font-weight: 700;
+      cursor: pointer; transition: background .1s; font-family: inherit;
+      color: var(--text);
+    }
+    .pin-key:active { background: var(--blue-bg); }
+    .pin-key.del { color: var(--red); font-size: 1rem; }
+    .pin-key.go  { background: var(--blue); color: #fff; }
+    .pin-key.go:active { background: var(--blue); filter: brightness(1.1); }
+    .pin-error { color: var(--red); font-size: .82rem; font-weight: 600; text-align: center; margin-top: .5rem; }
+
+    /* ── Bottom nav ── */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #fff; border-top: 1px solid var(--border);
+      display: flex; z-index: 90;
+      box-shadow: 0 -2px 12px rgba(0,0,0,.07);
+    }
+    .nav-btn {
+      flex: 1; border: none; background: none;
+      padding: .6rem .3rem .45rem;
+      display: flex; flex-direction: column; align-items: center; gap: .18rem;
+      cursor: pointer; color: var(--muted);
+      font-size: .62rem; font-weight: 700; letter-spacing: .02em;
+      transition: color .12s; font-family: inherit;
+    }
+    .nav-btn .ico { font-size: 1.3rem; line-height: 1; }
+    .nav-btn.active { color: var(--blue); }
+
+    /* ── Main ── */
+    .main { padding: .85rem; max-width: 580px; margin: 0 auto; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--card); border-radius: var(--radius);
+      box-shadow: var(--shadow); overflow: hidden;
+    }
+    .card + .card { margin-top: .75rem; }
+    .card-body { padding: 1rem; }
+
+    /* ── List items ── */
+    .list-item {
+      display: flex; align-items: center;
+      padding: .82rem 1rem; border-bottom: 1px solid var(--border);
+      cursor: pointer; gap: .8rem; transition: background .1s;
+    }
+    .list-item:last-child { border-bottom: none; }
+    .list-item:hover { background: #f8fafc; }
+    .list-item:active { background: var(--blue-bg); }
+
+    /* ── Snag list ── */
+    .snag-num {
+      background: var(--blue); color: #fff;
+      font-size: .75rem; font-weight: 800;
+      border-radius: 7px; padding: .22rem .48rem;
+      min-width: 48px; text-align: center; flex-shrink: 0;
+    }
+    .snag-info { flex: 1; min-width: 0; }
+    .snag-title {
+      font-weight: 600; font-size: .93rem;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .snag-meta { display: flex; align-items: center; gap: .45rem; margin-top: .2rem; flex-wrap: wrap; }
+    .snag-co { font-size: .73rem; color: var(--soft); }
+    .snag-thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+    .snag-thumb-empty {
+      width: 44px; height: 44px; border-radius: 8px;
+      background: var(--bg); border: 1.5px dashed var(--border);
+      flex-shrink: 0; display: flex; align-items: center;
+      justify-content: center; color: var(--muted); font-size: .95rem;
+    }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center;
+      padding: .18rem .55rem; border-radius: 999px;
+      font-size: .7rem; font-weight: 800; letter-spacing: .03em; white-space: nowrap;
+    }
+    .b-open     { background: var(--amber-bg);  color: var(--amber); }
+    .b-assigned { background: var(--blue-bg);   color: var(--blue); }
+    .b-pending  { background: var(--purple-bg); color: var(--purple); }
+    .b-accepted { background: var(--green-bg);  color: var(--green); }
+    .b-rejected { background: var(--red-bg);    color: var(--red); }
+    .role-badge {
+      display: inline-flex; align-items: center;
+      padding: .15rem .5rem; border-radius: 999px;
+      font-size: .68rem; font-weight: 800; letter-spacing: .05em; white-space: nowrap;
+    }
+    .role-engineer    { background: var(--blue-bg);   color: var(--blue); }
+    .role-administrator { background: var(--purple-bg); color: var(--purple); }
+    .role-contractor  { background: var(--orange-bg); color: var(--orange); }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: .4rem; padding: .62rem 1.25rem; border: none;
+      border-radius: 999px; font-size: .9rem; font-weight: 700;
+      cursor: pointer; transition: filter .15s, transform .1s;
+      font-family: inherit; white-space: nowrap;
+    }
+    .btn:active { transform: scale(.95); }
+    .btn-primary { background: var(--blue); color: #fff; }
+    .btn-primary:hover { filter: brightness(1.1); }
+    .btn-success { background: var(--green); color: #fff; }
+    .btn-danger  { background: var(--red);   color: #fff; }
+    .btn-outline { background: none; border: 2px solid var(--border); color: var(--soft); }
+    .btn-outline:hover { border-color: var(--blue); color: var(--blue); }
+    .btn-sm { padding: .38rem .85rem; font-size: .82rem; }
+    .btn-block { width: 100%; border-radius: var(--radius); }
+
+    .fab {
+      position: fixed; bottom: 86px; right: 1.1rem;
+      width: 54px; height: 54px; border-radius: 50%;
+      background: var(--blue); color: #fff; border: none;
+      font-size: 1.7rem; cursor: pointer; box-shadow: var(--shadow-md);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 80; transition: transform .15s;
+    }
+    .fab:hover { transform: scale(1.07); }
+    .fab:active { transform: scale(.9); }
+
+    /* ── Forms ── */
+    .form-group { display: flex; flex-direction: column; gap: .38rem; }
+    .form-group + .form-group { margin-top: .85rem; }
+    .form-label {
+      font-size: .73rem; font-weight: 800; color: var(--soft);
+      text-transform: uppercase; letter-spacing: .07em;
+    }
+    input[type=text], input[type=date], input[type=password], textarea, select {
+      width: 100%; padding: .62rem .9rem;
+      border: 2px solid var(--border); border-radius: 10px;
+      font-size: .93rem; font-family: inherit; color: var(--text);
+      background: #fff; outline: none; transition: border-color .15s;
+    }
+    input:focus, textarea:focus, select:focus { border-color: var(--blue); }
+    textarea { resize: vertical; min-height: 88px; }
+
+    .photo-trigger {
+      display: flex; align-items: center; justify-content: center; gap: .5rem;
+      padding: .75rem; border: 2px dashed var(--border); border-radius: 10px;
+      cursor: pointer; background: var(--bg); color: var(--soft);
+      font-size: .9rem; font-weight: 600; transition: all .15s;
+    }
+    .photo-trigger:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
+    .photo-wrap { position: relative; border-radius: 10px; overflow: hidden; }
+    .photo-wrap img { width: 100%; max-height: 220px; object-fit: cover; display: block; }
+    .photo-remove {
+      position: absolute; top: .45rem; right: .45rem;
+      background: rgba(0,0,0,.55); color: #fff; border: none;
+      border-radius: 50%; width: 28px; height: 28px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; font-size: .95rem;
+    }
+
+    .loc-row { display: flex; gap: .5rem; align-items: center; }
+    .loc-chip {
+      flex: 1; background: var(--bg); border: 1.5px solid var(--border);
+      border-radius: 8px; padding: .5rem .75rem;
+      font-size: .8rem; color: var(--soft); font-family: monospace;
+    }
+
+    /* ── Detail view ── */
+    .detail-photo { width: 100%; max-height: 260px; object-fit: cover; display: block; }
+    .detail-row {
+      display: flex; align-items: flex-start; gap: .6rem;
+      padding: .6rem 0; border-bottom: 1px solid var(--border); font-size: .9rem;
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label {
+      color: var(--muted); font-size: .73rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: .06em;
+      min-width: 88px; flex-shrink: 0; padding-top: .05rem;
+    }
+    .detail-val { flex: 1; }
+
+    /* ── Timeline ── */
+    .timeline { display: flex; flex-direction: column; gap: .65rem; }
+    .tl-row { display: flex; gap: .65rem; align-items: flex-start; }
+    .tl-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+      margin-top: .35rem; background: var(--muted);
+    }
+    .tl-dot.g { background: var(--green); }
+    .tl-dot.r { background: var(--red); }
+    .tl-dot.b { background: var(--blue); }
+    .tl-dot.p { background: var(--purple); }
+    .tl-main { font-size: .87rem; font-weight: 600; }
+    .tl-when { font-size: .73rem; color: var(--muted); }
+    .tl-by   { font-size: .75rem; color: var(--blue); font-weight: 600; margin-top: .1rem; }
+    .tl-note { font-size: .8rem; color: var(--soft); margin-top: .1rem; white-space: pre-wrap; }
+
+    /* ── Action bar ── */
+    .action-bar {
+      display: flex; gap: .5rem; padding: 1rem;
+      border-top: 1px solid var(--border); flex-wrap: wrap;
+    }
+    .action-bar .btn { flex: 1; min-width: 110px; }
+
+    /* ── Alerts ── */
+    .alert {
+      padding: .7rem 1rem; border-radius: 10px;
+      font-size: .87rem; font-weight: 600; margin-bottom: .75rem;
+    }
+    .alert-info    { background: var(--blue-bg);   color: #1e3a8a; }
+    .alert-success { background: var(--green-bg);  color: #14532d; }
+    .alert-warn    { background: var(--amber-bg);  color: #78350f; }
+    .alert-danger  { background: var(--red-bg);    color: #7f1d1d; }
+
+    /* ── Project list ── */
+    .proj-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: var(--blue); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.15rem; flex-shrink: 0;
+    }
+    .proj-name { font-weight: 700; font-size: .95rem; }
+    .proj-count { font-size: .75rem; color: var(--muted); }
+    .active-chip {
+      margin-left: auto; background: var(--blue); color: #fff;
+      font-size: .65rem; font-weight: 800; padding: .14rem .5rem;
+      border-radius: 999px; letter-spacing: .04em;
+    }
+
+    /* ── Company / User list ── */
+    .co-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--orange); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: .9rem; flex-shrink: 0;
+    }
+    .usr-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: .9rem; flex-shrink: 0;
+    }
+    .co-name { flex: 1; font-weight: 600; }
+    .del-btn {
+      background: none; border: none; color: var(--muted);
+      cursor: pointer; font-size: 1.1rem; padding: .2rem .35rem;
+      transition: color .15s;
+    }
+    .del-btn:hover { color: var(--red); }
+
+    /* ── Filters ── */
+    .filter-row {
+      display: flex; gap: .3rem; overflow-x: auto; margin-bottom: .75rem;
+      scrollbar-width: none; padding-bottom: 2px;
+    }
+    .filter-row::-webkit-scrollbar { display: none; }
+    .filter-chip {
+      flex-shrink: 0; padding: .35rem .8rem; border-radius: 999px;
+      font-size: .76rem; font-weight: 700; border: 2px solid var(--border);
+      background: #fff; color: var(--soft); cursor: pointer;
+      transition: all .12s; font-family: inherit;
+    }
+    .filter-chip.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+    /* ── Misc ── */
+    .sec-label {
+      font-size: .69rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .11em; color: var(--muted); margin: 1.1rem 0 .45rem;
+    }
+    .empty { text-align: center; padding: 2.8rem 1rem; color: var(--muted); }
+    .empty .eico { font-size: 2.2rem; margin-bottom: .4rem; }
+    .empty p { font-size: .88rem; }
+    .map-link {
+      display: inline-flex; align-items: center; gap: .3rem;
+      font-size: .82rem; color: var(--blue); font-weight: 600; text-decoration: none;
+    }
+    .divider { height: 1px; background: var(--border); }
+
+    /* ── Reports / Analytics ── */
+    .rpt-kpi-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin-bottom: .75rem;
+    }
+    @media (max-width: 360px) { .rpt-kpi-grid { grid-template-columns: repeat(2,1fr); } }
+    .rpt-kpi {
+      background: var(--card); border-radius: var(--radius);
+      padding: .8rem .85rem; box-shadow: var(--shadow);
+    }
+    .rpt-kpi-val { font-size: 1.55rem; font-weight: 800; line-height: 1; margin-bottom: .2rem; }
+    .rpt-kpi-label { font-size: .63rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    .rpt-kpi-sub { font-size: .7rem; color: var(--soft); margin-top: .15rem; }
+    .bar-row { display: flex; align-items: center; gap: .5rem; margin-bottom: .32rem; }
+    .bar-row:last-child { margin-bottom: 0; }
+    .bar-track { flex: 1; height: 13px; background: var(--bg); border-radius: 999px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 999px; }
+    .bar-label { font-size: .76rem; font-weight: 600; min-width: 84px; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-count { font-size: .76rem; font-weight: 800; min-width: 28px; text-align: right; }
+    .rpt-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    .rpt-table th {
+      text-align: left; font-size: .63rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .07em; color: var(--muted); padding: .5rem .65rem;
+      border-bottom: 2px solid var(--border); white-space: nowrap;
+    }
+    .rpt-table td { padding: .52rem .65rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .rpt-table tr:last-child td { border-bottom: none; }
+    .heat-cell { padding: .38rem .45rem; border-radius: 5px; text-align: center; font-size: .78rem; font-weight: 700; }
+    .proj-sel-row { display: flex; align-items: center; gap: .5rem; margin-bottom: .75rem; }
+    .proj-sel-row label { font-size: .72rem; font-weight: 800; color: var(--soft); text-transform: uppercase; letter-spacing: .07em; white-space: nowrap; }
+
+    /* ── Modal ── */
+    .modal-back {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      z-index: 200; display: flex; align-items: flex-end; justify-content: center;
+    }
+    .modal-box {
+      background: #fff; border-radius: 18px 18px 0 0;
+      padding: 1.4rem 1.1rem 1.6rem;
+      width: 100%; max-width: 500px;
+      box-shadow: 0 -4px 32px rgba(0,0,0,.15);
+    }
+    .modal-title { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; }
+    .modal-actions { display: flex; gap: .55rem; margin-top: 1rem; }
+    .modal-actions .btn { flex: 1; }
+  </style>
+</head>
+<body>
+
+<!-- ── SPLASH SCREEN ─────────────────────────────────────────────────────────── -->
+<div id="splash" style="position:fixed;inset:0;z-index:99999;background:#002366;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer" onclick="dismissSplash()">
+  <div id="splash-app-name" style="opacity:0;transition:opacity .9s ease;text-align:center">
+    <div style="font-size:2.6rem;font-weight:900;color:#FFD700;letter-spacing:.08em;font-family:inherit">SiteSnag</div>
+    <div style="font-size:.85rem;color:rgba(255,215,0,.65);letter-spacing:.18em;text-transform:uppercase;margin-top:.35rem">Construction Quality Inspection</div>
+  </div>
+  <div id="splash-project" style="opacity:0;transition:opacity .9s ease;text-align:center;padding:0 2rem;max-width:420px;width:100%;position:absolute">
+    <div id="splash-logos" style="display:flex;justify-content:center;gap:1.2rem;margin-bottom:1.1rem;flex-wrap:wrap"></div>
+    <div id="splash-img-wrap" style="margin-bottom:1rem;display:none">
+      <img id="splash-proj-img" style="max-width:100%;max-height:160px;object-fit:cover;border-radius:12px;border:2px solid rgba(255,215,0,.35)" />
+    </div>
+    <div id="splash-proj-name" style="font-size:1.4rem;font-weight:800;color:#FFD700;letter-spacing:.04em"></div>
+    <div style="font-size:.72rem;color:rgba(255,215,0,.5);margin-top:.5rem;letter-spacing:.1em">TAP TO CONTINUE</div>
+  </div>
+</div>
+
+<!-- ── Static login screen — event listeners attached in JS, never injected via innerHTML ── -->
+<div id="login-screen">
+  <div class="login-wrap">
+    <div class="login-logo">🏗</div>
+    <div class="login-title">SiteSnag</div>
+    <div class="login-sub">Construction Quality Inspection</div>
+
+    <!-- Shown when no users exist -->
+    <div id="ls-setup" style="display:none;width:100%;max-width:480px">
+      <div class="card card-body" style="text-align:center">
+        <div style="font-size:1.5rem;margin-bottom:.5rem">👋</div>
+        <div style="font-weight:700;margin-bottom:.4rem">First time setup</div>
+        <div style="font-size:.88rem;color:var(--muted);margin-bottom:1rem">Create your first user to get started.</div>
+        <button id="btn-first-user" class="btn btn-primary btn-block">Create First User</button>
+      </div>
+    </div>
+
+    <!-- Shown when users exist -->
+    <div id="ls-users" style="display:none;width:100%;max-width:480px">
+      <div id="ls-user-grid" class="user-grid"></div>
+      <div id="ls-pin" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<div id="app" style="display:none"></div>
+
+<script>
+// ── DB ─────────────────────────────────────────────────────────────────────────
+const DB_KEY    = 'sitesnag_v1';
+const STATE_KEY = 'sitesnag_state';
+let db = { projects: [], companies: [], snags: [], users: [], locations: [], subsystems: [], splashConfig: { projectImage: null, logos: [] }, snagCounter: {} };
+// locations:  [{ id, building, floors: [{ id, name, rooms: [string] }] }]
+// subsystems: [{ id, discipline, name }]  discipline ∈ DISCIPLINES
+const DISCIPLINES = ['Civil works', 'MEP works', 'System works'];
+
+var storageOK = (function() {
+  try { localStorage.setItem('__test__', '1'); localStorage.removeItem('__test__'); return true; } catch(e) { return false; }
+})();
+
+// ── SUPABASE ────────────────────────────────────────────────────────────────────
+const SUPA_URL = 'https://wacvuqwyfrdilljemkqx.supabase.co';
+const SUPA_KEY = 'sb_publishable_G4nzhH6QwF7qOjR424f94g_SV2XJJjC';
+let _supa = null;
+let _syncStatus = 'idle'; // idle | syncing | ok | error
+let _syncMsg    = '';
+
+function supaClient() {
+  if (!_supa && window.supabase) {
+    _supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+  }
+  return _supa;
+}
+
+async function _syncToSupabase() {
+  const cl = supaClient(); if (!cl) return;
+  _syncStatus = 'syncing';
+  try {
+    const { error } = await cl.from('app_data').upsert({
+      id: 'main', data: db, updated_at: new Date().toISOString()
+    });
+    _syncStatus = error ? 'error' : 'ok';
+    _syncMsg = error ? error.message : '';
+  } catch(e) {
+    _syncStatus = 'error';
+    _syncMsg = e.message;
+  }
+}
+
+async function pushToSupabase() {
+  const cl = supaClient();
+  if (!cl) { alert('Supabase library not ready. Please wait a moment and try again.'); return; }
+  const sizeMB = (JSON.stringify(db).length / 1048576).toFixed(1);
+  if (!confirm(`Push all local data to the cloud?\n\nSnags: ${db.snags.length}  Users: ${db.users.length}\nData size: ~${sizeMB} MB\n\nThis will overwrite any existing cloud data.`)) return;
+  _syncStatus = 'syncing';
+  try {
+    const { error } = await cl.from('app_data').upsert({ id: 'main', data: db, updated_at: new Date().toISOString() });
+    if (error) throw error;
+    _syncStatus = 'ok';
+    _syncMsg = '';
+    alert('✓ Data pushed to cloud. All users on other devices can now pull this data.');
+  } catch(e) {
+    _syncStatus = 'error';
+    _syncMsg = e.message;
+    alert('Push failed: ' + e.message);
+  }
+}
+
+// ── CLOUDFLARE R2 PHOTO UPLOAD ─────────────────────────────────────────────────
+const R2_ENDPOINT   = 'https://3a326bcdee249cc88cd07e68cc06b1c4.r2.cloudflarestorage.com';
+const R2_BUCKET     = 'sitesnag-photos';
+const R2_ACCESS_KEY = '4dcbbc6314ea8025f2303b94e8d103ee';
+const R2_SECRET_KEY = '6dfddb8c727c16fc45736dc53ec219965053b2869167885060c94488cd3a20db';
+let   R2_PUBLIC_URL = 'https://pub-30485994f7b944fa9be367389d82e365.r2.dev'; // hardcoded — same for all users
+
+async function _sha256Hex(data) {
+  const buf = await crypto.subtle.digest('SHA-256', typeof data === 'string' ? new TextEncoder().encode(data) : data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+async function _hmacSha256(keyData, message) {
+  const k = await crypto.subtle.importKey('raw',
+    typeof keyData === 'string' ? new TextEncoder().encode(keyData) : keyData,
+    { name:'HMAC', hash:'SHA-256' }, false, ['sign']);
+  return crypto.subtle.sign('HMAC', k, typeof message === 'string' ? new TextEncoder().encode(message) : message);
+}
+async function _hmacSha256Hex(keyData, message) {
+  return Array.from(new Uint8Array(await _hmacSha256(keyData, message))).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function uploadPhotoToR2(dataUrl, path) {
+  if (!R2_PUBLIC_URL) return null; // R2 not yet configured with public URL
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
+    const contentType = 'image/jpeg';
+    const now = new Date();
+    const dateStamp = now.toISOString().slice(0,10).replace(/-/g,'');
+    const amzDate   = now.toISOString().replace(/[:-]|\.\d{3}/g,'');
+    const payloadHash = await _sha256Hex(await blob.arrayBuffer());
+    const host = R2_ENDPOINT.replace('https://','');
+    const canonHeaders = `content-type:${contentType}\nhost:${host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${amzDate}\n`;
+    const signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
+    const canonRequest = `PUT\n/${R2_BUCKET}/${path}\n\n${canonHeaders}\n${signedHeaders}\n${payloadHash}`;
+    const credScope = `${dateStamp}/auto/s3/aws4_request`;
+    const strToSign = `AWS4-HMAC-SHA256\n${amzDate}\n${credScope}\n${await _sha256Hex(new TextEncoder().encode(canonRequest))}`;
+    const sigKey = await _hmacSha256(
+      await _hmacSha256(await _hmacSha256(await _hmacSha256('AWS4'+R2_SECRET_KEY, dateStamp), 'auto'), 's3'),
+      'aws4_request');
+    const signature = await _hmacSha256Hex(sigKey, strToSign);
+    const auth = `AWS4-HMAC-SHA256 Credential=${R2_ACCESS_KEY}/${credScope},SignedHeaders=${signedHeaders},Signature=${signature}`;
+    const resp = await fetch(`${R2_ENDPOINT}/${R2_BUCKET}/${path}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': contentType, 'x-amz-date': amzDate, 'x-amz-content-sha256': payloadHash, 'Authorization': auth },
+      body: blob
+    });
+    if (!resp.ok) throw new Error(resp.status);
+    return `${R2_PUBLIC_URL}/${path}`;
+  } catch(e) {
+    console.warn('R2 upload failed, keeping base64:', e.message);
+    return null;
+  }
+}
+
+async function pullFromSupabase() {
+  const cl = supaClient();
+  if (!cl) { alert('Supabase library not ready. Please wait a moment and try again.'); return; }
+  _syncStatus = 'syncing';
+  try {
+    const { data, error } = await cl.from('app_data').select('data, updated_at').eq('id', 'main').maybeSingle();
+    if (error) throw error;
+    if (!data) { _syncStatus = 'idle'; alert('No cloud data found. Use "Push to Cloud" from the device that has your data first.'); return; }
+    const cloudDate = new Date(data.updated_at).toLocaleString('en-GB');
+    if (!confirm(`Load cloud data?\n\nCloud last updated: ${cloudDate}\nCloud snags: ${(data.data?.snags||[]).length}\nCloud users: ${(data.data?.users||[]).length}\n\nThis will replace your current local data.`)) { _syncStatus = 'idle'; return; }
+    db = { projects: [], companies: [], snags: [], users: [], locations: [], subsystems: [], splashConfig: { projectImage: null, logos: [] }, ...data.data };
+    if (!db.subsystems) db.subsystems = [];
+    if (!db.splashConfig) db.splashConfig = { projectImage: null, logos: [] };
+    if (db.settings?.r2PublicUrl) R2_PUBLIC_URL = db.settings.r2PublicUrl;
+    if (storageOK) localStorage.setItem(DB_KEY, JSON.stringify(db));
+    _syncStatus = 'ok';
+    _syncMsg = '';
+    S.currentUser = null;
+    saveState();
+    render();
+    alert('✓ Cloud data loaded successfully. Please log in again.');
+  } catch(e) {
+    _syncStatus = 'error';
+    _syncMsg = e.message;
+    alert('Pull failed: ' + e.message);
+  }
+}
+
+function showStorageWarning() {
+  var w = document.getElementById('storage-warn');
+  if (w) return;
+  w = document.createElement('div');
+  w.id = 'storage-warn';
+  w.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#b45309;color:#fff;padding:.65rem 1rem;font-size:.8rem;z-index:9998;text-align:center';
+  w.innerHTML = '&#9888; Storage blocked &mdash; data will not be saved between sessions. To fix: serve this file via a local web server, or allow cookies/storage in your browser settings.';
+  document.body.appendChild(w);
+}
+
+function loadDB() {
+  if (!storageOK) return;
+  try { const s = JSON.parse(localStorage.getItem(DB_KEY)); if (s) db = { ...db, ...s }; } catch {}
+  if (!db.subsystems)   db.subsystems   = [];
+  if (!db.splashConfig) db.splashConfig = { projectImage: null, logos: [] };
+  if (!db.snagCounter)  db.snagCounter  = {};
+}
+function saveDB() {
+  if (storageOK) {
+    try { localStorage.setItem(DB_KEY, JSON.stringify(db)); } catch {}
+  }
+  _syncToSupabase(); // fire-and-forget background sync
+}
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+// ── GLOBAL ERROR DISPLAY ─────────────────────────────────────────────────────
+window.onerror = function(msg, src, line, col, err) {
+  var d = document.getElementById('js-error-bar');
+  if (!d) { d = document.createElement('div'); d.id = 'js-error-bar';
+    d.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#dc2626;color:#fff;padding:.75rem 1rem;font-size:.82rem;z-index:9999;white-space:pre-wrap';
+    document.body.appendChild(d); }
+  d.textContent = 'JS Error: ' + msg + ' (line ' + line + ')';
+};
+
+// ── GLOBAL CLICK DELEGATION ──────────────────────────────────────────────────
+// Uses manual parent-walk instead of .closest() for maximum browser compatibility
+document.addEventListener('click', function(e) {
+  var el = e.target;
+  while (el && el !== document) {
+    if (el.getAttribute && el.getAttribute('data-fn')) break;
+    el = el.parentNode;
+  }
+  if (!el || el === document) return;
+  const fn = el.getAttribute('data-fn');
+  const a1 = el.getAttribute('data-a1');
+  const a2 = el.getAttribute('data-a2');
+  if (typeof window[fn] === 'function') {
+    try {
+      if (a2 != null) window[fn](a1, a2);
+      else if (a1 != null) window[fn](a1);
+      else window[fn]();
+    } catch(err) {
+      console.error('Action error [' + fn + ']:', err);
+    }
+  }
+});
+
+function goView(v)         { go(v); }
+function goSnag(id)        { go('snag-detail', { snagId: id }); }
+function goSnagForm(id)    { go('snag-form', { snagId: id || null, fd: {} }); }
+function goContractor(id)  { go('contractor-respond', { snagId: id, fd: {} }); }
+function goProject(id)     { selectProject(id); }
+function fabNewSnag()      { S.fd = {}; S.snagId = null; go('snag-form'); }
+function removePhoto()     { snap(); S.fd.photo = null; render(); }
+function removeRectPhoto() { snap(); S.fd.rectPhoto = null; render(); }
+function cancelSnagForm()  { go(S.snagId ? 'snag-detail' : 'snag-list'); }
+
+// ── STATE ──────────────────────────────────────────────────────────────────────
+let S = {
+  view: 'login',
+  projectId: null,
+  snagId: null,
+  mode: 'engineer',
+  contractorCompanyId: null,
+  filter: 'all',
+  fd: {},
+  currentUser: null,    // { id, name, role, companyId }
+  loginUserId: null,    // selected on login screen
+  pinEntry: '',         // digits typed on login screen
+  pinError: '',
+  rptProjectId: null,   // project filter on reports tab
+};
+
+function loadState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STATE_KEY));
+    if (saved) {
+      if (saved.projectId)   S.projectId   = saved.projectId;
+      if (saved.mode)        S.mode        = saved.mode;
+      if (saved.currentUser) S.currentUser = saved.currentUser;
+    }
+  } catch {}
+  if (S.projectId && !db.projects.find(p => p.id === S.projectId)) S.projectId = null;
+  if (!S.projectId && db.projects.length === 1) S.projectId = db.projects[0].id;
+  // Validate saved user still exists
+  if (S.currentUser) {
+    const u = db.users.find(u => u.id === S.currentUser.id);
+    if (!u) S.currentUser = null;
+  }
+}
+
+function saveState() {
+  if (!storageOK) return;
+  try {
+    localStorage.setItem(STATE_KEY, JSON.stringify({
+      projectId:   S.projectId,
+      mode:        S.mode,
+      currentUser: S.currentUser,
+    }));
+  } catch {}
+}
+
+// ── NAVIGATE ───────────────────────────────────────────────────────────────────
+function go(view, params) {
+  S.view = view;
+  if (params) Object.assign(S, params);
+  saveState();
+  render();
+}
+
+// ── STATUS HELPERS ─────────────────────────────────────────────────────────────
+const STATUSES = {
+  open:     { label: 'Open',           cls: 'b-open' },
+  assigned: { label: 'Assigned',       cls: 'b-assigned' },
+  pending:  { label: 'Pending Review', cls: 'b-pending' },
+  accepted: { label: 'Accepted',     cls: 'b-accepted' },
+  rejected: { label: 'Rejected',       cls: 'b-rejected' },
+};
+function badge(status) {
+  const s = STATUSES[status] || STATUSES.open;
+  return `<span class="badge ${s.cls}">${s.label}</span>`;
+}
+
+// ── DATE ───────────────────────────────────────────────────────────────────────
+function fmtDate(ts)     { return ts ? new Date(ts).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'}) : '—'; }
+function fmtDateTime(ts) { return ts ? new Date(ts).toLocaleString(undefined,{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—'; }
+
+// ── HTML ESCAPE ────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── LOOKUPS ────────────────────────────────────────────────────────────────────
+function proj()        { return db.projects.find(p => p.id === S.projectId); }
+function coName(id)    { const c = db.companies.find(c => c.id === id); return c ? c.name : '—'; }
+function snagCount(pid){ return db.snags.filter(s => s.projectId === pid).length; }
+function _discCode(disc) {
+  if (!disc) return 'GEN';
+  const d = disc.toLowerCase();
+  if (d.includes('civil'))  return 'CIV';
+  if (d.includes('mep'))    return 'MEP';
+  if (d.includes('system')) return 'SYS';
+  return disc.replace(/\s+works$/i,'').substring(0,3).toUpperCase();
+}
+function nextSnagId(pid, discipline, subsystem, building) {
+  if (!db.snagCounter) db.snagCounter = {};
+  const disc = _discCode(discipline);
+  const sub  = (subsystem||'GEN').substring(0,3).toUpperCase().replace(/[^A-Z0-9]/g,'') || 'GEN';
+  const bldg = (building||'XXX').toUpperCase().replace(/\s+/g,'');
+  const prefix     = `${disc}-${sub}-${bldg}`;
+  const counterKey = `${pid}:${prefix}`;
+  if (!db.snagCounter[counterKey]) {
+    // Seed from any existing snags with the same prefix so numbers are never reused
+    let maxSeq = 0;
+    db.snags.filter(s => s.projectId === pid && typeof s.number === 'string' && s.number.startsWith(prefix + '-'))
+      .forEach(s => { const seq = parseInt(s.number.split('-').pop()); if (!isNaN(seq) && seq > maxSeq) maxSeq = seq; });
+    db.snagCounter[counterKey] = maxSeq;
+  }
+  db.snagCounter[counterKey]++;
+  return `${prefix}-${String(db.snagCounter[counterKey]).padStart(6,'0')}`;
+}
+function numStr(n) {
+  if (n === null || n === undefined) return '—';
+  if (typeof n === 'number') return '#' + String(n).padStart(3,'0'); // legacy integer snags
+  return String(n);
+}
+function byMe()        { return S.currentUser ? S.currentUser.name : 'Unknown'; }
+
+// Avatar colour based on name
+const COLOURS = ['#1d4ed8','#15803d','#dc2626','#7c3aed','#ea580c','#0891b2','#be185d'];
+function avatarColour(name) { let h = 0; for (const c of String(name)) h = (h*31 + c.charCodeAt(0)) & 0xffffff; return COLOURS[Math.abs(h) % COLOURS.length]; }
+
+// ── PHOTO RESIZE ───────────────────────────────────────────────────────────────
+function resizePhoto(file) {
+  return new Promise(res => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 900;
+        let {width: w, height: h} = img;
+        if (w > MAX || h > MAX) { if (w > h) { h = h*MAX/w; w = MAX; } else { w = w*MAX/h; h = MAX; } }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        res(c.toDataURL('image/jpeg', 0.72));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ── GPS ────────────────────────────────────────────────────────────────────────
+function getGPS() {
+  const btn = document.getElementById('gpsBtn');
+  if (btn) { btn.textContent = '⏳ Getting…'; btn.disabled = true; }
+  if (!navigator.geolocation) {
+    showManualEntry('Automatic GPS is not available in this browser. Enter coordinates manually below.');
+    if (btn) { btn.textContent = '📍 Try Auto'; btn.disabled = false; }
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      S.fd.location = { lat: pos.coords.latitude.toFixed(6), lng: pos.coords.longitude.toFixed(6), acc: Math.round(pos.coords.accuracy) };
+      applyLocation(S.fd.location);
+      if (btn) { btn.textContent = '📍 Update'; btn.disabled = false; }
+    },
+    e => {
+      if (btn) { btn.textContent = '📍 Try Auto'; btn.disabled = false; }
+      const hint = e.code === 3
+        ? 'GPS timed out — try again outdoors, or enter coordinates manually.'
+        : 'Automatic GPS is blocked when opening the file directly. Enter coordinates manually using Google Maps (see link below).';
+      showManualEntry(hint);
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+function showManualEntry(hint) {
+  const box = document.getElementById('gpsManual');
+  const msg = document.getElementById('gpsHint');
+  if (msg) msg.textContent = hint;
+  if (box) box.style.display = 'block';
+}
+function applyLocation(loc) {
+  S.fd.location = loc;
+  const chip = document.getElementById('gpsChip');
+  if (chip) chip.textContent = `${loc.lat}, ${loc.lng}${loc.acc ? ` (±${loc.acc}m)` : ''}`;
+  const box = document.getElementById('gpsManual');
+  if (box) box.style.display = 'none';
+}
+function saveManualCoords() {
+  const lat = parseFloat(document.getElementById('manualLat')?.value);
+  const lng = parseFloat(document.getElementById('manualLng')?.value);
+  if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    alert('Enter valid coordinates. Latitude: -90 to 90. Longitude: -180 to 180.'); return;
+  }
+  applyLocation({ lat: lat.toFixed(6), lng: lng.toFixed(6), acc: null });
+}
+
+// ── FORM HELPERS ───────────────────────────────────────────────────────────────
+function snap() {
+  ['f_title','f_desc','f_discipline','f_subsystem','f_assigned_to','f_building','f_floor','f_room','f_rect_comment'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) S.fd[id] = el.value;
+  });
+}
+function isValidComponent(val) {
+  const parts = val.trim().split(/\s+/);
+  if (parts.length === 2) return true;
+  if (parts.length === 3 && parts.some(p => p.includes('-'))) return true;
+  return false;
+}
+function enforceComponentWords(input) {
+  const parts = input.value.trim().split(/\s+/);
+  if (parts.length > 3) {
+    input.value = parts.slice(0, 3).join(' ');
+  }
+}
+function fieldOptions(field) {
+  const seen = new Set();
+  db.snags.filter(s => s.projectId === S.projectId && s[field]).forEach(s => seen.add(s[field].trim()));
+  return [...seen].sort((a, b) => a.localeCompare(b));
+}
+function datalist(id, field) {
+  return `<datalist id="${id}">${fieldOptions(field).map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
+}
+function fillDesc(sel) {
+  if (!sel.value) return;
+  const ta = document.getElementById('f_desc');
+  if (ta) ta.value = sel.value;
+  sel.selectedIndex = 0;
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────────────────
+function render() {
+  try {
+    const loginScreen = document.getElementById('login-screen');
+    const appDiv      = document.getElementById('app');
+
+    if (!S.currentUser) {
+      loginScreen.style.display = 'block';
+      appDiv.style.display = 'none';
+      renderLoginScreen();
+      return;
+    }
+
+    loginScreen.style.display = 'none';
+    appDiv.style.display = 'block';
+
+    const views = {
+      projects:             viewProjects,
+      'snag-list':          viewSnagList,
+      'snag-detail':        viewSnagDetail,
+      'snag-form':          viewSnagForm,
+      'contractor-respond': viewContractorRespond,
+      companies:            viewCompanies,
+      users:                viewUsers,
+      reports:              viewReports,
+      locations:            viewLocations,
+    };
+    appDiv.innerHTML = (views[S.view] || viewProjects)();
+  } catch(e) {
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').innerHTML =
+      '<div style="background:#fee2e2;color:#7f1d1d;padding:1.5rem;margin:1rem;border-radius:12px;font-size:.9rem">' +
+      '<strong>Error rendering view:</strong><br>' + (e.message || e) +
+      '<br><br><button style="padding:.5rem 1rem;background:#1d4ed8;color:#fff;border:none;border-radius:8px;cursor:pointer" ' +
+      'id="err-back-btn">← Go Back</button></div>';
+    var bb = document.getElementById('err-back-btn');
+    if (bb) { bb.onclick = function() { S.currentUser = null; render(); }; }
+  }
+}
+
+function renderLoginScreen() {
+  const hasUsers = db.users.length > 0;
+  document.getElementById('ls-setup').style.display = hasUsers ? 'none' : 'block';
+  document.getElementById('ls-users').style.display = hasUsers ? 'block' : 'none';
+
+  if (!hasUsers) return;
+
+  // Render user selection cards
+  const grid = document.getElementById('ls-user-grid');
+  grid.innerHTML = db.users.map(u => `
+    <div class="user-card ${u.id === S.loginUserId ? 'selected' : ''}" data-uid="${u.id}">
+      <div class="uc-avatar" style="background:${avatarColour(u.name)}">${u.name.charAt(0).toUpperCase()}</div>
+      <div class="uc-name">${esc(u.name)}</div>
+      <div class="uc-role">${u.role === 'engineer' ? 'Engineer' : u.role === 'administrator' ? 'Administrator' : 'Contractor'}</div>
+    </div>`).join('');
+
+  // Attach card click listeners each render
+  grid.querySelectorAll('.user-card').forEach(card => {
+    card.addEventListener('click', function() {
+      selectLoginUser(this.getAttribute('data-uid'));
+    });
+  });
+
+  // Render PIN pad if user selected
+  const pinDiv = document.getElementById('ls-pin');
+  const sel = S.loginUserId ? db.users.find(u => u.id === S.loginUserId) : null;
+  if (sel) {
+    pinDiv.style.display = 'block';
+    pinDiv.innerHTML = `
+      <div class="pin-wrap">
+        <div class="pin-label">Enter PIN for ${esc(sel.name)}</div>
+        <div class="pin-dots">
+          ${[0,1,2,3].map(i => `<div class="pin-dot ${S.pinEntry.length > i ? 'filled' : ''}"></div>`).join('')}
+        </div>
+        <div class="pin-keypad" id="pin-keypad-grid">
+          ${[1,2,3,4,5,6,7,8,9].map(n => `<button class="pin-key" data-k="${n}">${n}</button>`).join('')}
+          <button class="pin-key del" data-k="del">⌫</button>
+          <button class="pin-key" data-k="0">0</button>
+          <button class="pin-key go" data-k="go">→</button>
+        </div>
+        ${S.pinError ? `<div class="pin-error">${esc(S.pinError)}</div>` : ''}
+      </div>`;
+    pinDiv.querySelectorAll('[data-k]').forEach(btn => {
+      btn.addEventListener('click', function() { pinKey(this.getAttribute('data-k')); });
+    });
+  } else {
+    pinDiv.style.display = 'none';
+    pinDiv.innerHTML = '';
+  }
+}
+
+// ══ VIEWS ══════════════════════════════════════════════════════════════════════
+
+// ── LOGIN ──────────────────────────────────────────────────────────────────────
+function startSetup() {
+  S.currentUser = { id: '__setup__', name: 'Setup', role: 'engineer' };
+  go('users');
+}
+
+function selectLoginUser(id) {
+  S.loginUserId = id;
+  S.pinEntry = '';
+  S.pinError = '';
+  render();
+}
+
+function pinKey(k) {
+  if (k === 'del') {
+    S.pinEntry = S.pinEntry.slice(0, -1);
+    S.pinError = '';
+    render();
+    return;
+  }
+  if (k === 'go') { doLogin(); return; }
+  if (S.pinEntry.length >= 4) return;
+  S.pinEntry += k;
+  S.pinError = '';
+  render();
+  if (S.pinEntry.length === 4) setTimeout(doLogin, 120);
+}
+
+function doLogin() {
+  const u = db.users.find(u => u.id === S.loginUserId);
+  if (!u) return;
+  if (String(u.pin) !== String(S.pinEntry)) {
+    S.pinError = 'Incorrect PIN — try again.';
+    S.pinEntry = '';
+    render();
+    return;
+  }
+  S.currentUser = { id: u.id, name: u.name, role: u.role, companyId: u.companyId || null };
+  S.mode = u.role === 'contractor' ? 'contractor' : 'engineer';
+  if (u.role === 'contractor' && u.companyId) S.contractorCompanyId = u.companyId;
+  S.pinEntry = '';
+  S.pinError = '';
+  S.loginUserId = null;
+  // Log the login
+  if (!db.loginLog) db.loginLog = [];
+  db.loginLog.push({ userId: u.id, name: u.name, role: u.role, at: Date.now(), action: 'login' });
+  saveDB();
+  go('projects');
+}
+
+function logout() {
+  if (!confirm(`Log out as ${S.currentUser?.name}?`)) return;
+  if (!db.loginLog) db.loginLog = [];
+  db.loginLog.push({ userId: S.currentUser.id, name: S.currentUser.name, role: S.currentUser.role, at: Date.now(), action: 'logout' });
+  saveDB();
+  S.currentUser = null;
+  S.contractorCompanyId = null;
+  saveState();
+  render();
+}
+
+// ── USERS ──────────────────────────────────────────────────────────────────────
+function viewUsers() {
+  const canManage = S.currentUser?.role === 'engineer' || S.currentUser?.role === 'administrator' || S.currentUser?.id === '__setup__';
+  const canAddAdmin = S.currentUser?.role === 'administrator' || S.currentUser?.id === '__setup__';
+
+  const items = db.users.length
+    ? db.users.map(u => {
+        const co = u.companyId ? db.companies.find(c => c.id === u.companyId) : null;
+        return `<div class="list-item" style="cursor:default">
+          <div class="usr-avatar" style="background:${avatarColour(u.name)}">${u.name.charAt(0).toUpperCase()}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:.93rem">${esc(u.name)}</div>
+            <div style="display:flex;gap:.35rem;align-items:center;margin-top:.2rem;flex-wrap:wrap">
+              <span class="role-badge role-${u.role}">${u.role}</span>
+              ${co ? `<span style="font-size:.75rem;color:var(--soft)">${esc(co.name)}</span>` : ''}
+            </div>
+          </div>
+          ${canManage ? `<button class="del-btn" data-fn="deleteUser" data-a1="${u.id}">×</button>` : ''}
+        </div>`;
+      }).join('')
+    : `<div class="empty"><div class="eico">👤</div><p>No users yet.</p></div>`;
+
+  const addForm = canManage ? `
+    <div class="sec-label">Add User</div>
+    <div class="card card-body">
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input type="text" id="nu_name" placeholder="e.g. James Murphy" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Role</label>
+        <select id="nu_role" onchange="toggleCoField()">
+          ${canAddAdmin ? `<option value="administrator">Administrator</option>` : ''}
+          <option value="engineer">Engineer</option>
+          <option value="contractor">Contractor</option>
+        </select>
+      </div>
+      <div class="form-group" id="nu_co_group" style="display:none">
+        <label class="form-label">Company</label>
+        <select id="nu_co">
+          <option value="">— select company —</option>
+          ${db.companies.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">4-Digit PIN</label>
+        <input type="password" id="nu_pin" placeholder="e.g. 1234" maxlength="4"
+               inputmode="numeric" pattern="[0-9]{4}" />
+      </div>
+      <div style="margin-top:.75rem">
+        <button class="btn btn-primary btn-block" data-fn="createUser">+ Add User</button>
+      </div>
+      <div id="nu_err" style="display:none;margin-top:.6rem;padding:.6rem .8rem;background:var(--red-bg);color:var(--red);border-radius:8px;font-size:.85rem;font-weight:600"></div>
+    </div>` : '';
+
+  const isSetup = S.currentUser?.id === '__setup__';
+  const noAdminExists = !db.users.some(u => u.role === 'administrator');
+  const selfUpgradeBar = !isSetup && noAdminExists && S.currentUser && S.currentUser.role !== 'administrator'
+    ? `<div class="alert alert-warn" style="margin-top:.75rem">
+        <strong>No Administrator exists.</strong> To unlock the Config tab, upgrade your account:
+        <button class="btn btn-primary btn-block" style="margin-top:.6rem" data-fn="upgradeSelfToAdmin">⬆ Make my account Administrator</button>
+      </div>`
+    : '';
+
+  const backupTools = !isSetup && canManage ? `
+    <div class="sec-label">Data Backup</div>
+    <div class="card card-body" style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" data-fn="exportData" style="flex:1">⬇ Export All Data</button>
+      <label class="btn btn-outline btn-sm" style="flex:1;cursor:pointer">⬆ Import Data
+        <input type="file" accept=".json" style="display:none" onchange="importData(this)" />
+      </label>
+    </div>` : '';
+
+  return appBar('Users', isSetup ? '' : 'projects') + `
+    <div class="main">
+      ${isSetup ? `<div class="alert alert-info">Create your first engineer to start using the app.</div>` : ''}
+      <div class="card">${items}</div>
+      ${selfUpgradeBar}
+      ${addForm}
+      ${backupTools}
+    </div>` + (isSetup ? '' : navBar('users'));
+}
+
+function upgradeSelfToAdmin() {
+  if (db.users.some(u => u.role === 'administrator')) { alert('An Administrator already exists.'); return; }
+  const u = db.users.find(u => u.id === S.currentUser?.id);
+  if (!u) return;
+  if (!confirm('Upgrade "' + u.name + '" to Administrator? This cannot be undone from this screen.')) return;
+  u.role = 'administrator';
+  S.currentUser = { ...S.currentUser, role: 'administrator' };
+  saveDB(); saveState(); render();
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'sitesnag-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importData(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.projects || !data.snags) {
+        document.getElementById('nu_err') && (document.getElementById('nu_err').textContent = 'Invalid backup file.', document.getElementById('nu_err').style.display = 'block');
+        return;
+      }
+      if (!confirm('Replace ALL current data with this backup?\n\nProjects: ' + data.projects.length + '  Snags: ' + data.snags.length + '  Users: ' + (data.users||[]).length + '\n\nThis cannot be undone.')) return;
+      db = { projects: [], companies: [], snags: [], users: [], loginLog: [], ...data };
+      saveDB();
+      S.currentUser = null;
+      saveState();
+      render();
+    } catch(err) {
+      alert('Could not read the file — make sure it is a SiteSnag backup (.json).');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function toggleCoField() {
+  const role = document.getElementById('nu_role')?.value;
+  const grp  = document.getElementById('nu_co_group');
+  if (grp) grp.style.display = role === 'contractor' ? 'flex' : 'none';
+}
+
+function createUser() {
+  const name  = document.getElementById('nu_name').value.trim();
+  const role  = document.getElementById('nu_role').value;
+  const co    = document.getElementById('nu_co')?.value || null;
+  const pin   = document.getElementById('nu_pin').value.trim();
+  const errEl = document.getElementById('nu_err');
+  if (errEl) errEl.style.display = 'none';
+  const fail = msg => { if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; } };
+  if (!name)                              { fail('Please enter a full name.'); return; }
+  if (!/^\d{4}$/.test(pin))              { fail('PIN must be exactly 4 digits (numbers only).'); return; }
+  if (role === 'contractor' && !co)       { fail('Please select a company for this contractor.'); return; }
+  if (role === 'administrator' && S.currentUser?.role !== 'administrator' && S.currentUser?.id !== '__setup__') {
+    fail('Only an Administrator can create another Administrator.'); return;
+  }
+  db.users.push({ id: uid(), name, role, companyId: co || null, pin, createdAt: Date.now() });
+  saveDB();
+  if (S.currentUser?.id === '__setup__') {
+    S.currentUser = null;
+    render();
+    return;
+  }
+  render();
+}
+
+function deleteUser(id) {
+  if (id === S.currentUser?.id) { alert("You can't delete your own account."); return; }
+  if (!confirm('Remove this user?')) return;
+  db.users = db.users.filter(u => u.id !== id);
+  saveDB();
+  render();
+}
+
+// ── PROJECTS ───────────────────────────────────────────────────────────────────
+function viewProjects() {
+  const items = db.projects.length
+    ? db.projects.map(p => `
+        <div class="list-item" data-fn="goProject" data-a1="${p.id}">
+          <div class="proj-icon">🏗</div>
+          <div><div class="proj-name">${esc(p.name)}</div>
+               <div class="proj-count">${snagCount(p.id)} snag${snagCount(p.id)!==1?'s':''}</div></div>
+          ${p.id === S.projectId ? '<span class="active-chip">ACTIVE</span>' : ''}
+        </div>`).join('')
+    : `<div class="empty"><div class="eico">📂</div><p>No projects yet.<br>Create one below.</p></div>`;
+
+  const isInspector = S.currentUser?.role === 'engineer';
+  return appBar('SiteSnag', '') + `
+    <div class="main">
+      <div class="sec-label">Projects</div>
+      <div class="card">${items}</div>
+      ${isInspector ? `
+        <div class="sec-label">New Project</div>
+        <div class="card card-body">
+          <div class="form-group">
+            <label class="form-label">Project Name</label>
+            <input type="text" id="newProjName" placeholder="e.g. Block A – Ground Floor" />
+          </div>
+          <div style="margin-top:.75rem">
+            <button class="btn btn-primary btn-block" data-fn="createProject">+ Create Project</button>
+          </div>
+        </div>` : ''}
+    </div>` + navBar('projects');
+}
+
+// ── SNAG LIST ──────────────────────────────────────────────────────────────────
+function viewSnagList() {
+  const p = proj();
+  if (!p) return viewProjects();
+
+  let snags = db.snags.filter(s => s.projectId === S.projectId);
+  const isContractor = S.currentUser?.role === 'contractor';
+
+  if (isContractor) {
+    const cid = S.currentUser.companyId;
+    snags = snags.filter(s => s.assignedTo === cid && (s.status==='assigned'||s.status==='rejected'));
+  }
+
+  const filters = isContractor
+    ? ['all','assigned','rejected']
+    : ['all','open','assigned','pending','accepted','rejected'];
+
+  if (S.filter !== 'all') snags = snags.filter(s => s.status === S.filter);
+  snags = snags.slice().sort((a,b) => b.createdAt - a.createdAt);
+
+  const chips = filters.map(f => `
+    <button class="filter-chip ${S.filter===f?'active':''}" data-fn="setFilter" data-a1="${f}">
+      ${f==='all' ? 'All' : STATUSES[f]?.label || f}
+    </button>`).join('');
+
+  const items = snags.length
+    ? snags.map(s => `
+        <div class="list-item" data-fn="goSnag" data-a1="${s.id}">
+          <div class="snag-num">${numStr(s.number)}</div>
+          <div class="snag-info">
+            <div class="snag-title">${esc(s.title)}</div>
+            <div class="snag-meta">
+              ${badge(s.status)}
+              ${s.discipline ? `<span class="snag-co" style="color:var(--blue)">${esc(s.discipline)}${s.subsystem?` › ${esc(s.subsystem)}`:''}</span>` : ''}
+              ${s.building||s.floor||s.room ? `<span class="snag-co">${[s.building?`${esc(s.building)}${s.buildingName?` (${esc(s.buildingName)})`:''}`:'',s.floor?`Fl ${esc(s.floor)}`:'',s.room?`Rm ${esc(s.room)}`:''].filter(Boolean).join(' · ')}</span>` : ''}
+              <span class="snag-co">${esc(coName(s.assignedTo))}</span>
+            </div>
+          </div>
+          ${s.photo ? `<img class="snag-thumb" src="${s.photo}" />` : `<div class="snag-thumb-empty">📷</div>`}
+        </div>`).join('')
+    : `<div class="empty"><div class="eico">✅</div><p>No snags${S.filter!=='all'?' with this filter':''}.</p></div>`;
+
+  return appBar(esc(p.name), 'projects') + `
+    <div class="main">
+      ${isContractor ? `<div class="alert alert-info">Showing snags assigned to <strong>${esc(coName(S.currentUser.companyId))}</strong></div>` : ''}
+      <div class="filter-row">${chips}</div>
+      <div class="card">${items}</div>
+    </div>
+    ${!isContractor ? `<button class="fab" data-fn="fabNewSnag">+</button>` : ''}
+    ` + navBar('snag-list');
+}
+
+// ── SNAG DETAIL ────────────────────────────────────────────────────────────────
+function viewSnagDetail() {
+  const snag = db.snags.find(s => s.id === S.snagId);
+  if (!snag) return viewSnagList();
+  const p   = db.projects.find(p => p.id === snag.projectId);
+  const co  = snag.assignedTo ? db.companies.find(c => c.id === snag.assignedTo) : null;
+  const isInspector  = S.currentUser?.role === 'engineer';
+  const isAdmin      = S.currentUser?.role === 'administrator';
+  const isContractor = S.currentUser?.role === 'contractor';
+  const myCompany    = S.currentUser?.companyId;
+
+  let actionBar = '';
+  if (isInspector || isAdmin) {
+    if (snag.status === 'open') {
+      actionBar = `<div class="action-bar">
+        <button class="btn btn-primary" data-fn="openAssignModal" data-a1="${snag.id}">Assign to Contractor →</button>
+        <button class="btn btn-outline btn-sm" data-fn="goSnagForm" data-a1="${snag.id}">Edit</button>
+      </div>`;
+    } else if (snag.status === 'assigned' || snag.status === 'rejected') {
+      actionBar = `<div class="action-bar">
+        <button class="btn btn-outline" data-fn="openAssignModal" data-a1="${snag.id}">Reassign</button>
+        <button class="btn btn-outline" data-fn="goSnagForm" data-a1="${snag.id}">Edit</button>
+      </div>`;
+    } else if (snag.status === 'pending') {
+      actionBar = `<div class="action-bar">
+        <button class="btn btn-success" data-fn="acceptSnag" data-a1="${snag.id}">✓ Accept</button>
+        <button class="btn btn-danger"  data-fn="openRejectModal" data-a1="${snag.id}">✗ Reject</button>
+      </div>`;
+    }
+  } else if (isContractor && snag.assignedTo === myCompany && (snag.status==='assigned'||snag.status==='rejected')) {
+    actionBar = `<div class="action-bar">
+      <button class="btn btn-primary btn-block" data-fn="goContractor" data-a1="${snag.id}">
+        📸 Submit Rectification
+      </button>
+    </div>`;
+  }
+
+  const r = snag.rectification;
+  const rectBlock = r ? `
+    <div class="divider"></div>
+    <div style="padding:1rem">
+      <div class="sec-label" style="margin:0 0 .6rem">Rectification Submitted</div>
+      ${r.photo ? `<img src="${r.photo}" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:.7rem;display:block" />` : ''}
+      <div class="detail-row"><span class="detail-label">By</span>
+        <span class="detail-val">${esc(r.by || coName(snag.assignedTo))}</span></div>
+      <div class="detail-row"><span class="detail-label">Submitted</span>
+        <span class="detail-val">${fmtDateTime(r.submittedAt)}</span></div>
+      <div class="detail-row"><span class="detail-label">Comment</span>
+        <span class="detail-val" style="white-space:pre-wrap">${esc(r.comment)||'—'}</span></div>
+    </div>` : '';
+
+  const hist = (snag.history||[]).map(h => {
+    const dc = h.action.includes('Accept')?'g':h.action.includes('Reject')?'r':h.action.includes('Rectif')?'p':'b';
+    return `<div class="tl-row">
+      <div class="tl-dot ${dc}"></div>
+      <div>
+        <div class="tl-main">${esc(h.action)}</div>
+        <div class="tl-when">${fmtDateTime(h.at)}</div>
+        ${h.by   ? `<div class="tl-by">👤 ${esc(h.by)}</div>` : ''}
+        ${h.note ? `<div class="tl-note">${esc(h.note)}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  const statusAlert = {
+    pending:  `<div class="alert alert-info">Awaiting engineer review.</div>`,
+    accepted: `<div class="alert alert-success">Snag closed — accepted by engineer.</div>`,
+    rejected: `<div class="alert alert-danger">Rejected — rectification required again.</div>`,
+  }[snag.status] || '';
+
+  return appBar(`${numStr(snag.number)} ${esc(snag.title)}`, 'snag-list') + `
+    <div class="main">
+      ${statusAlert}
+      <div class="card">
+        ${snag.photo ? `<img class="detail-photo" src="${snag.photo}" />` : ''}
+        <div class="card-body">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
+            ${badge(snag.status)}
+            <span style="font-size:.75rem;color:var(--muted)">${fmtDate(snag.createdAt)}</span>
+          </div>
+          <div class="detail-row"><span class="detail-label">Project</span>
+            <span class="detail-val">${esc(p?.name)}</span></div>
+          ${snag.discipline ? `<div class="detail-row"><span class="detail-label">Discipline</span>
+            <span class="detail-val">${esc(snag.discipline)}</span></div>` : ''}
+          ${snag.subsystem ? `<div class="detail-row"><span class="detail-label">Subsystem</span>
+            <span class="detail-val">${esc(snag.subsystem)}</span></div>` : ''}
+          <div class="detail-row"><span class="detail-label">Location</span>
+            <span class="detail-val" style="display:flex;gap:.5rem;flex-wrap:wrap">
+              ${snag.building?`<span style="background:var(--blue-bg);color:var(--blue);font-size:.78rem;font-weight:700;padding:.18rem .6rem;border-radius:999px">🏢 ${esc(snag.building)}${snag.buildingName?` — ${esc(snag.buildingName)}`:''}</span>`:''}
+              ${snag.floor?`<span style="background:var(--bg);color:var(--soft);font-size:.78rem;font-weight:700;padding:.18rem .6rem;border-radius:999px;border:1.5px solid var(--border)">Floor ${esc(snag.floor)}</span>`:''}
+              ${snag.room?`<span style="background:var(--bg);color:var(--soft);font-size:.78rem;font-weight:700;padding:.18rem .6rem;border-radius:999px;border:1.5px solid var(--border)">Room ${esc(snag.room)}</span>`:''}
+              ${!snag.building&&!snag.floor&&!snag.room?'<em style="color:var(--muted)">Not specified</em>':''}
+            </span></div>
+          <div class="detail-row"><span class="detail-label">Assigned to</span>
+            <span class="detail-val">${co?esc(co.name):'<em style="color:var(--muted)">Unassigned</em>'}</span></div>
+          <div class="detail-row"><span class="detail-label">Description</span>
+            <span class="detail-val" style="white-space:pre-wrap">${esc(snag.description)||'—'}</span></div>
+          <div class="detail-row"><span class="detail-label">GPS</span>
+            <span class="detail-val">${snag.location
+              ? `<a class="map-link" href="https://maps.google.com/?q=${snag.location.lat},${snag.location.lng}" target="_blank">📍 ${snag.location.lat}, ${snag.location.lng}</a>
+                 ${snag.location.acc?`<br><span style="font-size:.72rem;color:var(--muted)">±${snag.location.acc}m</span>`:''}`
+              : '<em style="color:var(--muted)">Not recorded</em>'}</span></div>
+        </div>
+        ${rectBlock}
+        ${hist ? `<div class="divider"></div>
+          <div style="padding:1rem">
+            <div class="sec-label" style="margin:0 0 .6rem">History</div>
+            <div class="timeline">${hist}</div>
+          </div>` : ''}
+        ${actionBar}
+      </div>
+      ${isInspector ? `<div style="margin-top:.75rem;text-align:center">
+        <button data-fn="deleteSnag" data-a1="${snag.id}"
+          style="font-size:.78rem;color:var(--red);background:none;border:none;cursor:pointer;text-decoration:underline">
+          Delete snag
+        </button>
+      </div>` : ''}
+    </div>` + navBar('');
+}
+
+// ── SNAG FORM ──────────────────────────────────────────────────────────────────
+function viewSnagForm() {
+  const editing  = S.snagId ? db.snags.find(s => s.id === S.snagId) : null;
+  const photo    = S.fd.photo !== undefined ? S.fd.photo : (editing?.photo ?? null);
+  const loc      = S.fd.location || editing?.location;
+  const locTxt   = loc ? `${loc.lat}, ${loc.lng}${loc.acc?` (±${loc.acc}m)`:''}` : 'Not captured';
+  const descOpts = fieldOptions('description');
+  const descPicker = descOpts.length
+    ? `<select onchange="fillDesc(this)"
+         style="margin-bottom:.45rem;font-size:.85rem;color:var(--soft);border-radius:8px;padding:.5rem .7rem;border:2px solid var(--border);width:100%;background:#fff;font-family:inherit">
+         <option value="">↩ Pick a previous description…</option>
+         ${descOpts.map(v=>`<option value="${esc(v)}">${esc(v.length>70?v.slice(0,70)+'…':v)}</option>`).join('')}
+       </select>`
+    : '';
+
+  const selDisc = S.fd.f_discipline ?? editing?.discipline ?? '';
+  const selSub  = S.fd.f_subsystem  ?? editing?.subsystem  ?? '';
+  const discSubs = db.subsystems.filter(s => s.discipline === selDisc);
+
+  return appBar(editing?`Edit ${numStr(editing.number)}`:'New Snag', editing?'snag-detail':'snag-list') + `
+    <div class="main">
+      <div class="card card-body">
+        <div class="form-group">
+          <label class="form-label">Discipline *</label>
+          <select id="f_discipline" onchange="onDisciplineChange(this.value)"
+                  style="width:100%;padding:.55rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.95rem;font-family:inherit;background:#fff">
+            <option value="">— Select discipline —</option>
+            ${DISCIPLINES.map(d=>`<option value="${esc(d)}" ${d===selDisc?'selected':''}>${esc(d)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Subsystem</label>
+          <input type="text" id="f_subsystem" list="dl_subsystem"
+                 placeholder="${selDisc ? 'Type or select subsystem…' : 'Select discipline first…'}"
+                 value="${esc(selSub)}" autocomplete="off" ${!selDisc?'disabled':''}
+                 style="width:100%;padding:.55rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.95rem;font-family:inherit" />
+          <datalist id="dl_subsystem">
+            ${discSubs.map(s=>`<option value="${esc(s.name)}">`).join('')}
+          </datalist>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Component snagged *</label>
+          ${datalist('dl_title','title')}
+          <input type="text" id="f_title" list="dl_title" placeholder="e.g. Cracked render"
+                 value="${esc(S.fd.f_title??editing?.title??'')}" autocomplete="off"
+                 oninput="enforceComponentWords(this)" /></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem">
+          ${locationSelects(S.fd.f_building??editing?.building??'', S.fd.f_floor??editing?.floor??'', S.fd.f_room??editing?.room??'', S.fd.f_building_name??editing?.buildingName??'')}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Assign to Contractor</label>
+          <select id="f_assigned_to" style="width:100%;padding:.55rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.95rem;font-family:inherit;background:#fff">
+            <option value="">— Unassigned —</option>
+            ${db.companies.map(c=>`<option value="${c.id}" ${(S.fd.f_assigned_to??editing?.assignedTo??'')=== c.id?'selected':''}>${esc(c.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          ${descPicker}
+          <textarea id="f_desc" placeholder="Describe the defect in detail…">${esc(S.fd.f_desc??editing?.description??'')}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Photo</label>
+          ${photo
+            ? `<div class="photo-wrap"><img src="${photo}" />
+               <button class="photo-remove" data-fn="removePhoto">×</button></div>`
+            : `<label class="photo-trigger" for="photoIn">📷 Take / Choose Photo</label>
+               <input type="file" id="photoIn" accept="image/*" capture="environment" style="display:none"
+                      onchange="handlePhoto(this)" />`}
+        </div>
+        <div class="form-group">
+          <label class="form-label">GPS Location <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">(optional)</span></label>
+          <div class="loc-row">
+            <span class="loc-chip" id="gpsChip">${esc(locTxt)}</span>
+            <button class="btn btn-outline btn-sm" id="gpsBtn" data-fn="getGPS">📍 Get GPS</button>
+          </div>
+          <div id="gpsManual" style="display:none;margin-top:.6rem;padding:.8rem;background:var(--bg);border-radius:10px;border:1.5px solid var(--border)">
+            <div id="gpsHint" style="font-size:.8rem;color:var(--soft);margin-bottom:.6rem;line-height:1.45"></div>
+            <a href="https://maps.google.com" target="_blank"
+               style="display:inline-flex;align-items:center;gap:.3rem;font-size:.82rem;font-weight:700;color:var(--blue);text-decoration:none;margin-bottom:.7rem">
+              🗺 Open Google Maps to find your coordinates
+            </a>
+            <div style="font-size:.75rem;color:var(--muted);margin-bottom:.6rem">
+              In Google Maps: tap &amp; hold your location → coordinates appear at the top.
+            </div>
+            <div style="display:flex;gap:.5rem;margin-bottom:.5rem">
+              <div style="flex:1">
+                <div style="font-size:.72rem;font-weight:700;color:var(--soft);margin-bottom:.25rem">LATITUDE</div>
+                <input type="text" id="manualLat" placeholder="e.g. 25.197525"
+                       value="${esc(S.fd.location?.lat??'')}" style="border-radius:8px;padding:.5rem .7rem;font-size:.9rem" />
+              </div>
+              <div style="flex:1">
+                <div style="font-size:.72rem;font-weight:700;color:var(--soft);margin-bottom:.25rem">LONGITUDE</div>
+                <input type="text" id="manualLng" placeholder="e.g. 55.274288"
+                       value="${esc(S.fd.location?.lng??'')}" style="border-radius:8px;padding:.5rem .7rem;font-size:.9rem" />
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm" data-fn="saveManualCoords">✓ Set Location</button>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:.75rem;display:flex;gap:.55rem">
+        <button class="btn btn-outline" style="flex:1" data-fn="cancelSnagForm">Cancel</button>
+        <button class="btn btn-primary" style="flex:2" data-fn="saveSnag">${editing?'Save Changes':'+ Add Snag'}</button>
+      </div>
+    </div>` + navBar('');
+}
+
+// ── CONTRACTOR RESPOND ─────────────────────────────────────────────────────────
+function viewContractorRespond() {
+  const snag = db.snags.find(s => s.id === S.snagId);
+  if (!snag) return viewSnagList();
+  const photo = S.fd.rectPhoto;
+  const lastReject = snag.history?.slice().reverse().find(h => h.action === 'Rejected');
+
+  return appBar(`Rectify ${numStr(snag.number)}`, 'snag-detail') + `
+    <div class="main">
+      <div class="alert alert-warn">${esc(snag.title)}</div>
+      ${lastReject?.note ? `<div class="alert alert-danger"><strong>Engineer note:</strong> ${esc(lastReject.note)}</div>` : ''}
+      <div class="card card-body">
+        <div class="form-group">
+          <label class="form-label">Rectification Photo *</label>
+          ${photo
+            ? `<div class="photo-wrap"><img src="${photo}" />
+               <button class="photo-remove" data-fn="removeRectPhoto">×</button></div>`
+            : `<label class="photo-trigger" for="rectPhotoIn">📷 Photograph Completed Work</label>
+               <input type="file" id="rectPhotoIn" accept="image/*" capture="environment" style="display:none"
+                      onchange="handleRectPhoto(this)" />`}
+        </div>
+        <div class="form-group">
+          <label class="form-label">What Was Done</label>
+          <textarea id="f_rect_comment" placeholder="Describe the rectification work carried out…">${esc(S.fd.f_rect_comment??'')}</textarea>
+        </div>
+      </div>
+      <div style="margin-top:.75rem;display:flex;gap:.55rem">
+        <button class="btn btn-outline" style="flex:1" data-fn="goSnag" data-a1="${snag.id}">Cancel</button>
+        <button class="btn btn-success" style="flex:2" data-fn="submitRect" data-a1="${snag.id}">✓ Submit for Inspection</button>
+      </div>
+    </div>` + navBar('');
+}
+
+// ── COMPANIES ──────────────────────────────────────────────────────────────────
+function viewCompanies() {
+  const items = db.companies.length
+    ? db.companies.map(c => `
+        <div class="list-item">
+          <div class="co-avatar">${c.name.charAt(0).toUpperCase()}</div>
+          <span class="co-name">${esc(c.name)}</span>
+          <button class="del-btn" data-fn="deleteCo" data-a1="${c.id}">×</button>
+        </div>`).join('')
+    : `<div class="empty"><div class="eico">🏢</div><p>No companies yet.</p></div>`;
+
+  return appBar('Contractor Companies', 'projects') + `
+    <div class="main">
+      <div class="card">${items}</div>
+      <div class="sec-label">Add Company</div>
+      <div class="card card-body">
+        <div class="form-group">
+          <label class="form-label">Company Name</label>
+          <input type="text" id="newCoName" placeholder="e.g. Smith Plastering Ltd" />
+        </div>
+        <div style="margin-top:.75rem">
+          <button class="btn btn-primary btn-block" data-fn="addCo">+ Add Company</button>
+        </div>
+      </div>
+    </div>` + navBar('companies');
+}
+
+// ── REPORTS & ANALYTICS ───────────────────────────────────────────────────────
+function viewReports() {
+  const rptPid = S.rptProjectId || '';
+  const allSnags = rptPid ? db.snags.filter(s => s.projectId === rptPid) : db.snags;
+
+  const projOpts = [`<option value="">All Projects (${db.snags.length})</option>`,
+    ...db.projects.map(p => {
+      const n = db.snags.filter(s => s.projectId === p.id).length;
+      return `<option value="${p.id}" ${p.id === rptPid ? 'selected' : ''}>${esc(p.name)} (${n})</option>`;
+    })].join('');
+
+  const projSel = `<div class="proj-sel-row">
+    <label>Scope</label>
+    <select onchange="S.rptProjectId=this.value;render()" style="flex:1;padding:.45rem .7rem;font-size:.85rem;border-radius:8px;border:2px solid var(--border)">
+      ${projOpts}
+    </select></div>`;
+
+  const noData = !allSnags.length;
+
+  // ── KPIs ──
+  const total = allSnags.length;
+  const sc = {};
+  ['open','assigned','pending','accepted','rejected'].forEach(k => { sc[k] = allSnags.filter(x => x.status === k).length; });
+
+  const closedSnags = allSnags.filter(s => s.status === 'accepted');
+  const closeDays = closedSnags.map(s => {
+    const ev = (s.history||[]).slice().reverse().find(h => h.action.includes('Accepted'));
+    return ev ? (ev.at - s.createdAt) / 86400000 : null;
+  }).filter(d => d !== null);
+  const avgClose = closeDays.length ? (closeDays.reduce((a,b)=>a+b,0)/closeDays.length).toFixed(1) : '—';
+
+  const everAssigned = allSnags.filter(s => s.assignedTo).length;
+  const everRejected = allSnags.filter(s => (s.history||[]).some(h => h.action === 'Rejected')).length;
+  const rejRate = everAssigned ? Math.round(100 * everRejected / everAssigned) : 0;
+  const outstanding = sc.open + sc.assigned;
+
+  const kpiCards = `<div class="rpt-kpi-grid">
+    <div class="rpt-kpi"><div class="rpt-kpi-val">${total}</div><div class="rpt-kpi-label">Total Snags</div></div>
+    <div class="rpt-kpi">
+      <div class="rpt-kpi-val" style="color:var(--amber)">${outstanding}</div>
+      <div class="rpt-kpi-label">Outstanding</div>
+      <div class="rpt-kpi-sub">${sc.open} open · ${sc.assigned} assigned</div>
+    </div>
+    <div class="rpt-kpi">
+      <div class="rpt-kpi-val" style="color:var(--green)">${sc.accepted}</div>
+      <div class="rpt-kpi-label">Closed</div>
+      <div class="rpt-kpi-sub">${total ? Math.round(100*sc.accepted/total) : 0}% done</div>
+    </div>
+    <div class="rpt-kpi">
+      <div class="rpt-kpi-val" style="color:var(--purple)">${sc.pending}</div>
+      <div class="rpt-kpi-label">Pending Review</div>
+    </div>
+    <div class="rpt-kpi">
+      <div class="rpt-kpi-val">${avgClose === '—' ? '—' : avgClose}<span style="font-size:.85rem;font-weight:400"> d</span></div>
+      <div class="rpt-kpi-label">Avg Days Closed</div>
+    </div>
+    <div class="rpt-kpi">
+      <div class="rpt-kpi-val" style="color:${rejRate>25?'var(--red)':rejRate>10?'var(--amber)':'var(--green)'}">${rejRate}%</div>
+      <div class="rpt-kpi-label">Rejection Rate</div>
+    </div>
+  </div>`;
+
+  // ── STATUS BARS ──
+  const stColour = { open:'var(--amber)', assigned:'var(--blue)', pending:'var(--purple)', accepted:'var(--green)', rejected:'var(--red)' };
+  const maxSt = Math.max(...Object.values(sc), 1);
+  const statusBars = ['open','assigned','pending','accepted','rejected'].map(k => {
+    const n = sc[k]; const pct = total ? Math.round(100*n/total) : 0;
+    return `<div class="bar-row">
+      <div class="bar-label">${STATUSES[k]?.label||k}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(100*n/maxSt)}%;background:${stColour[k]}"></div></div>
+      <div class="bar-count">${n} <span style="font-weight:400;color:var(--muted);font-size:.68rem">${pct}%</span></div>
+    </div>`;
+  }).join('');
+
+  // ── MONTHLY TREND CHART (SVG) ──
+  const months = [];
+  const nowD = new Date(); nowD.setDate(1); nowD.setHours(0,0,0,0);
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(nowD); d.setMonth(d.getMonth() - i);
+    months.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleDateString(undefined,{month:'short'}), yr: d.getFullYear(), mo: d.getMonth(), opened: 0, closed: 0 });
+  }
+  allSnags.forEach(s => {
+    const d = new Date(s.createdAt); const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const m = months.find(x => x.key === key); if (m) m.opened++;
+  });
+  closedSnags.forEach(s => {
+    const ev = (s.history||[]).slice().reverse().find(h => h.action.includes('Accepted')); if (!ev) return;
+    const d = new Date(ev.at); const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const m = months.find(x => x.key === key); if (m) m.closed++;
+  });
+  const maxBar = Math.max(...months.map(m => Math.max(m.opened, m.closed)), 1);
+  const SVG_H = 130, SVG_PAD_L = 28, SVG_PAD_B = 30, CHART_H = SVG_H - SVG_PAD_B - 10;
+  const BW = 18, GAP = 6, GROUP = BW*2+GAP+8;
+  const svgW = SVG_PAD_L + months.length * GROUP + 8;
+  const monthRects = months.map((m, i) => {
+    const x = SVG_PAD_L + i * GROUP;
+    const oh = Math.max(2, Math.round(m.opened/maxBar*CHART_H));
+    const ch = Math.max(m.closed?2:0, Math.round(m.closed/maxBar*CHART_H));
+    return `<rect x="${x}" y="${10+CHART_H-oh}" width="${BW}" height="${oh}" fill="#1d4ed8" rx="3" opacity=".8"/>
+      <rect x="${x+BW+4}" y="${10+CHART_H-ch}" width="${BW}" height="${ch}" fill="#15803d" rx="3" opacity=".8"/>
+      <text x="${x+BW+2}" y="${SVG_H-10}" text-anchor="middle" font-size="9" fill="#94a3b8">${m.label}</text>`;
+  }).join('');
+  const gridLines = [0.25,0.5,0.75,1].map(f => {
+    const y = 10 + CHART_H - Math.round(f*CHART_H); const v = Math.round(f*maxBar);
+    return `<line x1="${SVG_PAD_L-3}" y1="${y}" x2="${svgW-3}" y2="${y}" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="${SVG_PAD_L-5}" y="${y+3}" text-anchor="end" font-size="8" fill="#94a3b8">${v}</text>`;
+  }).join('');
+  const legend = `<rect x="${SVG_PAD_L}" y="${SVG_H-6}" width="9" height="6" fill="#1d4ed8" rx="1"/>
+    <text x="${SVG_PAD_L+12}" y="${SVG_H-1}" font-size="8" fill="#475569">Opened</text>
+    <rect x="${SVG_PAD_L+60}" y="${SVG_H-6}" width="9" height="6" fill="#15803d" rx="1"/>
+    <text x="${SVG_PAD_L+73}" y="${SVG_H-1}" font-size="8" fill="#475569">Closed</text>`;
+  const timeChart = `<div style="overflow-x:auto">
+    <svg width="${svgW}" height="${SVG_H}" style="display:block;min-width:180px">
+      ${gridLines}${monthRects}${legend}
+    </svg></div>`;
+
+  // ── DAYS TO CLOSE DISTRIBUTION ──
+  const buckets = [
+    { label:'≤ 7 days',  min:-1,  max:7,   count:0, col:'var(--green)' },
+    { label:'8–14 days', min:7,   max:14,  count:0, col:'var(--blue)' },
+    { label:'15–30 days',min:14,  max:30,  count:0, col:'var(--amber)' },
+    { label:'> 30 days', min:30,  max:1e9, count:0, col:'var(--red)' },
+  ];
+  closeDays.forEach(d => { const b = buckets.find(b => d > b.min && d <= b.max); if (b) b.count++; });
+  const maxBkt = Math.max(...buckets.map(b=>b.count),1);
+  const closeBars = buckets.map(b => `<div class="bar-row">
+    <div class="bar-label">${b.label}</div>
+    <div class="bar-track"><div class="bar-fill" style="width:${Math.round(100*b.count/maxBkt)}%;background:${b.col}"></div></div>
+    <div class="bar-count">${b.count}</div>
+  </div>`).join('');
+
+  // ── CONTRACTOR PERFORMANCE TABLE ──
+  const coRowsHtml = db.companies.map(c => {
+    const cs = allSnags.filter(s => s.assignedTo === c.id); if (!cs.length) return null;
+    const cClosed = cs.filter(s => s.status === 'accepted');
+    const cPending = cs.filter(s => s.status === 'pending').length;
+    const cOpen    = cs.filter(s => s.status === 'assigned').length;
+    const cRejected = cs.filter(s => (s.history||[]).some(h => h.action === 'Rejected')).length;
+    const cRejRate = cs.length ? Math.round(100*cRejected/cs.length) : 0;
+    const cDays = cClosed.map(s => {
+      const ev = (s.history||[]).slice().reverse().find(h => h.action.includes('Accepted'));
+      return ev ? (ev.at - s.createdAt)/86400000 : null;
+    }).filter(d=>d!==null);
+    const cAvg = cDays.length ? (cDays.reduce((a,b)=>a+b,0)/cDays.length).toFixed(1) : '—';
+    const rCol = cRejRate>25?'var(--red)':cRejRate>10?'var(--amber)':'var(--green)';
+    return `<tr>
+      <td style="font-weight:600">${esc(c.name)}</td>
+      <td style="text-align:center">${cs.length}</td>
+      <td style="text-align:center;color:var(--amber);font-weight:700">${cOpen}</td>
+      <td style="text-align:center;color:var(--green);font-weight:700">${cClosed.length}</td>
+      <td style="text-align:center;color:var(--purple)">${cPending}</td>
+      <td style="text-align:center;color:${rCol};font-weight:700">${cRejRate}%</td>
+      <td style="text-align:center">${cAvg === '—' ? '—' : cAvg+'d'}</td>
+    </tr>`;
+  }).filter(Boolean).join('');
+  const contractorTable = coRowsHtml
+    ? `<div style="overflow-x:auto"><table class="rpt-table">
+        <thead><tr>
+          <th>Contractor</th><th style="text-align:center">Total</th>
+          <th style="text-align:center">Open</th><th style="text-align:center">Closed</th>
+          <th style="text-align:center">Pending</th>
+          <th style="text-align:center">Rej %</th><th style="text-align:center">Avg Close</th>
+        </tr></thead>
+        <tbody>${coRowsHtml}</tbody>
+      </table></div>`
+    : '<div class="empty" style="padding:1rem"><p style="font-size:.85rem">No contractor data yet.</p></div>';
+
+  // ── DISCIPLINE BREAKDOWN ──
+  const discRows = DISCIPLINES.map(d => {
+    const ds = allSnags.filter(s => s.discipline === d);
+    const dOpen   = ds.filter(s => s.status === 'open' || s.status === 'assigned').length;
+    const dClosed = ds.filter(s => s.status === 'accepted').length;
+    const dPct    = ds.length ? Math.round(100 * dClosed / ds.length) : 0;
+    const configSubs = (db.subsystems||[]).filter(s => s.discipline === d).map(s => s.name);
+    const activeSubs = [...new Set(ds.map(s => s.subsystem).filter(Boolean))].sort();
+    const subDisplay = configSubs.length ? configSubs.map(s => {
+      const active = activeSubs.includes(s);
+      return `<span style="color:${active?'var(--text)':'var(--muted)'}">${esc(s)}</span>`;
+    }).join(', ') : '<span style="color:var(--muted)">None configured</span>';
+    return `<tr>
+      <td style="font-weight:600">${esc(d)}</td>
+      <td style="text-align:center">${ds.length}</td>
+      <td style="text-align:center;color:var(--amber);font-weight:700">${dOpen||'·'}</td>
+      <td style="text-align:center;color:var(--green);font-weight:700">${dClosed||'·'}</td>
+      <td style="text-align:center">${dPct}%</td>
+      <td style="font-size:.78rem">${subDisplay}</td>
+    </tr>`;
+  }).join('');
+  const disciplineTable = `<div style="overflow-x:auto"><table class="rpt-table">
+      <thead><tr>
+        <th>Discipline</th><th style="text-align:center">Total</th>
+        <th style="text-align:center">Open</th><th style="text-align:center">Closed</th>
+        <th style="text-align:center">% Done</th><th>Subsystems</th>
+      </tr></thead>
+      <tbody>${discRows}</tbody>
+    </table></div>`;
+
+  // ── LOCATION HEATMAP ──
+  // Use configured locations as the primary source; fall back to snag data if no locations configured
+  const configBuildings = (db.locations || []).map(b => b.building);
+  const configFloors    = [...new Set((db.locations || []).flatMap(b => b.floors.map(f => f.name)))].sort();
+  const snagBuildings   = [...new Set(allSnags.map(s=>s.building).filter(Boolean))].sort();
+  const snagFloors      = [...new Set(allSnags.map(s=>s.floor).filter(Boolean))].sort();
+  const buildings = configBuildings.length
+    ? [...new Set([...configBuildings, ...snagBuildings])].sort()
+    : snagBuildings;
+  const floors = configFloors.length
+    ? [...new Set([...configFloors, ...snagFloors])].sort()
+    : snagFloors;
+  let heatHtml = '';
+  if (buildings.length && floors.length) {
+    const maxCell = Math.max(...buildings.flatMap(b => floors.map(f => allSnags.filter(s=>s.building===b&&s.floor===f).length)), 1);
+    heatHtml = `<div style="overflow-x:auto"><table class="rpt-table">
+      <thead><tr><th>Bldg \\ Floor</th>${floors.map(f=>`<th style="text-align:center">${esc(f)}</th>`).join('')}<th style="text-align:center">Total</th></tr></thead>
+      <tbody>${buildings.map(b => {
+        const rowTotal = allSnags.filter(s=>s.building===b).length;
+        return `<tr><td style="font-weight:700">${esc(b)}</td>${floors.map(f=>{
+          const n = allSnags.filter(s=>s.building===b&&s.floor===f).length;
+          const alpha = n ? Math.min(0.75, 0.12 + (n/maxCell)*0.63) : 0;
+          const bg = n ? `rgba(220,38,38,${alpha.toFixed(2)})` : 'transparent';
+          const fg = alpha > 0.45 ? '#fff' : (n ? 'var(--text)' : 'var(--muted)');
+          return `<td class="heat-cell" style="background:${bg};color:${fg}">${n||'·'}</td>`;
+        }).join('')}<td style="text-align:center;font-weight:700">${rowTotal||'·'}</td></tr>`;
+      }).join('')}</tbody>
+    </table></div>`;
+  } else if (allSnags.some(s=>s.building||s.floor||s.room)) {
+    const locGroups = {};
+    allSnags.filter(s=>s.building||s.floor||s.room).forEach(s => {
+      const k = [s.building,s.floor,s.room].filter(Boolean).join(' · ');
+      locGroups[k] = (locGroups[k]||0) + 1;
+    });
+    const maxLoc = Math.max(...Object.values(locGroups),1);
+    heatHtml = Object.entries(locGroups).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`
+      <div class="bar-row">
+        <div class="bar-label" style="min-width:110px;max-width:140px">${esc(k)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${Math.round(100*n/maxLoc)}%;background:var(--blue)"></div></div>
+        <div class="bar-count">${n}</div>
+      </div>`).join('');
+  } else {
+    heatHtml = '<div style="font-size:.85rem;color:var(--muted);padding:.4rem 0">No building / floor data recorded on snags yet.</div>';
+  }
+
+  // ── COMPONENT SNAGGED KEYWORD STRINGS ──
+  const compFreq = {};
+  allSnags.forEach(s => {
+    const key = (s.title||'').trim();
+    if (key) compFreq[key] = (compFreq[key]||0) + 1;
+  });
+  const topWords = Object.entries(compFreq).sort((a,b)=>b[1]-a[1]).slice(0,20);
+  const maxWord = topWords.length ? topWords[0][1] : 1;
+  const wordBars = topWords.map(([w,n]) => `<div class="bar-row">
+    <div class="bar-label" style="text-transform:none;min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(w)}</div>
+    <div class="bar-track"><div class="bar-fill" style="width:${Math.round(100*n/maxWord)}%;background:var(--purple)"></div></div>
+    <div class="bar-count">${n}</div>
+  </div>`).join('');
+
+  // ── OPEN SNAG AGE (backlog health) ──
+  const nowTs = Date.now();
+  const openSnags = allSnags.filter(s => s.status === 'open' || s.status === 'assigned');
+  const ageBuckets = [
+    { label:'< 7 days',   min:-1, max:7,  count:0, col:'var(--green)' },
+    { label:'7–14 days',  min:7,  max:14, count:0, col:'var(--blue)' },
+    { label:'14–30 days', min:14, max:30, count:0, col:'var(--amber)' },
+    { label:'> 30 days',  min:30, max:1e9,count:0, col:'var(--red)' },
+  ];
+  openSnags.forEach(s => {
+    const d = (nowTs - s.createdAt)/86400000;
+    const b = ageBuckets.find(b => d > b.min && d <= b.max); if (b) b.count++;
+  });
+  const maxAge = Math.max(...ageBuckets.map(b=>b.count),1);
+  const ageBars = ageBuckets.map(b=>`<div class="bar-row">
+    <div class="bar-label">${b.label}</div>
+    <div class="bar-track"><div class="bar-fill" style="width:${Math.round(100*b.count/maxAge)}%;background:${b.col}"></div></div>
+    <div class="bar-count">${b.count}</div>
+  </div>`).join('');
+
+  // ── RECENT ACTIVITY LOG ──
+  const actLog = [...(db.loginLog||[])].reverse().slice(0,25).map(e => {
+    const ic = e.action==='login'?'🔑':'🚪';
+    const col = e.action==='login'?'var(--green)':'var(--muted)';
+    return `<div style="display:flex;align-items:center;gap:.55rem;padding:.48rem 0;border-bottom:1px solid var(--border);font-size:.82rem">
+      <span style="font-size:1rem">${ic}</span>
+      <div style="flex:1">
+        <span style="font-weight:600">${esc(e.name)}</span>
+        <span style="color:${col};font-size:.72rem;font-weight:700;margin-left:.3rem">${e.action}</span>
+        <span class="role-badge role-${e.role}" style="margin-left:.3rem">${e.role}</span>
+      </div>
+      <div style="font-size:.7rem;color:var(--muted);white-space:nowrap">${fmtDateTime(e.at)}</div>
+    </div>`;
+  }).join('') || '<div style="font-size:.85rem;color:var(--muted);padding:.5rem 0">No activity logged yet.</div>';
+
+  return appBar('Reports & Analytics', 'projects') + `
+    <div class="main" style="max-width:640px">
+      ${projSel}
+      ${noData ? `<div class="alert alert-warn" style="margin-bottom:.5rem">No snags recorded yet. Add snags or import a backup via the Locations tab.</div>` : ''}
+      ${kpiCards}
+
+      <div class="sec-label">Status Breakdown</div>
+      <div class="card card-body">${statusBars}</div>
+
+      <div class="sec-label">Snags Opened vs Closed — Last 6 Months</div>
+      <div class="card card-body">${timeChart}</div>
+
+      <div class="sec-label">Days to Close — Closed Snags</div>
+      <div class="card card-body">${closeDays.length ? closeBars : '<div style="font-size:.85rem;color:var(--muted)">No closed snags yet.</div>'}</div>
+
+      <div class="sec-label">Backlog Age — Open &amp; Assigned Snags</div>
+      <div class="card card-body">${openSnags.length ? ageBars : '<div style="font-size:.85rem;color:var(--muted)">No outstanding snags.</div>'}</div>
+
+      <div class="sec-label">Discipline Breakdown</div>
+      <div class="card">${disciplineTable}</div>
+
+      <div class="sec-label">Contractor Performance</div>
+      <div class="card">${contractorTable}</div>
+
+      <div class="sec-label">Location Heatmap — Building × Floor</div>
+      <div class="card card-body">${heatHtml}</div>
+
+      <div class="sec-label">Component Snagged (keywords)</div>
+      <div class="card card-body">${topWords.length ? wordBars : '<div style="font-size:.85rem;color:var(--muted)">Add snags to see component keyword strings.</div>'}</div>
+
+      <div class="sec-label">Recent User Activity</div>
+      <div class="card card-body" style="padding:0 1rem">${actLog}</div>
+
+      ${S.currentUser?.role === 'administrator' ? `
+      <div class="sec-label">Export</div>
+      <div class="card card-body" style="margin-bottom:.75rem">
+        <div style="font-size:.85rem;color:var(--soft);margin-bottom:.75rem;line-height:1.5">
+          Export snag data filtered by date range, building, or contractor.
+          Exports available in <strong>Excel</strong>, <strong>CSV</strong>, and <strong>PDF</strong> formats.
+          PDF includes photos and a branded cover page.
+        </div>
+        <button class="btn btn-primary" data-fn="openExportModal" style="width:100%;font-size:1rem;padding:.65rem">⬇ Export Snag Data…</button>
+      </div>` : ''}
+
+      <div style="height:.5rem"></div>
+    </div>` + navBar('reports');
+}
+
+// ── CHROME ─────────────────────────────────────────────────────────────────────
+function appBar(title, backView, sub) {
+  const back = backView ? `<button class="back-btn" data-fn="goView" data-a1="${backView}">&#8592;</button>` : '';
+  const user = S.currentUser && S.currentUser.id !== '__setup__'
+    ? `<div class="user-chip">
+         <div class="avatar" style="background:${avatarColour(S.currentUser.name)}">${S.currentUser.name.charAt(0).toUpperCase()}</div>
+         <span class="uname">${esc(S.currentUser.name)}</span>
+       </div>
+       <button class="logout-btn" data-fn="logout">Log out</button>`
+    : '';
+  return `<div class="app-bar">${back}<h1>${title}${sub?`<small>${sub}</small>`:''}</h1>${user}</div>`;
+}
+
+function navBar(active) {
+  const snagFn = S.projectId
+    ? 'goView'
+    : db.projects.length === 1
+      ? 'goProject'
+      : 'goView';
+  const snagA1 = S.projectId
+    ? 'snag-list'
+    : db.projects.length === 1
+      ? db.projects[0].id
+      : 'projects';
+  const isInspector = S.currentUser?.role === 'engineer';
+  const isAdmin     = S.currentUser?.role === 'administrator';
+  return `<nav class="bottom-nav">
+    <button class="nav-btn ${active==='projects'?'active':''}" data-fn="goView" data-a1="projects">
+      <span class="ico">📂</span>Projects
+    </button>
+    <button class="nav-btn ${active==='snag-list'?'active':''}" data-fn="${snagFn}" data-a1="${snagA1}">
+      <span class="ico">📋</span>Snags
+    </button>
+    ${isInspector||isAdmin ? `<button class="nav-btn ${active==='reports'?'active':''}" data-fn="goView" data-a1="reports">
+      <span class="ico">📊</span>Reports
+    </button>` : ''}
+    ${isAdmin ? `<button class="nav-btn ${active==='locations'?'active':''}" data-fn="goView" data-a1="locations">
+      <span class="ico">⚙️</span>Config
+    </button>` : ''}
+    <button class="nav-btn ${active==='companies'?'active':''}" data-fn="goView" data-a1="companies">
+      <span class="ico">🏢</span>Companies
+    </button>
+    <button class="nav-btn ${active==='users'?'active':''}" data-fn="goView" data-a1="users">
+      <span class="ico">👤</span>Users
+    </button>
+  </nav>`;
+}
+
+// ── MODALS ─────────────────────────────────────────────────────────────────────
+function openAssignModal(snagId) {
+  if (!db.companies.length) { alert('Add companies first (Companies tab).'); return; }
+  const snag = db.snags.find(s => s.id === snagId);
+  const opts = db.companies.map(c =>
+    `<option value="${c.id}" ${c.id===snag.assignedTo?'selected':''}>${esc(c.name)}</option>`).join('');
+  modal(`<div class="modal-title">Assign to Contractor</div>
+    <div class="form-group">
+      <label class="form-label">Company</label>
+      <select id="m_co">${opts}</select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" data-fn="closeModal">Cancel</button>
+      <button class="btn btn-primary" data-fn="doAssign" data-a1="${snagId}">Assign →</button>
+    </div>`);
+}
+
+function openRejectModal(snagId) {
+  modal(`<div class="modal-title" style="color:var(--red)">Reject Rectification</div>
+    <div class="form-group">
+      <label class="form-label">Reason</label>
+      <textarea id="m_note" placeholder="Why is this not acceptable?" style="min-height:80px"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" data-fn="closeModal">Cancel</button>
+      <button class="btn btn-danger" data-fn="doReject" data-a1="${snagId}">✗ Reject</button>
+    </div>`);
+}
+
+function modal(html) {
+  closeModal();
+  document.body.insertAdjacentHTML('beforeend',
+    `<div class="modal-back" id="modalBack" data-fn="closeModal">
+       <div class="modal-box">${html}</div>
+     </div>`);
+}
+function closeModal() { document.getElementById('modalBack')?.remove(); }
+
+// ── EXPORT ─────────────────────────────────────────────────────────────────────
+function openExportModal() {
+  const rptPid = S.rptProjectId || '';
+  const buildings = [...new Set(db.snags.filter(s => !rptPid || s.projectId === rptPid).map(s => s.building).filter(Boolean))].sort();
+  const bldgOpts = ['<option value="">All Buildings</option>', ...buildings.map(b => `<option value="${esc(b)}">${esc(b)}</option>`)].join('');
+  const coOpts   = ['<option value="">All Contractors</option>', ...db.companies.map(c => `<option value="${c.id}">${esc(c.name)}</option>`)].join('');
+  modal(`
+    <div class="modal-title">⬇ Export Snag Data</div>
+    <div class="form-group">
+      <label class="form-label">Date Range (optional)</label>
+      <div style="display:flex;gap:.5rem;align-items:center">
+        <input type="date" id="exp_from" style="flex:1;padding:.45rem .6rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
+        <span style="color:var(--muted);font-size:.85rem">to</span>
+        <input type="date" id="exp_to" style="flex:1;padding:.45rem .6rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Building</label>
+      <select id="exp_building" style="width:100%;padding:.45rem .6rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit">${bldgOpts}</select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Contractor</label>
+      <select id="exp_co" style="width:100%;padding:.45rem .6rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit">${coOpts}</select>
+    </div>
+    <div class="form-group" style="background:var(--amber-bg);border-radius:8px;padding:.6rem .75rem">
+      <label style="display:flex;align-items:center;gap:.5rem;font-size:.88rem;cursor:pointer">
+        <input type="checkbox" id="exp_photos" checked style="width:16px;height:16px;cursor:pointer" />
+        <span>Include photos in PDF <span style="color:var(--amber);font-size:.78rem">(larger file)</span></span>
+      </label>
+    </div>
+    <div class="modal-actions" style="flex-wrap:wrap;gap:.4rem">
+      <button class="btn btn-outline" data-fn="closeModal" style="flex:1;min-width:80px">Cancel</button>
+      <button class="btn" style="flex:1;min-width:80px;background:var(--green-bg);color:var(--green);font-weight:700" data-fn="doExportCSV">📄 CSV</button>
+      <button class="btn" style="flex:1;min-width:80px;background:var(--blue-bg);color:var(--blue);font-weight:700" data-fn="doExportExcel">📊 Excel</button>
+      <button class="btn btn-primary" style="flex:1;min-width:80px" data-fn="doExportPDF">📑 PDF</button>
+    </div>`);
+}
+
+function _getExportSnags() {
+  const rptPid = S.rptProjectId || '';
+  let snags = rptPid ? db.snags.filter(s => s.projectId === rptPid) : db.snags.slice();
+  const from = document.getElementById('exp_from')?.value;
+  const to   = document.getElementById('exp_to')?.value;
+  const bldg = document.getElementById('exp_building')?.value;
+  const co   = document.getElementById('exp_co')?.value;
+  if (from) snags = snags.filter(s => s.createdAt >= new Date(from).getTime());
+  if (to)   snags = snags.filter(s => s.createdAt <= new Date(to).getTime() + 86399999);
+  if (bldg) snags = snags.filter(s => s.building === bldg);
+  if (co)   snags = snags.filter(s => s.assignedTo === co);
+  return snags.sort((a,b) => a.createdAt - b.createdAt);
+}
+
+function _snagToRow(s) {
+  const closedEv = (s.history||[]).slice().reverse().find(h => h.action.includes('Accepted'));
+  const closedBy = closedEv ? closedEv.by : '';
+  const closedAt = closedEv ? new Date(closedEv.at).toLocaleDateString('en-GB') : '';
+  return [
+    s.number || '',
+    new Date(s.createdAt).toLocaleDateString('en-GB'),
+    s.discipline || '',
+    s.subsystem  || '',
+    s.title      || '',
+    s.building      || '',
+    s.buildingName  || '',
+    s.floor         || '',
+    s.room          || '',
+    coName(s.assignedTo),
+    (STATUSES[s.status]?.label || s.status),
+    s.description|| '',
+    closedAt,
+    closedBy,
+    s.location ? `${s.location.lat?.toFixed(6)},${s.location.lng?.toFixed(6)}` : '',
+  ];
+}
+
+function doExportCSV() {
+  const snags = _getExportSnags();
+  const headers = ['Snag No','Date Raised','Discipline','Subsystem','Component Snagged','Building Code','Building Name','Floor','Room','Contractor','Status','Description','Date Closed','Closed By','GPS Coordinates'];
+  const rows = [headers, ...snags.map(_snagToRow)];
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `SiteSnag_Export_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  closeModal();
+}
+
+function doExportExcel() {
+  if (!window.XLSX) { alert('Excel library not loaded yet. Please wait a moment and try again.'); return; }
+  const snags = _getExportSnags();
+  const proj = db.projects.find(p => p.id === S.rptProjectId) || db.projects[0];
+  const projName = proj ? proj.name : 'All Projects';
+  const total = snags.length;
+  const closed = snags.filter(s => s.status === 'accepted').length;
+  const open   = snags.filter(s => s.status === 'open' || s.status === 'assigned').length;
+  const pct    = total ? Math.round(100 * closed / total) : 0;
+  const exportedBy = S.currentUser?.name || '';
+
+  const coverData = [
+    ['SiteSnag — Snag Register'],
+    [],
+    ['Project', projName],
+    ['Exported', new Date().toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'})],
+    ['Exported By', exportedBy],
+    [],
+    ['Summary'],
+    ['Total Snags', total],
+    ['Outstanding', open],
+    ['Closed', closed],
+    ['Completion', pct + '%'],
+  ];
+
+  const headers = ['Snag No','Date Raised','Discipline','Subsystem','Component Snagged','Building Code','Building Name','Floor','Room','Contractor','Status','Description','Date Closed','Closed By','GPS Coordinates'];
+  const registerData = [headers, ...snags.map(_snagToRow)];
+
+  const wb = XLSX.utils.book_new();
+
+  const wsCover = XLSX.utils.aoa_to_sheet(coverData);
+  wsCover['!cols'] = [{wch:18},{wch:40}];
+  XLSX.utils.book_append_sheet(wb, wsCover, 'Cover');
+
+  const wsReg = XLSX.utils.aoa_to_sheet(registerData);
+  wsReg['!cols'] = [
+    {wch:8},{wch:14},{wch:14},{wch:16},{wch:22},{wch:12},{wch:22},{wch:12},{wch:12},
+    {wch:16},{wch:14},{wch:36},{wch:14},{wch:18},{wch:22}
+  ];
+  wsReg['!autofilter'] = { ref: `A1:O1` };
+  XLSX.utils.book_append_sheet(wb, wsReg, 'Snag Register');
+
+  XLSX.writeFile(wb, `SiteSnag_Export_${new Date().toISOString().slice(0,10)}.xlsx`);
+  closeModal();
+}
+
+async function doExportPDF() {
+  if (!window.jspdf) { alert('PDF library not loaded yet. Please wait a moment and try again.'); return; }
+  try {
+    await _doExportPDFInner();
+  } catch(e) {
+    alert('PDF export failed: ' + (e.message || e) + '\n\nPlease try again or contact support.');
+    console.error('PDF export error:', e);
+  }
+}
+
+async function _doExportPDFInner() {
+  const snags = _getExportSnags();
+  const includePhotos = document.getElementById('exp_photos')?.checked !== false;
+  const photoSnags = snags.filter(s => s.photo || s.rectification?.photo);
+
+  if (includePhotos && photoSnags.length > 75) {
+    const estimatedMB = Math.round(photoSnags.length * 2 * 0.15);
+    if (!confirm(`This report contains ${photoSnags.length} snags with photos.\nEstimated file size: ~${estimatedMB} MB.\n\nContinue?`)) return;
+  }
+
+  closeModal();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const W = 210, H = 297;
+  const NAVY = [0, 35, 102];
+  const GOLD = [255, 215, 0];
+  const WHITE = [255, 255, 255];
+  const proj = db.projects.find(p => p.id === S.rptProjectId) || db.projects[0];
+  const projName = proj ? proj.name : 'All Projects';
+  const cfg = db.splashConfig || {};
+  const exportedBy = S.currentUser?.name || '';
+  const _now = new Date();
+  const exportDate = _now.toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'});
+  const exportTime = _now.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'});
+
+  // ── COVER PAGE ──
+  doc.setFillColor(...NAVY);
+  doc.rect(0, 0, W, H, 'F');
+
+  // Gold accent bar top
+  doc.setFillColor(...GOLD);
+  doc.rect(0, 0, W, 6, 'F');
+
+  // App name
+  doc.setTextColor(...GOLD);
+  doc.setFontSize(36);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SiteSnag', W / 2, 55, { align: 'center' });
+
+  doc.setFontSize(11);
+  doc.setTextColor(200, 210, 230);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Construction Inspection Report', W / 2, 65, { align: 'center' });
+
+  // Logos row
+  let logoY = 85;
+  if (cfg.logos && cfg.logos.length) {
+    let lx = 20;
+    const logoH = 18, logoW = 32;
+    for (const src of cfg.logos.slice(0, 5)) {
+      try {
+        const fmt = src.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+        doc.addImage(src, fmt, lx, logoY, logoW, logoH);
+        lx += logoW + 6;
+      } catch(e) {}
+    }
+    logoY += 24;
+  }
+
+  // Project image
+  if (cfg.projectImage) {
+    try {
+      const fmt = cfg.projectImage.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+      doc.addImage(cfg.projectImage, fmt, 30, logoY, W - 60, 55);
+      logoY += 60;
+    } catch(e) {}
+  }
+
+  // Project name
+  doc.setTextColor(...GOLD);
+  doc.setFontSize(22);
+  doc.setFont('helvetica', 'bold');
+  const projLines = doc.splitTextToSize(projName, W - 40);
+  doc.text(projLines, W / 2, logoY + 12, { align: 'center' });
+  logoY += projLines.length * 10 + 14;
+
+  // Report meta
+  doc.setFontSize(10);
+  doc.setTextColor(180, 195, 220);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Exported: ${exportDate} at ${exportTime}`, W / 2, logoY, { align: 'center' });
+  doc.text(`Prepared by: ${exportedBy}`, W / 2, logoY + 6, { align: 'center' });
+  doc.text(`${snags.length} snags in this report`, W / 2, logoY + 12, { align: 'center' });
+
+  // Gold accent bar bottom
+  doc.setFillColor(...GOLD);
+  doc.rect(0, H - 6, W, 6, 'F');
+
+  // ── EXECUTIVE SUMMARY PAGE ──
+  doc.addPage();
+  const total = snags.length;
+  const sc = {};
+  ['open','assigned','pending','accepted','rejected'].forEach(k => { sc[k] = snags.filter(x => x.status === k).length; });
+  const outstanding = sc.open + sc.assigned;
+  const pct = total ? Math.round(100 * sc.accepted / total) : 0;
+
+  // Header bar
+  doc.setFillColor(...NAVY);
+  doc.rect(0, 0, W, 20, 'F');
+  doc.setTextColor(...WHITE);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Executive Summary', 14, 13);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(180, 195, 220);
+  doc.text(projName, W - 14, 13, { align: 'right' });
+
+  let y = 32;
+
+  // KPI boxes (2×3 grid)
+  const kpis = [
+    { label: 'Total Snags', val: total, col: NAVY },
+    { label: 'Outstanding', val: outstanding, col: [180, 83, 9] },
+    { label: 'Closed', val: sc.accepted, col: [21, 128, 61] },
+    { label: 'Pending Review', val: sc.pending, col: [109, 40, 217] },
+    { label: 'Open', val: sc.open, col: [220, 38, 38] },
+    { label: 'Completion', val: pct + '%', col: [21, 128, 61] },
+  ];
+  const bw = (W - 28 - 10) / 3, bh = 24;
+  kpis.forEach((k, i) => {
+    const col = i % 3, row = Math.floor(i / 3);
+    const bx = 14 + col * (bw + 5);
+    const by = y + row * (bh + 4);
+    doc.setFillColor(245, 247, 250);
+    doc.roundedRect(bx, by, bw, bh, 3, 3, 'F');
+    doc.setTextColor(...k.col);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text(String(k.val), bx + bw / 2, by + 13, { align: 'center' });
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'normal');
+    doc.text(k.label, bx + bw / 2, by + 20, { align: 'center' });
+  });
+  y += 2 * (bh + 4) + 10;
+
+  // Pie chart — status breakdown
+  if (total > 0) {
+    const pieData = [
+      { label:'Open',     value: sc.open,     color:'#dc2626' },
+      { label:'Assigned', value: sc.assigned,  color:'#1d4ed8' },
+      { label:'Pending',  value: sc.pending,   color:'#7c3aed' },
+      { label:'Closed',   value: sc.accepted,  color:'#15803d' },
+      { label:'Rejected', value: sc.rejected,  color:'#94a3b8' },
+    ].filter(d=>d.value>0);
+    const pieImg = _drawPieCanvas(pieData, 200);
+    if (pieImg) {
+      doc.addImage(pieImg, 'PNG', 14, y, 48, 48);
+      // Legend
+      let lx = 68, ly = y + 4;
+      pieData.forEach(d => {
+        const [r,g,bv] = _hexToRgb(d.color);
+        doc.setFillColor(r,g,bv); doc.rect(lx, ly-3, 6, 4, 'F');
+        doc.setFontSize(8); doc.setTextColor(15,23,42); doc.setFont('helvetica','normal');
+        doc.text(`${d.label}: ${d.value} (${Math.round(100*d.value/total)}%)`, lx+8, ly);
+        ly += 7;
+      });
+      y += 56;
+    }
+  }
+
+  // Status breakdown table
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...NAVY);
+  doc.text('Status Breakdown', 14, y);
+  y += 5;
+  doc.autoTable({
+    startY: y,
+    head: [['Status', 'Count', '% of Total']],
+    body: ['open','assigned','pending','accepted','rejected'].map(k => [
+      STATUSES[k]?.label || k,
+      sc[k],
+      total ? Math.round(100 * sc[k] / total) + '%' : '0%'
+    ]),
+    headStyles: { fillColor: NAVY, textColor: WHITE, fontSize: 9 },
+    bodyStyles: { fontSize: 9 },
+    alternateRowStyles: { fillColor: [245, 247, 250] },
+    margin: { left: 14, right: 14 },
+    theme: 'grid',
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  // Discipline breakdown
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...NAVY);
+  doc.text('Discipline Breakdown', 14, y);
+  y += 5;
+  doc.autoTable({
+    startY: y,
+    head: [['Discipline', 'Total', 'Open', 'Closed', '% Done']],
+    body: DISCIPLINES.map(d => {
+      const ds = snags.filter(s => s.discipline === d);
+      const dOpen   = ds.filter(s => s.status === 'open' || s.status === 'assigned').length;
+      const dClosed = ds.filter(s => s.status === 'accepted').length;
+      const dPct    = ds.length ? Math.round(100 * dClosed / ds.length) : 0;
+      return [d, ds.length, dOpen, dClosed, dPct + '%'];
+    }),
+    headStyles: { fillColor: NAVY, textColor: WHITE, fontSize: 9 },
+    bodyStyles: { fontSize: 9 },
+    alternateRowStyles: { fillColor: [245, 247, 250] },
+    margin: { left: 14, right: 14 },
+    theme: 'grid',
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  // Contractor summary
+  const coRows = db.companies.map(c => {
+    const cs = snags.filter(s => s.assignedTo === c.id);
+    if (!cs.length) return null;
+    return [c.name, cs.length, cs.filter(s => s.status==='open'||s.status==='assigned').length, cs.filter(s=>s.status==='accepted').length, cs.filter(s=>s.status==='pending').length];
+  }).filter(Boolean);
+  if (coRows.length) {
+    if (y > 220) { doc.addPage(); _pdfPageHeader(doc, projName, W, NAVY, WHITE); y = 32; }
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...NAVY);
+    doc.text('Contractor Summary', 14, y);
+    y += 5;
+    doc.autoTable({
+      startY: y,
+      head: [['Contractor', 'Total', 'Open', 'Closed', 'Pending']],
+      body: coRows,
+      headStyles: { fillColor: NAVY, textColor: WHITE, fontSize: 9 },
+      bodyStyles: { fontSize: 9 },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { left: 14, right: 14 },
+      theme: 'grid',
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  }
+
+  // ── HEATMAP PAGE ──
+  const heatBuildings = [...new Set((db.locations||[]).map(b=>b.building).concat(snags.map(s=>s.building).filter(Boolean)))].sort();
+  const heatFloors    = [...new Set((db.locations||[]).flatMap(b=>b.floors.map(f=>f.name)).concat(snags.map(s=>s.floor).filter(Boolean)))].sort();
+  if (heatBuildings.length && heatFloors.length) {
+    if (y > 200) { doc.addPage(); _pdfPageHeader(doc, projName, W, NAVY, WHITE); y = 32; }
+    doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(...NAVY);
+    doc.text('Location Heatmap — Building × Floor', 14, y); y += 5;
+    const heatMax = Math.max(...heatBuildings.flatMap(b=>heatFloors.map(f=>snags.filter(s=>s.building===b&&s.floor===f).length)),1);
+    doc.autoTable({
+      startY: y,
+      head: [['Building', ...heatFloors, 'Total']],
+      body: heatBuildings.map(b => {
+        const rowTotal = snags.filter(s=>s.building===b).length;
+        return [b, ...heatFloors.map(f=>{ const n=snags.filter(s=>s.building===b&&s.floor===f).length; return n||'·'; }), rowTotal||'·'];
+      }),
+      headStyles: { fillColor: NAVY, textColor: WHITE, fontSize: 8 },
+      bodyStyles: { fontSize: 8 },
+      margin: { left: 14, right: 14 },
+      theme: 'grid',
+      didParseCell: (data) => {
+        if (data.section==='body' && data.row && data.column && data.column.index>0 && data.column.index<=heatFloors.length) {
+          const bldg = heatBuildings[data.row.index];
+          const fl   = heatFloors[data.column.index-1];
+          const n    = snags.filter(s=>s.building===bldg&&s.floor===fl).length;
+          if (n>0) { const alpha = Math.min(0.75, 0.15+(n/heatMax)*0.6); const r=Math.round(220*(1-alpha)+255*alpha); const g=Math.round(38*(1-alpha)+255*alpha); const bv=Math.round(38*(1-alpha)+255*alpha); data.cell.styles.fillColor=[r,g,bv]; }
+        }
+      }
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  }
+
+  // ── FULL SNAG REGISTER PAGE ──
+  doc.addPage();
+  _pdfPageHeader(doc, projName, W, NAVY, WHITE);
+  y = 32;
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...NAVY);
+  doc.text('Snag Register', 14, y);
+  y += 5;
+  doc.autoTable({
+    startY: y,
+    head: [['No','Date','Discipline','Component','Building','Building Name','Floor','Contractor','Status']],
+    body: snags.map(s => [
+      s.number || '',
+      new Date(s.createdAt).toLocaleDateString('en-GB'),
+      s.discipline || '',
+      s.title || '',
+      s.building || '',
+      s.buildingName || '',
+      s.floor || '',
+      coName(s.assignedTo),
+      STATUSES[s.status]?.label || s.status,
+    ]),
+    headStyles: { fillColor: NAVY, textColor: WHITE, fontSize: 8 },
+    bodyStyles: { fontSize: 8 },
+    alternateRowStyles: { fillColor: [245, 247, 250] },
+    columnStyles: {
+      0: { cellWidth: 10 },
+      1: { cellWidth: 16 },
+      2: { cellWidth: 20 },
+      3: { cellWidth: 28 },
+      4: { cellWidth: 12 },
+      5: { cellWidth: 26 },
+      6: { cellWidth: 12 },
+      7: { cellWidth: 20 },
+      8: { cellWidth: 18 },
+    },
+    margin: { left: 14, right: 14 },
+    theme: 'grid',
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.row) {
+        const status = snags[data.row.index]?.status;
+        if (status === 'accepted') data.cell.styles.textColor = [21, 128, 61];
+        else if (status === 'open') data.cell.styles.textColor = [220, 38, 38];
+        else if (status === 'assigned') data.cell.styles.textColor = [29, 78, 216];
+      }
+    }
+  });
+
+  // ── SNAG DETAIL PAGES (with photos) ──
+  if (includePhotos) {
+    for (const snag of snags) {
+      doc.addPage();
+      _pdfPageHeader(doc, projName, W, NAVY, WHITE);
+      let sy = 28;
+
+      // Snag header bar
+      doc.setFillColor(245, 247, 250);
+      doc.rect(14, sy, W - 28, 14, 'F');
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...NAVY);
+      doc.text(`${numStr(snag.number)} — ${snag.title || ''}`, 18, sy + 9);
+      sy += 18;
+
+      // Meta row
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+      const meta = [
+        snag.discipline || '',
+        snag.subsystem  || '',
+        [snag.building + (snag.buildingName ? ` (${snag.buildingName})` : ''), snag.floor, snag.room].filter(Boolean).join(' › '),
+        coName(snag.assignedTo) || '',
+        STATUSES[snag.status]?.label || snag.status,
+        new Date(snag.createdAt).toLocaleDateString('en-GB'),
+      ].filter(Boolean).join('  ·  ');
+      doc.text(doc.splitTextToSize(meta, W - 28), 14, sy);
+      sy += 8;
+
+      // Description
+      if (snag.description) {
+        doc.setFontSize(9);
+        doc.setTextColor(15, 23, 42);
+        const descLines = doc.splitTextToSize(snag.description, W - 28);
+        doc.text(descLines, 14, sy);
+        sy += descLines.length * 4.5 + 4;
+      }
+
+      // Photos — maintain aspect ratio
+      const hasOpen = !!snag.photo;
+      const hasRect = !!snag.rectification?.photo;
+      const maxPhotoW = (W - 28 - (hasOpen && hasRect ? 6 : 0)) / (hasOpen && hasRect ? 2 : 1);
+      const maxPhotoH = Math.min(80, H - sy - 30);
+
+      async function _addPhoto(src, x, label) {
+        try {
+          // If src is an external URL (R2), fetch and convert to base64 first
+          let imgSrc = src;
+          if (src && src.startsWith('http')) {
+            try {
+              const resp = await fetch(src);
+              const blob = await resp.blob();
+              imgSrc = await new Promise(res => { const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(blob); });
+            } catch(e) { return; } // skip photo if fetch fails
+          }
+          const dims = await new Promise(res => { const i=new Image(); i.onload=()=>res({w:i.naturalWidth,h:i.naturalHeight}); i.onerror=()=>res({w:1,h:1}); i.src=imgSrc; });
+          const aspect = dims.h / dims.w;
+          let iw = maxPhotoW, ih = iw * aspect;
+          if (ih > maxPhotoH) { ih = maxPhotoH; iw = ih / aspect; }
+          const fmt = imgSrc.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+          doc.addImage(imgSrc, fmt, x, sy, iw, ih);
+          doc.setFontSize(7); doc.setTextColor(100,116,139);
+          doc.text(label, x, sy + ih + 4);
+        } catch(e) {}
+      }
+      if (hasOpen) await _addPhoto(snag.photo, 14, 'Opening Photo');
+      if (hasRect) await _addPhoto(snag.rectification.photo, hasOpen ? 14 + maxPhotoW + 6 : 14, 'Closing Photo');
+    }
+  }
+
+  // ── PAGE NUMBERS ──
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Page ${i} of ${totalPages}`, W - 14, H - 8, { align: 'right' });
+    doc.text('SiteSnag — Construction Inspection', 14, H - 8);
+  }
+
+  doc.save(`SiteSnag_Report_${_now.toISOString().slice(0,10)}_${_now.toTimeString().slice(0,5).replace(':','')}.pdf`);
+} // end _doExportPDFInner
+
+function _drawPieCanvas(data, size) {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const total = data.reduce((a,d)=>a+d.value,0); if (!total) return null;
+    let angle = -Math.PI/2;
+    data.forEach(d => {
+      const slice = (d.value/total)*Math.PI*2;
+      ctx.beginPath(); ctx.moveTo(size/2,size/2);
+      ctx.arc(size/2,size/2,size/2-2,angle,angle+slice);
+      ctx.closePath(); ctx.fillStyle=d.color; ctx.fill();
+      angle+=slice;
+    });
+    return canvas.toDataURL('image/png');
+  } catch(e) { return null; }
+}
+function _hexToRgb(hex) {
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return [r,g,b];
+}
+
+function _pdfPageHeader(doc, projName, W, NAVY, WHITE) {
+  doc.setFillColor(...NAVY);
+  doc.rect(0, 0, W, 20, 'F');
+  doc.setTextColor(...WHITE);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SiteSnag', 14, 13);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(180, 195, 220);
+  doc.text(projName, W - 14, 13, { align: 'right' });
+}
+
+// ── ACTIONS ────────────────────────────────────────────────────────────────────
+function saveR2Url() {
+  const v = document.getElementById('r2_public_url')?.value.trim().replace(/\/+$/,'');
+  if (v && !v.startsWith('https://')) { alert('URL must start with https://'); return; }
+  R2_PUBLIC_URL = v || '';
+  if (storageOK) localStorage.setItem('sitesnag_r2url', R2_PUBLIC_URL);
+  if (!db.settings) db.settings = {};
+  db.settings.r2PublicUrl = R2_PUBLIC_URL;
+  saveDB();
+  render();
+  alert(R2_PUBLIC_URL ? '✓ R2 photo upload enabled. New photos will upload to Cloudflare.' : 'R2 URL cleared — photos will store in Supabase.');
+}
+
+function setFilter(f) { S.filter = f; render(); }
+function selectProject(id) { S.projectId = id; S.filter = 'all'; go('snag-list'); }
+
+function createProject() {
+  const n = document.getElementById('newProjName').value.trim();
+  if (!n) { alert('Enter a project name.'); return; }
+  db.projects.push({ id: uid(), name: n, createdAt: Date.now() });
+  saveDB();
+  S.projectId = db.projects[db.projects.length-1].id;
+  go('snag-list');
+}
+
+function addCo() {
+  const n = document.getElementById('newCoName').value.trim();
+  if (!n) { alert('Enter a company name.'); return; }
+  if (db.companies.some(c => c.name.toLowerCase() === n.toLowerCase())) { alert('Company already exists.'); return; }
+  db.companies.push({ id: uid(), name: n });
+  saveDB(); render();
+}
+function deleteCo(id) {
+  if (!confirm('Remove this company?')) return;
+  db.companies = db.companies.filter(c => c.id !== id);
+  saveDB(); render();
+}
+
+async function handlePhoto(input) {
+  const f = input.files[0]; if (!f) return;
+  snap();
+  const base64 = await resizePhoto(f);
+  const path = `${S.projectId||'p'}/${Date.now()}_open.jpg`;
+  const r2url = await uploadPhotoToR2(base64, path);
+  S.fd.photo = r2url || base64;
+  render();
+}
+async function handleRectPhoto(input) {
+  const f = input.files[0]; if (!f) return;
+  snap();
+  const base64 = await resizePhoto(f);
+  const path = `${S.projectId||'p'}/${Date.now()}_close.jpg`;
+  const r2url = await uploadPhotoToR2(base64, path);
+  S.fd.rectPhoto = r2url || base64;
+  render();
+}
+
+function saveSnag() {
+  const titleEl  = document.getElementById('f_title');
+  const title    = titleEl.value.trim();
+  if (!title) { titleEl.focus(); alert('Component snagged is required.'); return; }
+  if (!isValidComponent(title)) { titleEl.focus(); alert('Component snagged must be 2 words, or 3 words when one uses a hyphen (e.g. "Cracked render" or "Powder-coated panel frame").'); return; }
+  const desc        = document.getElementById('f_desc').value.trim();
+  const discipline  = document.getElementById('f_discipline').value.trim();
+  const subsystem   = document.getElementById('f_subsystem')?.value.trim() || '';
+  const assignedTo  = document.getElementById('f_assigned_to')?.value || '';
+  const building     = document.getElementById('f_building').value.trim();
+  const buildingName = document.getElementById('f_building_name')?.value.trim() || '';
+  const floor        = document.getElementById('f_floor').value.trim();
+  const room         = document.getElementById('f_room').value.trim();
+
+  if (S.snagId) {
+    const snag = db.snags.find(s => s.id === S.snagId);
+    snag.title = title; snag.description = desc;
+    snag.discipline = discipline; snag.subsystem = subsystem;
+    snag.building = building; snag.buildingName = buildingName; snag.floor = floor; snag.room = room;
+    if (assignedTo && assignedTo !== snag.assignedTo) {
+      snag.assignedTo = assignedTo;
+      snag.status = 'assigned';
+      snag.history = snag.history || [];
+      snag.history.push({ action: `Assigned to ${coName(assignedTo)}`, by: byMe(), at: Date.now() });
+    } else if (!assignedTo && snag.assignedTo) {
+      snag.assignedTo = null;
+      snag.status = 'open';
+    }
+    if (S.fd.photo !== undefined) snag.photo = S.fd.photo;
+    if (S.fd.location) snag.location = S.fd.location;
+    snag.history = snag.history || [];
+    snag.history.push({ action: 'Edited', by: byMe(), at: Date.now() });
+    _autoAddLocation(building, floor, room, buildingName);
+    if (discipline && subsystem && !db.subsystems.find(s => s.discipline === discipline && s.name === subsystem))
+      db.subsystems.push({ id: uid(), discipline, name: subsystem });
+    saveDB(); S.fd = {};
+    go('snag-detail', { snagId: S.snagId });
+  } else {
+    const history = [{ action: 'Created', by: byMe(), at: Date.now() }];
+    if (assignedTo) history.push({ action: `Assigned to ${coName(assignedTo)}`, by: byMe(), at: Date.now() });
+    const snag = {
+      id: uid(), projectId: S.projectId, number: nextSnagId(S.projectId, discipline, subsystem, building),
+      title, description: desc, discipline, subsystem, building, buildingName, floor, room,
+      photo: S.fd.photo||null, location: S.fd.location||null,
+      status: assignedTo ? 'assigned' : 'open', assignedTo: assignedTo || null,
+      createdAt: Date.now(), rectification: null,
+      history
+    };
+    db.snags.push(snag);
+    _autoAddLocation(building, floor, room, buildingName);
+    if (discipline && subsystem && !db.subsystems.find(s => s.discipline === discipline && s.name === subsystem))
+      db.subsystems.push({ id: uid(), discipline, name: subsystem });
+    saveDB(); S.fd = {};
+    go('snag-detail', { snagId: snag.id });
+  }
+}
+
+function deleteSnag(id) {
+  if (!confirm('Permanently delete this snag?')) return;
+  db.snags = db.snags.filter(s => s.id !== id);
+  saveDB(); go('snag-list');
+}
+
+function doAssign(snagId) {
+  const cid = document.getElementById('m_co').value;
+  if (!cid) return;
+  const snag = db.snags.find(s => s.id === snagId);
+  snag.assignedTo = cid;
+  snag.status = 'assigned';
+  snag.history = snag.history || [];
+  snag.history.push({ action: `Assigned to ${coName(cid)}`, by: byMe(), at: Date.now() });
+  saveDB(); closeModal(); render();
+}
+
+function acceptSnag(snagId) {
+  if (!confirm('Accept this rectification and close the snag?')) return;
+  const snag = db.snags.find(s => s.id === snagId);
+  snag.status = 'accepted';
+  snag.history = snag.history || [];
+  snag.history.push({ action: 'Accepted — Snag Closed', by: byMe(), at: Date.now() });
+  saveDB(); render();
+}
+
+function doReject(snagId) {
+  const note = document.getElementById('m_note').value.trim();
+  const snag = db.snags.find(s => s.id === snagId);
+  snag.status = 'rejected';
+  snag.history = snag.history || [];
+  snag.history.push({ action: 'Rejected', by: byMe(), note, at: Date.now() });
+  saveDB(); closeModal(); render();
+}
+
+function submitRect(snagId) {
+  const comment = document.getElementById('f_rect_comment').value.trim();
+  const photo   = S.fd.rectPhoto;
+  if (!photo) { alert('A photo is required.'); return; }
+  const snag = db.snags.find(s => s.id === snagId);
+  snag.rectification = { photo, comment, by: byMe(), submittedAt: Date.now() };
+  snag.status = 'pending';
+  snag.history = snag.history || [];
+  snag.history.push({ action: 'Rectification submitted', by: byMe(), note: comment, at: Date.now() });
+  saveDB(); S.fd = {};
+  go('snag-detail', { snagId });
+}
+
+// ── LOCATIONS CONFIG ──────────────────────────────────────────────────────────
+function locationSelects(selBuilding, selFloor, selRoom, selBuildingName) {
+  const iStyle = 'width:100%;padding:.55rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.95rem;font-family:inherit';
+  const buildings = (db.locations||[]).map(b => b.building);
+  const buildingNames = (db.locations||[]).map(b => b.buildingName).filter(Boolean);
+  const bldgObj   = (db.locations||[]).find(b => b.building === selBuilding);
+  const bldgFloors = bldgObj ? bldgObj.floors.map(f => f.name)
+    : [...new Set((db.locations||[]).flatMap(b => b.floors.map(f => f.name)))].sort();
+  const floorObj  = bldgObj?.floors.find(f => f.name === selFloor);
+  const floorRooms = floorObj ? floorObj.rooms
+    : [...new Set((db.locations||[]).flatMap(b => b.floors.flatMap(f => f.rooms)))].sort();
+  // Auto-fill building name hint from stored locations
+  const autoName = bldgObj?.buildingName || selBuildingName || '';
+  return `
+    <div class="form-group">
+      <label class="form-label">Building Code</label>
+      <input type="text" id="f_building" list="dl_buildings" placeholder="e.g. BB03"
+        value="${esc(selBuilding)}" autocomplete="off" style="${iStyle}"
+        oninput="onBuildingCodeChange(this.value)" />
+      <datalist id="dl_buildings">${buildings.map(b=>`<option value="${esc(b)}">`).join('')}</datalist>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Building Name <span style="font-weight:400;color:var(--muted)">(for reference only)</span></label>
+      <input type="text" id="f_building_name" list="dl_building_names" placeholder="e.g. Academic City Station"
+        value="${esc(autoName)}" autocomplete="off" style="${iStyle}" />
+      <datalist id="dl_building_names">${buildingNames.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Floor</label>
+      <input type="text" id="f_floor" list="dl_floors" placeholder="Floor…"
+        value="${esc(selFloor)}" autocomplete="off" style="${iStyle}" />
+      <datalist id="dl_floors">${bldgFloors.map(f=>`<option value="${esc(f)}">`).join('')}</datalist>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Room / Area</label>
+      <input type="text" id="f_room" list="dl_rooms" placeholder="Room…"
+        value="${esc(selRoom)}" autocomplete="off" style="${iStyle}" />
+      <datalist id="dl_rooms">${floorRooms.map(r=>`<option value="${esc(r)}">`).join('')}</datalist>
+    </div>`;
+}
+
+function _autoAddLocation(building, floor, room, buildingName) {
+  if (!building) return;
+  if (!db.locations) db.locations = [];
+  let b = db.locations.find(x => x.building === building);
+  if (!b) { b = { id: uid(), building, buildingName: buildingName||'', floors: [] }; db.locations.push(b); }
+  else if (buildingName && !b.buildingName) b.buildingName = buildingName;
+  if (!floor) return;
+  let f = b.floors.find(x => x.name === floor);
+  if (!f) { f = { id: uid(), name: floor, rooms: [] }; b.floors.push(f); }
+  if (room && !f.rooms.includes(room)) f.rooms.push(room);
+}
+
+function onBuildingCodeChange(val) {
+  // When building code changes, auto-fill building name from stored locations
+  const bldgObj = (db.locations||[]).find(b => b.building === val);
+  const nameEl = document.getElementById('f_building_name');
+  if (nameEl && bldgObj?.buildingName && !nameEl.value) nameEl.value = bldgObj.buildingName;
+}
+
+function onDisciplineChange(val) {
+  snap();
+  S.fd.f_discipline = val;
+  S.fd.f_subsystem = '';
+  render();
+}
+function onBuildingChange(val) {
+  snap();
+  S.fd.f_building = val;
+  S.fd.f_floor = '';
+  S.fd.f_room = '';
+  render();
+}
+function onFloorChange(val) {
+  snap();
+  S.fd.f_building = document.getElementById('f_building')?.value || S.fd.f_building || '';
+  S.fd.f_floor = val;
+  S.fd.f_room = '';
+  render();
+}
+
+function viewLocations() {
+  const isAdmin = S.currentUser?.role === 'administrator';
+  if (!isAdmin) return viewProjects();
+  const locs = db.locations || [];
+  const el = S.editingLoc || {};
+  return appBar('Configuration', null) + `
+    <div class="main">
+      <div class="card card-body" style="margin-bottom:.75rem">
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <input type="text" id="new_building" placeholder="New building name…" style="flex:1;padding:.55rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.95rem;font-family:inherit" />
+          <button class="btn btn-primary" data-fn="addBuilding" style="white-space:nowrap">+ Building</button>
+        </div>
+      </div>
+      ${locs.length === 0 ? `<div class="card card-body" style="color:var(--muted);text-align:center">No buildings configured yet.<br>Add a building above to get started.</div>` : ''}
+      ${locs.map(b => `
+        <div class="card card-body" style="margin-bottom:.75rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;gap:.5rem">
+            ${el.type==='building'&&el.bldgId===b.id
+              ? `<div style="flex:1;display:flex;flex-direction:column;gap:.4rem">
+                   <input type="text" id="edit_bldg_${b.id}" value="${esc(b.building)}" placeholder="Building code e.g. BB03" style="width:100%;padding:.4rem .6rem;border:2px solid var(--blue);border-radius:8px;font-size:.95rem;font-family:inherit" />
+                   <input type="text" id="edit_bldg_name_${b.id}" value="${esc(b.buildingName||'')}" placeholder="Building name e.g. Academic City Station" style="width:100%;padding:.4rem .6rem;border:2px solid var(--border);border-radius:8px;font-size:.9rem;font-family:inherit" />
+                 </div>
+                 <div style="display:flex;flex-direction:column;gap:.3rem;margin-left:.4rem">
+                   <button class="btn btn-primary" style="padding:.3rem .7rem;font-size:.8rem" data-fn="saveBuilding" data-a1="${b.id}">Save</button>
+                   <button class="btn" style="padding:.3rem .7rem;font-size:.8rem" data-fn="cancelEdit">Cancel</button>
+                 </div>`
+              : `<strong style="font-size:1.05rem;flex:1">🏗 ${esc(b.building)}${b.buildingName?`<span style="font-weight:400;font-size:.85rem;color:var(--soft)"> — ${esc(b.buildingName)}</span>`:''}</strong>
+                 <button class="btn" style="background:var(--blue-bg);color:var(--blue);padding:.3rem .7rem;font-size:.8rem" data-fn="startEditBuilding" data-a1="${b.id}">Edit</button>
+                 <button class="btn" style="background:var(--red-bg);color:var(--red);padding:.3rem .7rem;font-size:.8rem" data-fn="deleteBuilding" data-a1="${b.id}">Delete</button>`}
+          </div>
+          <div style="margin-left:.5rem">
+            ${b.floors.map(f => `
+              <div style="border-left:3px solid var(--blue-bg);padding-left:.75rem;margin-bottom:.6rem">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem;gap:.4rem">
+                  ${el.type==='floor'&&el.floorId===f.id
+                    ? `<input type="text" id="edit_floor_${f.id}" value="${esc(f.name)}" style="flex:1;padding:.35rem .55rem;border:2px solid var(--blue);border-radius:8px;font-size:.9rem;font-family:inherit" />
+                       <button class="btn btn-primary" style="padding:.25rem .6rem;font-size:.78rem" data-fn="saveFloor" data-a1="${b.id}" data-a2="${f.id}">Save</button>
+                       <button class="btn" style="padding:.25rem .6rem;font-size:.78rem" data-fn="cancelEdit">Cancel</button>`
+                    : `<span style="font-weight:600;color:var(--blue);flex:1">↳ ${esc(f.name)}</span>
+                       <button class="btn" style="background:var(--blue-bg);color:var(--blue);padding:.2rem .55rem;font-size:.75rem" data-fn="startEditFloor" data-a1="${b.id}" data-a2="${f.id}">Edit</button>
+                       <button class="btn" style="background:var(--red-bg);color:var(--red);padding:.2rem .55rem;font-size:.78rem" data-fn="deleteFloor" data-a1="${b.id}" data-a2="${f.id}">Remove</button>`}
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.4rem">
+                  ${f.rooms.map(r => `
+                    <span style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.2rem .5rem;font-size:.83rem;display:inline-flex;align-items:center;gap:.3rem">
+                      ${el.type==='room'&&el.floorId===f.id&&el.roomName===r
+                        ? `<input type="text" id="edit_room_${f.id}" value="${esc(r)}" style="width:90px;padding:.15rem .35rem;border:1px solid var(--blue);border-radius:5px;font-size:.83rem;font-family:inherit" />
+                           <button style="background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:.75rem;padding:.1rem .4rem;border-radius:4px;line-height:1.4" data-fn="saveRoom" data-a1="${b.id}" data-a2="${f.id}|${esc(r)}">✓</button>
+                           <button style="background:none;border:none;cursor:pointer;color:var(--soft);font-size:.9rem;padding:0;line-height:1" data-fn="cancelEdit">×</button>`
+                        : `${esc(r)}
+                           <button style="background:none;border:none;cursor:pointer;color:var(--blue);font-size:.8rem;padding:0;line-height:1" data-fn="startEditRoom" data-a1="${b.id}" data-a2="${f.id}|${esc(r)}">✎</button>
+                           <button style="background:none;border:none;cursor:pointer;color:var(--red);font-size:.9rem;padding:0;line-height:1" data-fn="deleteRoom" data-a1="${b.id}" data-a2="${f.id}|${esc(r)}">×</button>`}
+                    </span>`).join('')}
+                </div>
+                <div style="display:flex;gap:.4rem">
+                  <input type="text" id="new_room_${f.id}" placeholder="Add room…" style="flex:1;padding:.4rem .6rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
+                  <button class="btn btn-primary" style="padding:.4rem .7rem;font-size:.85rem" data-fn="addRoom" data-a1="${b.id}" data-a2="${f.id}">+ Room</button>
+                </div>
+              </div>`).join('')}
+            <div style="display:flex;gap:.4rem;margin-top:.4rem">
+              <input type="text" id="new_floor_${b.id}" placeholder="Add floor / level…" style="flex:1;padding:.4rem .6rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
+              <button class="btn" style="background:var(--blue-bg);color:var(--blue);padding:.4rem .7rem;font-size:.85rem" data-fn="addFloor" data-a1="${b.id}">+ Floor</button>
+            </div>
+          </div>
+        </div>`).join('')}
+    </div>
+
+    <div class="card card-body" style="margin-bottom:.75rem">
+      <div style="font-weight:700;font-size:1rem;margin-bottom:.75rem">🔧 Subsystems</div>
+      ${DISCIPLINES.map(disc => {
+        const subs = (db.subsystems || []).filter(s => s.discipline === disc);
+        return `<div style="margin-bottom:1rem">
+          <div style="font-weight:600;color:var(--blue);margin-bottom:.4rem">${esc(disc)}</div>
+          ${subs.length ? subs.map(s => `
+            <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem;padding:.35rem .55rem;background:var(--bg);border-radius:8px">
+              <span style="flex:1;font-size:.9rem">${esc(s.name)}</span>
+              <button class="btn" style="background:var(--red-bg);color:var(--red);padding:.2rem .55rem;font-size:.78rem" data-fn="deleteSubsystem" data-a1="${s.id}">×</button>
+            </div>`).join('') : `<div style="font-size:.82rem;color:var(--muted);margin-bottom:.4rem">No subsystems yet.</div>`}
+          <div style="display:flex;gap:.4rem;margin-top:.3rem">
+            <input type="text" id="new_sub_${disc.replace(/\s+/g,'_')}" placeholder="Add subsystem…"
+                   style="flex:1;padding:.4rem .6rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
+            <button class="btn" style="background:var(--blue-bg);color:var(--blue);padding:.4rem .7rem;font-size:.85rem"
+                    data-fn="addSubsystem" data-a1="${esc(disc)}">+ Add</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="card card-body" style="margin-bottom:.75rem">
+      <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">📸 Photo Storage (Cloudflare R2)</div>
+      <div style="font-size:.82rem;color:var(--soft);margin-bottom:.75rem;line-height:1.5">
+        Paste your R2 public URL to enable direct photo uploads to Cloudflare R2.
+        Until set, photos are stored in the Supabase database.
+      </div>
+      <div style="display:flex;gap:.5rem;align-items:center">
+        <input type="url" id="r2_public_url" placeholder="https://pub-XXXX.r2.dev"
+          value="${esc(R2_PUBLIC_URL)}" style="flex:1;padding:.5rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
+        <button class="btn btn-primary" style="white-space:nowrap" data-fn="saveR2Url">Save</button>
+      </div>
+      ${R2_PUBLIC_URL ? `<div style="font-size:.8rem;color:var(--green);margin-top:.4rem;font-weight:600">✓ R2 photo upload active</div>` : `<div style="font-size:.8rem;color:var(--muted);margin-top:.4rem">Not yet configured — photos stored in Supabase</div>`}
+    </div>
+
+    <div class="card card-body" style="margin-bottom:.75rem">
+      <div style="font-weight:700;font-size:1rem;margin-bottom:.75rem">☁️ Cloud Sync</div>
+      <div style="font-size:.82rem;color:var(--soft);margin-bottom:.75rem;line-height:1.5">
+        Push your data to the cloud so all users on all devices share the same snags, companies, and configuration.
+        Pull to load the latest cloud data onto this device.
+      </div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.6rem">
+        <button class="btn btn-primary" style="flex:1;min-width:130px" data-fn="pushToSupabase">⬆ Push to Cloud</button>
+        <button class="btn btn-outline" style="flex:1;min-width:130px" data-fn="pullFromSupabase">⬇ Pull from Cloud</button>
+      </div>
+      ${_syncStatus === 'ok' ? `<div style="font-size:.8rem;color:var(--green);font-weight:600">✓ Last sync successful</div>` :
+        _syncStatus === 'error' ? `<div style="font-size:.8rem;color:var(--red);font-weight:600">✗ Sync error — ${esc(_syncMsg)}</div>` :
+        _syncStatus === 'syncing' ? `<div style="font-size:.8rem;color:var(--blue)">↻ Syncing…</div>` :
+        `<div style="font-size:.8rem;color:var(--muted)">Not yet synced to cloud on this device</div>`}
+    </div>
+
+    <div class="card card-body" style="margin-bottom:.75rem">
+      <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">💾 Data Backup &amp; Restore</div>
+      <div style="font-size:.82rem;color:var(--soft);margin-bottom:.75rem;line-height:1.5">
+        Export saves all snags, locations, companies, users and configuration to a JSON file on your device.
+        Import replaces all current data with the backup file. <strong>Always export before clearing browser data.</strong>
+      </div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button class="btn btn-primary" style="flex:1;min-width:120px" data-fn="exportData">⬇ Export Backup</button>
+        <label class="btn btn-outline" style="flex:1;min-width:120px;text-align:center;cursor:pointer" for="importFile">⬆ Import Backup</label>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(this)" />
+      </div>
+    </div>
+
+    <div class="card card-body" style="margin-bottom:.75rem">
+      <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">🎬 Splash Screen Config</div>
+      <div style="font-size:.82rem;color:var(--soft);margin-bottom:.75rem;line-height:1.5">
+        Images shown on the opening splash after the SiteSnag name fades out.
+      </div>
+      <div class="form-group">
+        <label class="form-label">Project Image</label>
+        ${db.splashConfig.projectImage
+          ? `<div class="photo-wrap" style="margin-bottom:.5rem"><img src="${db.splashConfig.projectImage}" style="max-height:120px;object-fit:cover;border-radius:8px;width:100%" />
+              <button class="photo-remove" data-fn="removeSplashProjectImage">×</button></div>`
+          : `<label class="photo-trigger" for="splashProjIn" style="display:block;padding:.7rem;text-align:center;border:2px dashed var(--border);border-radius:8px;cursor:pointer;font-size:.88rem;color:var(--soft)">📷 Upload project image</label>
+             <input type="file" id="splashProjIn" accept="image/*" style="display:none" onchange="handleSplashProjectImage(this)" />`}
+      </div>
+      <div class="form-group">
+        <label class="form-label">Stakeholder Logos (up to 4)</label>
+        <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem">
+          ${(db.splashConfig.logos||[]).map((src,i)=>`
+            <div style="position:relative;display:inline-block">
+              <img src="${src}" style="height:52px;border-radius:6px;border:1.5px solid var(--border);object-fit:contain;background:#fff;padding:2px" />
+              <button data-fn="removeSplashLogo" data-a1="${i}"
+                style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border:none;border-radius:999px;width:18px;height:18px;font-size:.7rem;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center">×</button>
+            </div>`).join('')}
+          ${(db.splashConfig.logos||[]).length < 4
+            ? `<label for="splashLogoIn" style="height:52px;width:52px;border:2px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.4rem;color:var(--soft)">+</label>
+               <input type="file" id="splashLogoIn" accept="image/*" style="display:none" onchange="handleSplashLogo(this)" />`
+            : ''}
+        </div>
+      </div>
+    </div>
+    </div>` + navBar('locations');
+}
+
+function startEditBuilding(bldgId) { S.editingLoc = { type:'building', bldgId }; render(); }
+function startEditFloor(bldgId, floorId) { S.editingLoc = { type:'floor', bldgId, floorId }; render(); }
+function startEditRoom(bldgId, floorAndRoom) {
+  const [floorId, ...rp] = floorAndRoom.split('|');
+  S.editingLoc = { type:'room', bldgId, floorId, roomName: rp.join('|') }; render();
+}
+function cancelEdit() { S.editingLoc = null; render(); }
+
+function saveBuilding(bldgId) {
+  const inp = document.getElementById('edit_bldg_' + bldgId);
+  const newCode = (inp?.value || '').trim();
+  if (!newCode) return;
+  const nameInp = document.getElementById('edit_bldg_name_' + bldgId);
+  const newBuildingName = (nameInp?.value || '').trim();
+  const b = db.locations.find(b => b.id === bldgId);
+  if (!b) return;
+  const oldCode = b.building;
+  if (newCode !== oldCode) {
+    if (db.locations.find(x => x.id !== bldgId && x.building.toLowerCase() === newCode.toLowerCase())) { alert('Building code already exists.'); return; }
+    b.building = newCode;
+    db.snags.forEach(s => { if (s.building === oldCode) s.building = newCode; });
+  }
+  b.buildingName = newBuildingName;
+  db.snags.forEach(s => { if (s.building === newCode) s.buildingName = newBuildingName; });
+  saveDB(); S.editingLoc = null; render();
+}
+
+function saveFloor(bldgId, floorId) {
+  const inp = document.getElementById('edit_floor_' + floorId);
+  const newName = (inp?.value || '').trim();
+  if (!newName) return;
+  const b = db.locations.find(b => b.id === bldgId);
+  if (!b) return;
+  const f = b.floors.find(f => f.id === floorId);
+  if (!f) return;
+  const oldName = f.name;
+  if (newName === oldName) { cancelEdit(); return; }
+  if (b.floors.find(x => x.id !== floorId && x.name.toLowerCase() === newName.toLowerCase())) { alert('Floor name already exists in this building.'); return; }
+  f.name = newName;
+  db.snags.forEach(s => { if (s.building === b.building && s.floor === oldName) s.floor = newName; });
+  saveDB(); S.editingLoc = null; render();
+}
+
+function saveRoom(bldgId, floorAndOldRoom) {
+  const [floorId, ...rp] = floorAndOldRoom.split('|');
+  const oldRoom = rp.join('|');
+  const inp = document.getElementById('edit_room_' + floorId);
+  const newRoom = (inp?.value || '').trim();
+  if (!newRoom) return;
+  const b = db.locations.find(b => b.id === bldgId);
+  if (!b) return;
+  const f = b.floors.find(f => f.id === floorId);
+  if (!f) return;
+  if (newRoom === oldRoom) { cancelEdit(); return; }
+  if (f.rooms.find(r => r.toLowerCase() === newRoom.toLowerCase())) { alert('Room already exists on this floor.'); return; }
+  f.rooms = f.rooms.map(r => r === oldRoom ? newRoom : r);
+  db.snags.forEach(s => { if (s.building === b.building && s.floor === f.name && s.room === oldRoom) s.room = newRoom; });
+  saveDB(); S.editingLoc = null; render();
+}
+
+function addBuilding() {
+  const inp = document.getElementById('new_building');
+  const name = (inp?.value || '').trim();
+  if (!name) return;
+  if (!db.locations) db.locations = [];
+  if (db.locations.find(b => b.building.toLowerCase() === name.toLowerCase())) { alert('Building already exists.'); return; }
+  db.locations.push({ id: uid(), building: name, floors: [] });
+  saveDB(); render();
+}
+
+function addFloor(bldgId) {
+  const inp = document.getElementById('new_floor_' + bldgId);
+  const name = (inp?.value || '').trim();
+  if (!name) return;
+  const b = db.locations.find(b => b.id === bldgId);
+  if (!b) return;
+  if (b.floors.find(f => f.name.toLowerCase() === name.toLowerCase())) { alert('Floor already exists.'); return; }
+  b.floors.push({ id: uid(), name, rooms: [] });
+  saveDB(); render();
+}
+
+function addRoom(bldgId, floorId) {
+  const inp = document.getElementById('new_room_' + floorId);
+  const name = (inp?.value || '').trim();
+  if (!name) return;
+  const b = db.locations.find(b => b.id === bldgId);
+  if (!b) return;
+  const f = b.floors.find(f => f.id === floorId);
+  if (!f) return;
+  if (f.rooms.find(r => r.toLowerCase() === name.toLowerCase())) { alert('Room already exists.'); return; }
+  f.rooms.push(name);
+  saveDB(); render();
+}
+
+function deleteBuilding(bldgId) {
+  if (!confirm('Delete this building and all its floors and rooms?')) return;
+  db.locations = db.locations.filter(b => b.id !== bldgId);
+  saveDB(); render();
+}
+
+function deleteFloor(bldgId, floorId) {
+  if (!confirm('Delete this floor and all its rooms?')) return;
+  const b = db.locations.find(b => b.id === bldgId);
+  if (!b) return;
+  b.floors = b.floors.filter(f => f.id !== floorId);
+  saveDB(); render();
+}
+
+function deleteRoom(bldgId, floorAndRoom) {
+  const [floorId, ...roomParts] = floorAndRoom.split('|');
+  const roomName = roomParts.join('|');
+  const b = db.locations.find(b => b.id === bldgId);
+  if (!b) return;
+  const f = b.floors.find(f => f.id === floorId);
+  if (!f) return;
+  f.rooms = f.rooms.filter(r => r !== roomName);
+  saveDB(); render();
+}
+
+function addSubsystem(discipline) {
+  const key = discipline.replace(/\s+/g, '_');
+  const inp = document.getElementById('new_sub_' + key);
+  const name = (inp?.value || '').trim();
+  if (!name) return;
+  if (!db.subsystems) db.subsystems = [];
+  if (db.subsystems.find(s => s.discipline === discipline && s.name.toLowerCase() === name.toLowerCase())) {
+    alert('Subsystem already exists for this discipline.'); return;
+  }
+  db.subsystems.push({ id: uid(), discipline, name });
+  saveDB(); render();
+}
+
+function deleteSubsystem(id) {
+  if (!confirm('Remove this subsystem?')) return;
+  db.subsystems = db.subsystems.filter(s => s.id !== id);
+  saveDB(); render();
+}
+
+async function handleSplashProjectImage(input) {
+  const f = input.files[0]; if (!f) return;
+  db.splashConfig.projectImage = await resizePhoto(f);
+  saveDB(); render();
+}
+async function handleSplashLogo(input) {
+  const f = input.files[0]; if (!f) return;
+  if (!db.splashConfig.logos) db.splashConfig.logos = [];
+  if (db.splashConfig.logos.length >= 4) return;
+  db.splashConfig.logos.push(await resizePhoto(f));
+  saveDB(); render();
+}
+function removeSplashProjectImage() { db.splashConfig.projectImage = null; saveDB(); render(); }
+function removeSplashLogo(idx) { db.splashConfig.logos.splice(Number(idx), 1); saveDB(); render(); }
+
+function exportData() {
+  const ts = new Date().toISOString().slice(0,10);
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `sitesnag-backup-${ts}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importData(input) {
+  const f = input.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!imported.snags || !imported.projects) { alert('Invalid backup file.'); return; }
+      if (!confirm(`This will replace ALL current data with the backup (${imported.snags.length} snags, ${imported.projects.length} projects). Continue?`)) return;
+      db = { projects:[], companies:[], snags:[], users:[], locations:[], subsystems:[], ...imported };
+      saveDB(); render();
+      alert('Data restored successfully.');
+    } catch { alert('Could not read backup file — it may be corrupted.'); }
+  };
+  reader.readAsText(f);
+  input.value = '';
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────────
+loadDB();
+// Allow admin override via db.settings (Config → Photo Storage), otherwise use hardcoded default
+if (db.settings?.r2PublicUrl) R2_PUBLIC_URL = db.settings.r2PublicUrl;
+loadState();
+if (!storageOK) showStorageWarning();
+
+// Wire static login-screen button — addEventListener + direct .onclick for maximum compatibility
+var _setupBtn = document.getElementById('btn-first-user');
+if (_setupBtn) {
+  _setupBtn.addEventListener('click', startSetup);
+  _setupBtn.onclick = startSetup;  // direct property as second fallback
+}
+
+render();
+
+// ── SPLASH ANIMATION ───────────────────────────────────────────────────────────
+(function() {
+  var splash = document.getElementById('splash');
+  if (!splash) return;
+
+  // Populate project phase content
+  var projName = (db.projects && db.projects.length)
+    ? db.projects[0].name
+    : '';
+  var cfg = db.splashConfig || {};
+
+  var nameEl  = document.getElementById('splash-proj-name');
+  var imgWrap = document.getElementById('splash-img-wrap');
+  var imgEl   = document.getElementById('splash-proj-img');
+  var logosEl = document.getElementById('splash-logos');
+
+  if (nameEl) nameEl.textContent = projName;
+  if (imgEl && cfg.projectImage) {
+    imgEl.src = cfg.projectImage;
+    if (imgWrap) imgWrap.style.display = 'block';
+  }
+  if (logosEl && cfg.logos && cfg.logos.length) {
+    logosEl.innerHTML = cfg.logos.map(function(src) {
+      return '<img src="' + src + '" style="height:48px;object-fit:contain;background:#fff;border-radius:6px;padding:3px;border:1.5px solid rgba(255,215,0,.3)" />';
+    }).join('');
+  }
+
+  var appNameEl   = document.getElementById('splash-app-name');
+  var projEl      = document.getElementById('splash-project');
+  var dismissed   = false;
+
+  function hideSplash() {
+    if (dismissed) return;
+    dismissed = true;
+    splash.style.transition = 'opacity .6s ease';
+    splash.style.opacity = '0';
+    setTimeout(function() { splash.style.display = 'none'; }, 650);
+  }
+
+  // Phase 1: fade in app name (0 → 0.9s)
+  setTimeout(function() { if (appNameEl) appNameEl.style.opacity = '1'; }, 80);
+
+  // Phase 2: fade out app name (2.4s → 3.3s)
+  setTimeout(function() { if (appNameEl) appNameEl.style.opacity = '0'; }, 2400);
+
+  // Phase 3: fade in project content (3.4s)
+  setTimeout(function() { if (projEl) projEl.style.opacity = '1'; }, 3400);
+
+  // Phase 4: auto-dismiss (6s)
+  setTimeout(hideSplash, 6000);
+})();
+
+function dismissSplash() {
+  var splash = document.getElementById('splash');
+  if (!splash || splash.style.display === 'none') return;
+  splash.style.transition = 'opacity .4s ease';
+  splash.style.opacity = '0';
+  setTimeout(function() { splash.style.display = 'none'; }, 420);
+}
+</script>
+</body>
+</html>
