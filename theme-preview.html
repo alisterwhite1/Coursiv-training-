@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SiteSnag — Theme Preview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #111; padding: 1.5rem; }
+  h1 { color: #fff; text-align: center; font-size: 1.1rem; margin-bottom: 1.5rem; letter-spacing: .05em; opacity: .6; font-weight: 400; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
+  .theme-label { font-size: .75rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #888; margin-bottom: .6rem; }
+
+  /* ──────────────────────────────────────────────────
+     THEME 1 — CURRENT (for reference)
+  ────────────────────────────────────────────────── */
+  .t0 { background: #f1f5f9; border-radius: 16px; overflow: hidden; }
+  .t0 .bar { background: #1d4ed8; padding: .75rem 1rem; display: flex; align-items: center; gap: .5rem; }
+  .t0 .bar-title { color: #fff; font-weight: 700; font-size: .95rem; flex: 1; }
+  .t0 .bar-chip { background: rgba(255,255,255,.2); color: #fff; font-size: .72rem; padding: .2rem .6rem; border-radius: 999px; font-weight: 700; }
+  .t0 .body { padding: .85rem; display: flex; flex-direction: column; gap: .5rem; }
+  .t0 .card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .t0 .item { display: flex; align-items: center; gap: .7rem; padding: .75rem; border-bottom: 1px solid #e2e8f0; }
+  .t0 .item:last-child { border-bottom: none; }
+  .t0 .num { background: #1d4ed8; color: #fff; font-size: .72rem; font-weight: 800; border-radius: 6px; padding: .2rem .45rem; min-width: 44px; text-align: center; }
+  .t0 .info { flex: 1; }
+  .t0 .ititle { font-weight: 600; font-size: .88rem; color: #0f172a; }
+  .t0 .imeta { font-size: .72rem; color: #64748b; margin-top: .15rem; }
+  .t0 .badge { display: inline-block; padding: .15rem .5rem; border-radius: 999px; font-size: .68rem; font-weight: 800; }
+  .t0 .b-open { background: #fef3c7; color: #b45309; }
+  .t0 .b-pend { background: #ede9fe; color: #7c3aed; }
+  .t0 .b-acc  { background: #dcfce7; color: #15803d; }
+  .t0 .btns { display: flex; gap: .45rem; padding: .75rem; }
+  .t0 .btn { flex: 1; padding: .5rem; border: none; border-radius: 999px; font-size: .8rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .t0 .btn-p { background: #1d4ed8; color: #fff; }
+  .t0 .btn-s { background: #15803d; color: #fff; }
+  .t0 .btn-d { background: #dc2626; color: #fff; }
+  .t0 .nav { background: #fff; border-top: 1px solid #e2e8f0; display: flex; }
+  .t0 .nav-btn { flex: 1; padding: .55rem .3rem .4rem; display: flex; flex-direction: column; align-items: center; gap: .15rem; font-size: .58rem; font-weight: 700; color: #94a3b8; border: none; background: none; }
+  .t0 .nav-btn.act { color: #1d4ed8; }
+  .t0 .ico { font-size: 1.2rem; }
+
+  /* ──────────────────────────────────────────────────
+     THEME 2 — DARK INDUSTRIAL / FUTURISTIC
+  ────────────────────────────────────────────────── */
+  .t1 { background: #0a0f1e; border-radius: 16px; overflow: hidden; border: 1px solid #1a2a4a; }
+  .t1 .bar { background: #0d1629; padding: .75rem 1rem; display: flex; align-items: center; gap: .5rem; border-bottom: 1px solid #00d4ff30; }
+  .t1 .bar-title { color: #e0f0ff; font-weight: 700; font-size: .95rem; flex: 1; font-family: 'Courier New', monospace; letter-spacing: .05em; }
+  .t1 .bar-chip { background: rgba(0,212,255,.12); color: #00d4ff; font-size: .7rem; padding: .2rem .6rem; border-radius: 4px; font-weight: 700; border: 1px solid #00d4ff30; font-family: monospace; }
+  .t1 .body { padding: .75rem; display: flex; flex-direction: column; gap: .45rem; }
+  .t1 .card { background: #0d1629; border-radius: 6px; overflow: hidden; border: 1px solid #1a2a4a; }
+  .t1 .item { display: flex; align-items: center; gap: .7rem; padding: .7rem .85rem; border-bottom: 1px solid #1a2a4a; }
+  .t1 .item:last-child { border-bottom: none; }
+  .t1 .num { background: transparent; color: #00d4ff; font-size: .72rem; font-weight: 800; border: 1px solid #00d4ff50; border-radius: 4px; padding: .2rem .45rem; min-width: 44px; text-align: center; font-family: monospace; }
+  .t1 .info { flex: 1; }
+  .t1 .ititle { font-weight: 600; font-size: .88rem; color: #cce8ff; }
+  .t1 .imeta { font-size: .72rem; color: #4a7fa0; margin-top: .15rem; font-family: monospace; }
+  .t1 .badge { display: inline-block; padding: .15rem .5rem; border-radius: 3px; font-size: .67rem; font-weight: 800; font-family: monospace; letter-spacing: .04em; }
+  .t1 .b-open { background: rgba(255,160,0,.12); color: #ffa000; border: 1px solid #ffa00040; }
+  .t1 .b-pend { background: rgba(150,50,255,.12); color: #b060ff; border: 1px solid #b060ff40; }
+  .t1 .b-acc  { background: rgba(0,220,130,.12); color: #00dc82; border: 1px solid #00dc8240; }
+  .t1 .btns { display: flex; gap: .4rem; padding: .75rem .85rem; }
+  .t1 .btn { flex: 1; padding: .48rem; border: 1px solid transparent; border-radius: 4px; font-size: .78rem; font-weight: 700; cursor: pointer; font-family: 'Courier New', monospace; letter-spacing: .03em; }
+  .t1 .btn-p { background: rgba(0,100,255,.2); color: #4db8ff; border-color: #0066ff50; }
+  .t1 .btn-s { background: rgba(0,220,130,.15); color: #00dc82; border-color: #00dc8240; }
+  .t1 .btn-d { background: rgba(255,50,80,.15); color: #ff5060; border-color: #ff506040; }
+  .t1 .nav { background: #0d1629; border-top: 1px solid #00d4ff20; display: flex; }
+  .t1 .nav-btn { flex: 1; padding: .55rem .3rem .4rem; display: flex; flex-direction: column; align-items: center; gap: .15rem; font-size: .58rem; font-weight: 700; color: #2a4a6a; border: none; background: none; font-family: monospace; letter-spacing: .04em; }
+  .t1 .nav-btn.act { color: #00d4ff; text-shadow: 0 0 8px #00d4ff80; }
+  .t1 .ico { font-size: 1.2rem; }
+
+  /* ──────────────────────────────────────────────────
+     THEME 3 — GLASSMORPHISM / MODERN DARK
+  ────────────────────────────────────────────────── */
+  .t2-wrap { border-radius: 16px; overflow: hidden; position: relative; }
+  .t2-bg { background: linear-gradient(135deg, #1a0533 0%, #0a0a2e 50%, #0d2137 100%); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,.08); }
+  .t2 .bar { background: rgba(255,255,255,.06); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: .75rem 1rem; display: flex; align-items: center; gap: .5rem; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .t2 .bar-title { color: #fff; font-weight: 700; font-size: .95rem; flex: 1; }
+  .t2 .bar-chip { background: rgba(180,80,255,.2); color: #d080ff; font-size: .7rem; padding: .2rem .6rem; border-radius: 999px; font-weight: 700; border: 1px solid rgba(180,80,255,.3); }
+  .t2 .body { padding: .75rem; display: flex; flex-direction: column; gap: .45rem; }
+  .t2 .card { background: rgba(255,255,255,.06); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,.1); }
+  .t2 .item { display: flex; align-items: center; gap: .7rem; padding: .7rem .85rem; border-bottom: 1px solid rgba(255,255,255,.06); }
+  .t2 .item:last-child { border-bottom: none; }
+  .t2 .num { background: linear-gradient(135deg, #6030ff, #b060ff); color: #fff; font-size: .72rem; font-weight: 800; border-radius: 6px; padding: .2rem .45rem; min-width: 44px; text-align: center; }
+  .t2 .info { flex: 1; }
+  .t2 .ititle { font-weight: 600; font-size: .88rem; color: rgba(255,255,255,.9); }
+  .t2 .imeta { font-size: .72rem; color: rgba(255,255,255,.4); margin-top: .15rem; }
+  .t2 .badge { display: inline-block; padding: .15rem .5rem; border-radius: 999px; font-size: .68rem; font-weight: 800; }
+  .t2 .b-open { background: rgba(255,160,0,.18); color: #ffb020; border: 1px solid rgba(255,160,0,.3); }
+  .t2 .b-pend { background: rgba(180,80,255,.18); color: #c080ff; border: 1px solid rgba(180,80,255,.3); }
+  .t2 .b-acc  { background: rgba(0,200,120,.18); color: #00e888; border: 1px solid rgba(0,200,120,.3); }
+  .t2 .btns { display: flex; gap: .4rem; padding: .75rem .85rem; }
+  .t2 .btn { flex: 1; padding: .48rem; border: none; border-radius: 999px; font-size: .78rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .t2 .btn-p { background: linear-gradient(135deg, #4040ff, #8040ff); color: #fff; box-shadow: 0 2px 12px rgba(100,40,255,.4); }
+  .t2 .btn-s { background: linear-gradient(135deg, #00a06a, #00c882); color: #fff; box-shadow: 0 2px 12px rgba(0,180,100,.4); }
+  .t2 .btn-d { background: linear-gradient(135deg, #cc2040, #ff3060); color: #fff; box-shadow: 0 2px 12px rgba(255,50,80,.4); }
+  .t2 .nav { background: rgba(255,255,255,.04); backdrop-filter: blur(8px); border-top: 1px solid rgba(255,255,255,.08); display: flex; }
+  .t2 .nav-btn { flex: 1; padding: .55rem .3rem .4rem; display: flex; flex-direction: column; align-items: center; gap: .15rem; font-size: .58rem; font-weight: 700; color: rgba(255,255,255,.25); border: none; background: none; }
+  .t2 .nav-btn.act { color: #c080ff; }
+  .t2 .ico { font-size: 1.2rem; }
+
+  /* ──────────────────────────────────────────────────
+     THEME 4 — CLEAN PROFESSIONAL / CORPORATE
+  ────────────────────────────────────────────────── */
+  .t3 { background: #f4f6f9; border-radius: 16px; overflow: hidden; border: 1px solid #dde3ec; }
+  .t3 .bar { background: #0f2544; padding: .75rem 1rem; display: flex; align-items: center; gap: .5rem; }
+  .t3 .bar-title { color: #fff; font-weight: 600; font-size: .95rem; flex: 1; letter-spacing: .01em; }
+  .t3 .bar-chip { background: rgba(255,255,255,.15); color: rgba(255,255,255,.85); font-size: .7rem; padding: .2rem .6rem; border-radius: 4px; font-weight: 600; }
+  .t3 .body { padding: .85rem; display: flex; flex-direction: column; gap: .5rem; }
+  .t3 .card { background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid #dde3ec; }
+  .t3 .item { display: flex; align-items: center; gap: .7rem; padding: .75rem 1rem; border-bottom: 1px solid #eef1f6; }
+  .t3 .item:last-child { border-bottom: none; }
+  .t3 .num { background: #0f2544; color: #fff; font-size: .72rem; font-weight: 700; border-radius: 4px; padding: .22rem .48rem; min-width: 44px; text-align: center; letter-spacing: .02em; }
+  .t3 .info { flex: 1; }
+  .t3 .ititle { font-weight: 600; font-size: .88rem; color: #1a2a40; }
+  .t3 .imeta { font-size: .72rem; color: #6b7a90; margin-top: .15rem; }
+  .t3 .badge { display: inline-block; padding: .15rem .5rem; border-radius: 4px; font-size: .67rem; font-weight: 700; letter-spacing: .03em; }
+  .t3 .b-open { background: #fff4e0; color: #8a5a00; border: 1px solid #f0d080; }
+  .t3 .b-pend { background: #f0ecfb; color: #5030a0; border: 1px solid #c8b8f0; }
+  .t3 .b-acc  { background: #e6f4ee; color: #1a6640; border: 1px solid #a8d8bc; }
+  .t3 .btns { display: flex; gap: .5rem; padding: .75rem 1rem; }
+  .t3 .btn { flex: 1; padding: .5rem; border: none; border-radius: 6px; font-size: .8rem; font-weight: 600; cursor: pointer; font-family: inherit; letter-spacing: .02em; }
+  .t3 .btn-p { background: #0f2544; color: #fff; }
+  .t3 .btn-s { background: #1a6640; color: #fff; }
+  .t3 .btn-d { background: #b02020; color: #fff; }
+  .t3 .nav { background: #fff; border-top: 1px solid #dde3ec; display: flex; }
+  .t3 .nav-btn { flex: 1; padding: .55rem .3rem .4rem; display: flex; flex-direction: column; align-items: center; gap: .15rem; font-size: .58rem; font-weight: 700; color: #9aa4b4; border: none; background: none; letter-spacing: .04em; text-transform: uppercase; }
+  .t3 .nav-btn.act { color: #0f2544; }
+  .t3 .ico { font-size: 1.2rem; }
+
+  /* ──────────────────────────────────────────────────
+     THEME 5 — MIDNIGHT BLUEPRINT
+  ────────────────────────────────────────────────── */
+  .t4 { background: #001a33; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,215,0,.15); }
+  .t4 .bar { background: #002244; padding: .75rem 1rem; display: flex; align-items: center; gap: .5rem; border-bottom: 1px solid rgba(255,215,0,.15); }
+  .t4 .bar-title { color: #FFD700; font-weight: 700; font-size: .95rem; flex: 1; letter-spacing: .04em; text-shadow: 0 0 12px rgba(255,215,0,.3); }
+  .t4 .bar-chip { background: rgba(255,215,0,.1); color: rgba(255,215,0,.8); font-size: .7rem; padding: .2rem .6rem; border-radius: 4px; font-weight: 700; border: 1px solid rgba(255,215,0,.25); }
+  .t4 .body { padding: .75rem; display: flex; flex-direction: column; gap: .45rem; }
+  .t4 .card { background: #002244; border-radius: 6px; overflow: hidden; border: 1px solid rgba(255,215,0,.12); }
+  .t4 .item { display: flex; align-items: center; gap: .7rem; padding: .7rem .85rem; border-bottom: 1px solid rgba(255,255,255,.06); }
+  .t4 .item:last-child { border-bottom: none; }
+  .t4 .num { background: transparent; color: #FFD700; font-size: .72rem; font-weight: 800; border: 1px solid rgba(255,215,0,.4); border-radius: 4px; padding: .2rem .45rem; min-width: 44px; text-align: center; letter-spacing: .03em; }
+  .t4 .info { flex: 1; }
+  .t4 .ititle { font-weight: 600; font-size: .88rem; color: #c8e0f8; }
+  .t4 .imeta { font-size: .72rem; color: rgba(200,224,248,.45); margin-top: .15rem; }
+  .t4 .badge { display: inline-block; padding: .15rem .5rem; border-radius: 3px; font-size: .67rem; font-weight: 800; letter-spacing: .04em; }
+  .t4 .b-open { background: rgba(255,180,0,.12); color: #ffb400; border: 1px solid rgba(255,180,0,.3); }
+  .t4 .b-pend { background: rgba(100,160,255,.12); color: #80b4ff; border: 1px solid rgba(100,160,255,.3); }
+  .t4 .b-acc  { background: rgba(0,200,150,.12); color: #00c896; border: 1px solid rgba(0,200,150,.3); }
+  .t4 .btns { display: flex; gap: .4rem; padding: .75rem .85rem; }
+  .t4 .btn { flex: 1; padding: .48rem; border: 1px solid transparent; border-radius: 5px; font-size: .78rem; font-weight: 700; cursor: pointer; font-family: inherit; letter-spacing: .02em; }
+  .t4 .btn-p { background: rgba(255,215,0,.12); color: #FFD700; border-color: rgba(255,215,0,.35); }
+  .t4 .btn-s { background: rgba(0,200,150,.12); color: #00c896; border-color: rgba(0,200,150,.35); }
+  .t4 .btn-d { background: rgba(255,80,80,.12); color: #ff6060; border-color: rgba(255,80,80,.35); }
+  .t4 .nav { background: #002244; border-top: 1px solid rgba(255,215,0,.1); display: flex; }
+  .t4 .nav-btn { flex: 1; padding: .55rem .3rem .4rem; display: flex; flex-direction: column; align-items: center; gap: .15rem; font-size: .58rem; font-weight: 700; color: rgba(255,215,0,.25); border: none; background: none; letter-spacing: .05em; text-transform: uppercase; }
+  .t4 .nav-btn.act { color: #FFD700; text-shadow: 0 0 8px rgba(255,215,0,.5); }
+  .t4 .ico { font-size: 1.2rem; }
+</style>
+</head>
+<body>
+<h1>SITESNAG — THEME COMPARISON</h1>
+<div class="grid">
+
+  <!-- CURRENT -->
+  <div>
+    <div class="theme-label">Current (reference)</div>
+    <div class="t0">
+      <div class="bar">
+        <div class="bar-title">SiteSnag<br><small style="font-weight:400;font-size:.7rem;opacity:.7">Citygate Residences</small></div>
+        <div class="bar-chip">Admin</div>
+      </div>
+      <div class="body">
+        <div class="card">
+          <div class="item">
+            <div class="num">BB04-001</div>
+            <div class="info">
+              <div class="ititle">Cracked render on column</div>
+              <div class="imeta">Level 3 · Room 301 &nbsp;<span class="badge b-open">OPEN</span></div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="num">BB04-002</div>
+            <div class="info">
+              <div class="ititle">Water ingress at window seal</div>
+              <div class="imeta">Level 2 · Room 210 &nbsp;<span class="badge b-pend">PENDING</span></div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="num">BB04-003</div>
+            <div class="info">
+              <div class="ititle">Missing skirting board</div>
+              <div class="imeta">Level 1 · Room 104 &nbsp;<span class="badge b-acc">ACCEPTED</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="btns">
+            <button class="btn btn-p">Assign</button>
+            <button class="btn btn-s">Accept</button>
+            <button class="btn btn-d">Reject</button>
+          </div>
+        </div>
+      </div>
+      <div class="nav">
+        <button class="nav-btn act"><span class="ico">📋</span>Snags</button>
+        <button class="nav-btn"><span class="ico">📊</span>Reports</button>
+        <button class="nav-btn"><span class="ico">⚙️</span>Config</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- THEME 1 — DARK INDUSTRIAL -->
+  <div>
+    <div class="theme-label">1 — Dark Industrial / Futuristic</div>
+    <div class="t1">
+      <div class="bar">
+        <div class="bar-title">SITESNAG<br><span style="font-size:.68rem;opacity:.5;letter-spacing:.08em">CITYGATE RESIDENCES</span></div>
+        <div class="bar-chip">ADMIN</div>
+      </div>
+      <div class="body">
+        <div class="card">
+          <div class="item">
+            <div class="num">BB04-001</div>
+            <div class="info">
+              <div class="ititle">Cracked render on column</div>
+              <div class="imeta">L3 / R301 &nbsp;<span class="badge b-open">OPEN</span></div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="num">BB04-002</div>
+            <div class="info">
+              <div class="ititle">Water ingress at window seal</div>
+              <div class="imeta">L2 / R210 &nbsp;<span class="badge b-pend">PENDING</span></div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="num">BB04-003</div>
+            <div class="info">
+              <div class="ititle">Missing skirting board</div>
+              <div class="imeta">L1 / R104 &nbsp;<span class="badge b-acc">ACCEPTED</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="btns">
+            <button class="btn btn-p">ASSIGN</button>
+            <button class="btn btn-s">ACCEPT</button>
+            <button class="btn btn-d">REJECT</button>
+          </div>
+        </div>
+      </div>
+      <div class="nav">
+        <button class="nav-btn act"><span class="ico">📋</span>SNAGS</button>
+        <button class="nav-btn"><span class="ico">📊</span>REPORT</button>
+        <button class="nav-btn"><span class="ico">⚙️</span>CONFIG</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- THEME 2 — GLASSMORPHISM -->
+  <div>
+    <div class="theme-label">2 — Glassmorphism / Modern Dark</div>
+    <div class="t2-wrap t2-bg">
+      <div class="t2">
+        <div class="bar">
+          <div class="bar-title">SiteSnag<br><small style="font-size:.7rem;opacity:.5">Citygate Residences</small></div>
+          <div class="bar-chip">Admin</div>
+        </div>
+        <div class="body">
+          <div class="card">
+            <div class="item">
+              <div class="num">BB04-001</div>
+              <div class="info">
+                <div class="ititle">Cracked render on column</div>
+                <div class="imeta">Level 3 · Room 301 &nbsp;<span class="badge b-open">OPEN</span></div>
+              </div>
+            </div>
+            <div class="item">
+              <div class="num">BB04-002</div>
+              <div class="info">
+                <div class="ititle">Water ingress at window seal</div>
+                <div class="imeta">Level 2 · Room 210 &nbsp;<span class="badge b-pend">PENDING</span></div>
+              </div>
+            </div>
+            <div class="item">
+              <div class="num">BB04-003</div>
+              <div class="info">
+                <div class="ititle">Missing skirting board</div>
+                <div class="imeta">Level 1 · Room 104 &nbsp;<span class="badge b-acc">ACCEPTED</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="btns">
+              <button class="btn btn-p">Assign</button>
+              <button class="btn btn-s">Accept</button>
+              <button class="btn btn-d">Reject</button>
+            </div>
+          </div>
+        </div>
+        <div class="nav">
+          <button class="nav-btn act"><span class="ico">📋</span>Snags</button>
+          <button class="nav-btn"><span class="ico">📊</span>Reports</button>
+          <button class="nav-btn"><span class="ico">⚙️</span>Config</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- THEME 3 — CLEAN PROFESSIONAL -->
+  <div>
+    <div class="theme-label">3 — Clean Professional / Corporate</div>
+    <div class="t3">
+      <div class="bar">
+        <div class="bar-title">SiteSnag<br><small style="font-weight:400;font-size:.7rem;opacity:.7">Citygate Residences</small></div>
+        <div class="bar-chip">Administrator</div>
+      </div>
+      <div class="body">
+        <div class="card">
+          <div class="item">
+            <div class="num">BB04-001</div>
+            <div class="info">
+              <div class="ititle">Cracked render on column</div>
+              <div class="imeta">Level 3 · Room 301 &nbsp;<span class="badge b-open">OPEN</span></div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="num">BB04-002</div>
+            <div class="info">
+              <div class="ititle">Water ingress at window seal</div>
+              <div class="imeta">Level 2 · Room 210 &nbsp;<span class="badge b-pend">PENDING</span></div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="num">BB04-003</div>
+            <div class="info">
+              <div class="ititle">Missing skirting board</div>
+              <div class="imeta">Level 1 · Room 104 &nbsp;<span class="badge b-acc">ACCEPTED</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="btns">
+            <button class="btn btn-p">Assign</button>
+            <button class="btn btn-s">Accept</button>
+            <button class="btn btn-d">Reject</button>
+          </div>
+        </div>
+      </div>
+      <div class="nav">
+        <button class="nav-btn act"><span class="ico">📋</span>SNAGS</button>
+        <button class="nav-btn"><span class="ico">📊</span>REPORTS</button>
+        <button class="nav-btn"><span class="ico">⚙️</span>CONFIG</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- THEME 4 — MIDNIGHT BLUEPRINT -->
+  <div>
+    <div class="theme-label">4 — Midnight Blueprint</div>
+    <div class="t4">
+      <div class="bar">
+        <div class="bar-title">SiteSnag<br><span style="font-size:.68rem;color:rgba(255,215,0,.5);letter-spacing:.12em">CITYGATE RESIDENCES</span></div>
+        <div class="bar-chip">ADMIN</div>
+      </div>
+      <div class="body">
+        <div class="card">
+          <div class="item">
+            <div class="num">BB04-001</div>
+            <div class="info">
+              <div class="ititle">Cracked render on column</div>
+              <div class="imeta">Level 3 · Room 301 &nbsp;<span class="badge b-open">OPEN</span></div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="num">BB04-002</div>
+            <div class="info">
+              <div class="ititle">Water ingress at window seal</div>
+              <div class="imeta">Level 2 · Room 210 &nbsp;<span class="badge b-pend">PENDING</span></div>
+            </div>
+          </div>
+          <div class="item">
+            <div class="num">BB04-003</div>
+            <div class="info">
+              <div class="ititle">Missing skirting board</div>
+              <div class="imeta">Level 1 · Room 104 &nbsp;<span class="badge b-acc">ACCEPTED</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="btns">
+            <button class="btn btn-p">Assign</button>
+            <button class="btn btn-s">Accept</button>
+            <button class="btn btn-d">Reject</button>
+          </div>
+        </div>
+      </div>
+      <div class="nav">
+        <button class="nav-btn act"><span class="ico">📋</span>SNAGS</button>
+        <button class="nav-btn"><span class="ico">📊</span>REPORTS</button>
+        <button class="nav-btn"><span class="ico">⚙️</span>CONFIG</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
