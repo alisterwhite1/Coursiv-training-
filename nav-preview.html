@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Nav Button Styles — Theme 3</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #e8ecf2; padding: 1.5rem; }
+  h1 { color: #333; text-align: center; font-size: 1rem; margin-bottom: .4rem; font-weight: 500; }
+  p  { color: #888; text-align: center; font-size: .8rem; margin-bottom: 1.8rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.5rem; }
+  .label { font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #888; margin-bottom: .55rem; text-align: center; }
+
+  /* shared app shell */
+  .shell { background: #f4f6f9; border-radius: 14px; overflow: hidden; border: 1px solid #dde3ec; box-shadow: 0 4px 20px rgba(0,0,0,.1); }
+  .shell .bar { background: #0f2544; padding: .75rem 1rem; }
+  .shell .bar-title { color: #fff; font-weight: 600; font-size: .95rem; }
+  .shell .bar-sub { color: rgba(255,255,255,.5); font-size: .7rem; margin-top: .1rem; letter-spacing: .04em; }
+  .shell .content { padding: .8rem; }
+  .shell .item { display: flex; align-items: center; gap: .65rem; padding: .65rem .85rem; border-bottom: 1px solid #eef1f6; background: #fff; }
+  .shell .item:first-child { border-radius: 7px 7px 0 0; }
+  .shell .item:last-child { border-bottom: none; border-radius: 0 0 7px 7px; }
+  .shell .num { background: #0f2544; color: #fff; font-size: .7rem; font-weight: 700; border-radius: 4px; padding: .2rem .42rem; min-width: 60px; text-align: center; }
+  .shell .info .t { font-weight: 600; font-size: .83rem; color: #1a2a40; }
+  .shell .info .m { font-size: .7rem; color: #6b7a90; margin-top: .1rem; }
+  .bx { display: inline-block; padding: .14rem .44rem; border-radius: 4px; font-size: .64rem; font-weight: 700; border: 1px solid; }
+  .bx-o { background: #fff8e8; color: #8a5a00; border-color: #e8c860; }
+  .bx-p { background: #f2eefb; color: #5030a0; border-color: #c0a8e8; }
+  .bx-a { background: #e8f4ee; color: #1a6640; border-color: #90c8a8; }
+
+  /* ── STYLE A: Icon + label, active = filled pill background ── */
+  .navA { display: flex; border-top: 1px solid #dde3ec; background: #fff; }
+  .navA button { flex: 1; border: none; background: none; padding: .55rem .3rem .45rem; display: flex; flex-direction: column; align-items: center; gap: .12rem; cursor: pointer; font-family: inherit; position: relative; }
+  .navA .ico { font-size: 1.2rem; }
+  .navA .lbl { font-size: .56rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: #9aa4b4; }
+  .navA button.act .lbl { color: #0f2544; }
+  .navA button.act::after { content: ''; position: absolute; top: 0; left: 20%; right: 20%; height: 2.5px; background: #0f2544; border-radius: 0 0 3px 3px; }
+
+  /* ── STYLE B: Pill highlight with bg ── */
+  .navB { display: flex; border-top: 1px solid #dde3ec; background: #fff; padding: .4rem .5rem; gap: .3rem; }
+  .navB button { flex: 1; border: none; background: none; padding: .45rem .2rem; display: flex; flex-direction: column; align-items: center; gap: .1rem; cursor: pointer; font-family: inherit; border-radius: 8px; }
+  .navB .ico { font-size: 1.15rem; }
+  .navB .lbl { font-size: .56rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #9aa4b4; }
+  .navB button.act { background: #e8ecf4; }
+  .navB button.act .lbl { color: #0f2544; font-weight: 800; }
+
+  /* ── STYLE C: Text-only tabs, underline ── */
+  .navC { display: flex; border-top: 2px solid #dde3ec; background: #fff; }
+  .navC button { flex: 1; border: none; background: none; padding: .7rem .3rem .55rem; display: flex; flex-direction: column; align-items: center; gap: .1rem; cursor: pointer; font-family: inherit; border-top: 2.5px solid transparent; margin-top: -2px; }
+  .navC .ico { font-size: 1.1rem; filter: grayscale(1) opacity(.4); }
+  .navC .lbl { font-size: .58rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #9aa4b4; }
+  .navC button.act { border-top-color: #0f2544; }
+  .navC button.act .ico { filter: none; }
+  .navC button.act .lbl { color: #0f2544; }
+
+  /* ── STYLE D: Floating card, no border ── */
+  .navD-wrap { background: #f4f6f9; padding: .5rem .6rem; }
+  .navD { display: flex; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.1); overflow: hidden; }
+  .navD button { flex: 1; border: none; background: none; padding: .55rem .3rem .45rem; display: flex; flex-direction: column; align-items: center; gap: .12rem; cursor: pointer; font-family: inherit; }
+  .navD .ico { font-size: 1.15rem; filter: grayscale(1) opacity(.35); }
+  .navD .lbl { font-size: .56rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #b0bac8; }
+  .navD button.act .ico { filter: none; }
+  .navD button.act .lbl { color: #0f2544; font-weight: 800; }
+
+  /* ── STYLE E: Solid active button (navy pill) ── */
+  .navE { display: flex; border-top: 1px solid #dde3ec; background: #fff; padding: .5rem .6rem; gap: .35rem; }
+  .navE button { flex: 1; border: none; background: none; padding: .48rem .2rem; display: flex; flex-direction: column; align-items: center; gap: .1rem; cursor: pointer; font-family: inherit; border-radius: 10px; }
+  .navE .ico { font-size: 1.15rem; filter: grayscale(1) opacity(.4); }
+  .navE .lbl { font-size: .56rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #9aa4b4; }
+  .navE button.act { background: #0f2544; }
+  .navE button.act .ico { filter: none; }
+  .navE button.act .lbl { color: rgba(255,255,255,.85); font-weight: 800; }
+
+  /* ── STYLE F: Icon-only, no labels ── */
+  .navF { display: flex; border-top: 1px solid #dde3ec; background: #fff; }
+  .navF button { flex: 1; border: none; background: none; padding: .75rem .3rem; display: flex; justify-content: center; align-items: center; cursor: pointer; font-family: inherit; position: relative; }
+  .navF .ico { font-size: 1.4rem; filter: grayscale(1) opacity(.35); }
+  .navF button.act .ico { filter: none; }
+  .navF button.act::after { content: ''; position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); width: 5px; height: 5px; background: #0f2544; border-radius: 50%; }
+</style>
+</head>
+<body>
+<h1>Nav Button Style Options — Theme 3 (Clean Professional)</h1>
+<p>Active tab shown as "Snags" in each example</p>
+<div class="grid">
+
+  <!-- A -->
+  <div>
+    <div class="label">A — Top line indicator</div>
+    <div class="shell">
+      <div class="bar"><div class="bar-title">SiteSnag</div><div class="bar-sub">CITYGATE RESIDENCES</div></div>
+      <div class="content">
+        <div class="item"><div class="num">BB04-001</div><div class="info"><div class="t">Cracked render on column</div><div class="m">L3 · R301 &nbsp;<span class="bx bx-o">OPEN</span></div></div></div>
+        <div class="item"><div class="num">BB04-002</div><div class="info"><div class="t">Water ingress at window seal</div><div class="m">L2 · R210 &nbsp;<span class="bx bx-p">PENDING</span></div></div></div>
+        <div class="item"><div class="num">BB04-003</div><div class="info"><div class="t">Missing skirting board</div><div class="m">L1 · R104 &nbsp;<span class="bx bx-a">ACCEPTED</span></div></div></div>
+      </div>
+      <div class="navA">
+        <button class="act"><span class="ico">📋</span><span class="lbl">Snags</span></button>
+        <button><span class="ico">📊</span><span class="lbl">Reports</span></button>
+        <button><span class="ico">⚙️</span><span class="lbl">Config</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- B -->
+  <div>
+    <div class="label">B — Active pill (grey highlight)</div>
+    <div class="shell">
+      <div class="bar"><div class="bar-title">SiteSnag</div><div class="bar-sub">CITYGATE RESIDENCES</div></div>
+      <div class="content">
+        <div class="item"><div class="num">BB04-001</div><div class="info"><div class="t">Cracked render on column</div><div class="m">L3 · R301 &nbsp;<span class="bx bx-o">OPEN</span></div></div></div>
+        <div class="item"><div class="num">BB04-002</div><div class="info"><div class="t">Water ingress at window seal</div><div class="m">L2 · R210 &nbsp;<span class="bx bx-p">PENDING</span></div></div></div>
+        <div class="item"><div class="num">BB04-003</div><div class="info"><div class="t">Missing skirting board</div><div class="m">L1 · R104 &nbsp;<span class="bx bx-a">ACCEPTED</span></div></div></div>
+      </div>
+      <div class="navB">
+        <button class="act"><span class="ico">📋</span><span class="lbl">Snags</span></button>
+        <button><span class="ico">📊</span><span class="lbl">Reports</span></button>
+        <button><span class="ico">⚙️</span><span class="lbl">Config</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- C -->
+  <div>
+    <div class="label">C — Tab style, top border</div>
+    <div class="shell">
+      <div class="bar"><div class="bar-title">SiteSnag</div><div class="bar-sub">CITYGATE RESIDENCES</div></div>
+      <div class="content">
+        <div class="item"><div class="num">BB04-001</div><div class="info"><div class="t">Cracked render on column</div><div class="m">L3 · R301 &nbsp;<span class="bx bx-o">OPEN</span></div></div></div>
+        <div class="item"><div class="num">BB04-002</div><div class="info"><div class="t">Water ingress at window seal</div><div class="m">L2 · R210 &nbsp;<span class="bx bx-p">PENDING</span></div></div></div>
+        <div class="item"><div class="num">BB04-003</div><div class="info"><div class="t">Missing skirting board</div><div class="m">L1 · R104 &nbsp;<span class="bx bx-a">ACCEPTED</span></div></div></div>
+      </div>
+      <div class="navC">
+        <button class="act"><span class="ico">📋</span><span class="lbl">Snags</span></button>
+        <button><span class="ico">📊</span><span class="lbl">Reports</span></button>
+        <button><span class="ico">⚙️</span><span class="lbl">Config</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- D -->
+  <div>
+    <div class="label">D — Floating card (no bottom border)</div>
+    <div class="shell">
+      <div class="bar"><div class="bar-title">SiteSnag</div><div class="bar-sub">CITYGATE RESIDENCES</div></div>
+      <div class="content">
+        <div class="item"><div class="num">BB04-001</div><div class="info"><div class="t">Cracked render on column</div><div class="m">L3 · R301 &nbsp;<span class="bx bx-o">OPEN</span></div></div></div>
+        <div class="item"><div class="num">BB04-002</div><div class="info"><div class="t">Water ingress at window seal</div><div class="m">L2 · R210 &nbsp;<span class="bx bx-p">PENDING</span></div></div></div>
+        <div class="item"><div class="num">BB04-003</div><div class="info"><div class="t">Missing skirting board</div><div class="m">L1 · R104 &nbsp;<span class="bx bx-a">ACCEPTED</span></div></div></div>
+      </div>
+      <div class="navD-wrap">
+        <div class="navD">
+          <button class="act"><span class="ico">📋</span><span class="lbl">Snags</span></button>
+          <button><span class="ico">📊</span><span class="lbl">Reports</span></button>
+          <button><span class="ico">⚙️</span><span class="lbl">Config</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- E -->
+  <div>
+    <div class="label">E — Solid navy active pill</div>
+    <div class="shell">
+      <div class="bar"><div class="bar-title">SiteSnag</div><div class="bar-sub">CITYGATE RESIDENCES</div></div>
+      <div class="content">
+        <div class="item"><div class="num">BB04-001</div><div class="info"><div class="t">Cracked render on column</div><div class="m">L3 · R301 &nbsp;<span class="bx bx-o">OPEN</span></div></div></div>
+        <div class="item"><div class="num">BB04-002</div><div class="info"><div class="t">Water ingress at window seal</div><div class="m">L2 · R210 &nbsp;<span class="bx bx-p">PENDING</span></div></div></div>
+        <div class="item"><div class="num">BB04-003</div><div class="info"><div class="t">Missing skirting board</div><div class="m">L1 · R104 &nbsp;<span class="bx bx-a">ACCEPTED</span></div></div></div>
+      </div>
+      <div class="navE">
+        <button class="act"><span class="ico">📋</span><span class="lbl">Snags</span></button>
+        <button><span class="ico">📊</span><span class="lbl">Reports</span></button>
+        <button><span class="ico">⚙️</span><span class="lbl">Config</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- F -->
+  <div>
+    <div class="label">F — Icon only, dot indicator</div>
+    <div class="shell">
+      <div class="bar"><div class="bar-title">SiteSnag</div><div class="bar-sub">CITYGATE RESIDENCES</div></div>
+      <div class="content">
+        <div class="item"><div class="num">BB04-001</div><div class="info"><div class="t">Cracked render on column</div><div class="m">L3 · R301 &nbsp;<span class="bx bx-o">OPEN</span></div></div></div>
+        <div class="item"><div class="num">BB04-002</div><div class="info"><div class="t">Water ingress at window seal</div><div class="m">L2 · R210 &nbsp;<span class="bx bx-p">PENDING</span></div></div></div>
+        <div class="item"><div class="num">BB04-003</div><div class="info"><div class="t">Missing skirting board</div><div class="m">L1 · R104 &nbsp;<span class="bx bx-a">ACCEPTED</span></div></div></div>
+      </div>
+      <div class="navF">
+        <button class="act"><span class="ico">📋</span></button>
+        <button><span class="ico">📊</span></button>
+        <button><span class="ico">⚙️</span></button>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
