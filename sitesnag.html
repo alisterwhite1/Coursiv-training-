@@ -2140,10 +2140,11 @@ function doExportCSV() {
   const rows = [headers, ...snags.map(_snagToRow)];
   const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `SiteSnag_Export_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
+  a.href = url; a.download = `SiteSnag_Export_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
   closeModal();
 }
 
@@ -2189,7 +2190,18 @@ function doExportExcel() {
   wsReg['!autofilter'] = { ref: `A1:O1` };
   XLSX.utils.book_append_sheet(wb, wsReg, 'Snag Register');
 
-  XLSX.writeFile(wb, `SiteSnag_Export_${new Date().toISOString().slice(0,10)}.xlsx`);
+  try {
+    // Blob download — works on all browsers including mobile
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `SiteSnag_Export_${new Date().toISOString().slice(0,10)}.xlsx`;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+  } catch(e) {
+    alert('Excel export failed: ' + (e.message || e));
+  }
   closeModal();
 }
 
@@ -2517,75 +2529,110 @@ async function _doExportPDFInner() {
     }
   });
 
-  // ── SNAG DETAIL PAGES (with photos) ──
-  if (includePhotos) {
-    for (const snag of snags) {
+  // ── SNAG DETAIL PAGES (3 snags per page) ──
+  const SNAGS_PER_PAGE = 3;
+  const SLOT_H = Math.floor((H - 28 - 14) / SNAGS_PER_PAGE); // usable height per slot
+
+  async function _addPhoto(src, x, slotY, maxW, maxH, label) {
+    try {
+      let imgSrc = src;
+      if (src && src.startsWith('http')) {
+        try {
+          const resp = await fetch(src);
+          const blob = await resp.blob();
+          imgSrc = await new Promise(res => { const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(blob); });
+        } catch(e) { return 0; }
+      }
+      const dims = await new Promise(res => { const i=new Image(); i.onload=()=>res({w:i.naturalWidth,h:i.naturalHeight}); i.onerror=()=>res({w:1,h:1}); i.src=imgSrc; });
+      const aspect = dims.h / dims.w;
+      let iw = maxW, ih = iw * aspect;
+      if (ih > maxH) { ih = maxH; iw = ih / aspect; }
+      const fmt = imgSrc.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+      doc.addImage(imgSrc, fmt, x, slotY, iw, ih);
+      doc.setFontSize(6.5); doc.setTextColor(120, 130, 145);
+      doc.text(label, x, slotY + ih + 3.5);
+      return ih + 5;
+    } catch(e) { return 0; }
+  }
+
+  for (let i = 0; i < snags.length; i++) {
+    const slotIndex = i % SNAGS_PER_PAGE;
+    if (slotIndex === 0) {
       doc.addPage();
       _pdfPageHeader(doc, projName, W, NAVY, WHITE);
-      let sy = 28;
+    }
+    const snag = snags[i];
+    const slotTop = 28 + slotIndex * SLOT_H;
 
-      // Snag header bar
-      doc.setFillColor(245, 247, 250);
-      doc.rect(14, sy, W - 28, 14, 'F');
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...NAVY);
-      doc.text(`${numStr(snag.number)} — ${snag.title || ''}`, 18, sy + 9);
-      sy += 18;
+    // Divider line between slots
+    if (slotIndex > 0) {
+      doc.setDrawColor(220, 227, 236);
+      doc.setLineWidth(0.3);
+      doc.line(14, slotTop - 2, W - 14, slotTop - 2);
+    }
 
-      // Meta row
+    // Snag header bar
+    doc.setFillColor(237, 241, 248);
+    doc.rect(14, slotTop, W - 28, 10, 'F');
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...NAVY);
+    const titleText = doc.splitTextToSize(`${numStr(snag.number)}  —  ${snag.title || ''}`, W - 80);
+    doc.text(titleText[0], 17, slotTop + 6.5);
+
+    // Status badge (right-aligned in header)
+    const statusLabel = STATUSES[snag.status]?.label || snag.status;
+    const statusColors = { open:[180,32,32], assigned:[26,86,196], pending:[80,48,160], accepted:[26,102,64], rejected:[100,100,100] };
+    const sc2 = statusColors[snag.status] || [100,100,100];
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...sc2);
+    doc.text(statusLabel.toUpperCase(), W - 16, slotTop + 6.5, { align: 'right' });
+
+    let sy = slotTop + 13;
+
+    // Meta line
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(80, 95, 115);
+    const metaParts = [
+      snag.discipline,
+      snag.building && (snag.building + (snag.buildingName ? ` (${snag.buildingName})` : '')),
+      snag.floor,
+      snag.room,
+      coName(snag.assignedTo),
+      new Date(snag.createdAt).toLocaleDateString('en-GB'),
+    ].filter(Boolean);
+    const metaLine = doc.splitTextToSize(metaParts.join('  ·  '), W - 28);
+    doc.text(metaLine[0], 14, sy);
+    sy += 5;
+
+    // Description
+    if (snag.description) {
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(71, 85, 105);
-      const meta = [
-        snag.discipline || '',
-        snag.subsystem  || '',
-        [snag.building + (snag.buildingName ? ` (${snag.buildingName})` : ''), snag.floor, snag.room].filter(Boolean).join(' › '),
-        coName(snag.assignedTo) || '',
-        STATUSES[snag.status]?.label || snag.status,
-        new Date(snag.createdAt).toLocaleDateString('en-GB'),
-      ].filter(Boolean).join('  ·  ');
-      doc.text(doc.splitTextToSize(meta, W - 28), 14, sy);
-      sy += 8;
+      doc.setTextColor(30, 42, 64);
+      const descLines = doc.splitTextToSize(snag.description, W - 28);
+      const maxDescLines = 2;
+      const truncated = descLines.slice(0, maxDescLines);
+      if (descLines.length > maxDescLines) truncated[maxDescLines - 1] = truncated[maxDescLines - 1].replace(/\s*$/, '…');
+      doc.text(truncated, 14, sy);
+      sy += truncated.length * 4 + 2;
+    }
 
-      // Description
-      if (snag.description) {
-        doc.setFontSize(9);
-        doc.setTextColor(15, 23, 42);
-        const descLines = doc.splitTextToSize(snag.description, W - 28);
-        doc.text(descLines, 14, sy);
-        sy += descLines.length * 4.5 + 4;
-      }
-
-      // Photos — maintain aspect ratio
+    // Photos
+    if (includePhotos) {
       const hasOpen = !!snag.photo;
       const hasRect = !!snag.rectification?.photo;
-      const maxPhotoW = (W - 28 - (hasOpen && hasRect ? 6 : 0)) / (hasOpen && hasRect ? 2 : 1);
-      const maxPhotoH = Math.min(80, H - sy - 30);
-
-      async function _addPhoto(src, x, label) {
-        try {
-          // If src is an external URL (R2), fetch and convert to base64 first
-          let imgSrc = src;
-          if (src && src.startsWith('http')) {
-            try {
-              const resp = await fetch(src);
-              const blob = await resp.blob();
-              imgSrc = await new Promise(res => { const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(blob); });
-            } catch(e) { return; } // skip photo if fetch fails
-          }
-          const dims = await new Promise(res => { const i=new Image(); i.onload=()=>res({w:i.naturalWidth,h:i.naturalHeight}); i.onerror=()=>res({w:1,h:1}); i.src=imgSrc; });
-          const aspect = dims.h / dims.w;
-          let iw = maxPhotoW, ih = iw * aspect;
-          if (ih > maxPhotoH) { ih = maxPhotoH; iw = ih / aspect; }
-          const fmt = imgSrc.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-          doc.addImage(imgSrc, fmt, x, sy, iw, ih);
-          doc.setFontSize(7); doc.setTextColor(100,116,139);
-          doc.text(label, x, sy + ih + 4);
-        } catch(e) {}
+      const photoCount = (hasOpen ? 1 : 0) + (hasRect ? 1 : 0);
+      if (photoCount > 0) {
+        const availH = slotTop + SLOT_H - sy - 8;
+        const maxPhotoH = Math.min(50, availH);
+        const gap = 4;
+        const maxPhotoW = photoCount === 2 ? (W - 28 - gap) / 2 : Math.min(65, W - 28);
+        if (hasOpen) await _addPhoto(snag.photo, 14, sy, maxPhotoW, maxPhotoH, 'Opening Photo');
+        if (hasRect) await _addPhoto(snag.rectification.photo, hasOpen ? 14 + maxPhotoW + gap : 14, sy, maxPhotoW, maxPhotoH, 'Closing Photo');
       }
-      if (hasOpen) await _addPhoto(snag.photo, 14, 'Opening Photo');
-      if (hasRect) await _addPhoto(snag.rectification.photo, hasOpen ? 14 + maxPhotoW + 6 : 14, 'Closing Photo');
     }
   }
 
