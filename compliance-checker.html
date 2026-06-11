@@ -8,6 +8,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- Word (.docx) parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <!-- Excel (.xlsx/.xls) parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -44,7 +46,6 @@
     header h1 { font-size: 2rem; font-weight: 700; color: var(--blue-dark); }
     header p { margin-top: .5rem; color: var(--muted); font-size: 1rem; }
 
-    /* API key banner */
     #keySection {
       background: var(--card);
       border: 1px solid var(--border);
@@ -74,7 +75,6 @@
       font-weight: 600; margin-top: .4rem;
     }
 
-    /* Upload cards */
     .upload-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -118,7 +118,6 @@
       color: var(--green); word-break: break-all;
     }
 
-    /* Submit */
     .btn {
       display: block; width: 100%; padding: .85rem;
       background: var(--blue); color: #fff;
@@ -147,7 +146,6 @@
       padding: 1rem 1.25rem; margin-top: 1rem; font-size: .9rem;
     }
 
-    /* Results */
     #result { margin-top: 2rem; display: none; }
 
     .result-header {
@@ -197,7 +195,6 @@
     <p>Upload two documents to check whether the submitted document meets the specification.</p>
   </header>
 
-  <!-- API Key -->
   <div id="keySection">
     <label for="apiKeyInput">Anthropic API Key</label>
     <div class="row">
@@ -206,28 +203,27 @@
     </div>
     <div class="key-hint">
       Get an API key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> (usage is billed per request).
-      Your key is saved only in this browser — never sent anywhere except directly to Anthropic.
+      Your key is saved only in this browser &mdash; never sent anywhere except directly to Anthropic.
     </div>
-    <div id="keySaved">✓ Key saved</div>
+    <div id="keySaved">&check; Key saved</div>
   </div>
 
-  <!-- Upload -->
   <div class="upload-grid">
     <div class="upload-card" id="submittedCard">
-      <input type="file" id="submittedFile" accept=".pdf,.doc,.docx,.txt" />
-      <div class="upload-icon">📄</div>
+      <input type="file" id="submittedFile" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" />
+      <div class="upload-icon">&#128196;</div>
       <div class="badge badge-blue">Submitted Document</div>
       <h3>Document for Review</h3>
-      <div class="hint">PDF, Word, or TXT</div>
+      <div class="hint">PDF, Word, Excel, or TXT</div>
       <div class="file-name" id="submittedName"></div>
     </div>
 
     <div class="upload-card" id="specCard">
-      <input type="file" id="specFile" accept=".pdf,.doc,.docx,.txt" />
-      <div class="upload-icon">📋</div>
+      <input type="file" id="specFile" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" />
+      <div class="upload-icon">&#128203;</div>
       <div class="badge badge-amber">Specification</div>
       <h3>Requirements / Specification</h3>
-      <div class="hint">PDF, Word, or TXT</div>
+      <div class="hint">PDF, Word, Excel, or TXT</div>
       <div class="file-name" id="specName"></div>
     </div>
   </div>
@@ -239,7 +235,6 @@
   <div id="status"></div>
   <div id="errorBox"></div>
 
-  <!-- Results -->
   <div id="result">
     <div class="result-header">
       <div class="score-ring">
@@ -249,10 +244,10 @@
                   stroke-width="6" stroke-linecap="round"
                   stroke-dasharray="163.4" stroke-dashoffset="163.4"/>
         </svg>
-        <div class="score-text" id="scoreText">–</div>
+        <div class="score-text" id="scoreText">&ndash;</div>
       </div>
       <div>
-        <div class="verdict-badge" id="verdictBadge">–</div>
+        <div class="verdict-badge" id="verdictBadge">&ndash;</div>
         <div style="font-size:.85rem;color:var(--muted);margin-top:.3rem;" id="verdictSub"></div>
       </div>
     </div>
@@ -262,11 +257,9 @@
 
 </div>
 <script>
-  // ── PDF.js worker ──────────────────────────────────────────────────────────
   pdfjsLib.GlobalWorkerOptions.workerSrc =
     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-  // ── API key persistence ────────────────────────────────────────────────────
   const keyInput = document.getElementById('apiKeyInput');
   const saved = localStorage.getItem('anthropic_api_key');
   if (saved) { keyInput.value = saved; document.getElementById('keySaved').style.display = 'block'; }
@@ -284,7 +277,6 @@
   });
   keyInput.addEventListener('keydown', e => { if (e.key === 'Enter') saveKey(); });
 
-  // ── File handling ──────────────────────────────────────────────────────────
   const submittedInput = document.getElementById('submittedFile');
   const specInput      = document.getElementById('specFile');
 
@@ -312,7 +304,6 @@
     document.getElementById('submitBtn').disabled = !(hasKey && hasFiles);
   }
 
-  // ── Text extraction ────────────────────────────────────────────────────────
   async function extractText(file) {
     const name = file.name.toLowerCase();
     if (name.endsWith('.txt')) {
@@ -334,10 +325,17 @@
       const result = await mammoth.extractRawText({ arrayBuffer: buf });
       return result.value;
     }
-    throw new Error(`Unsupported file type: ${file.name}`);
+    if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      return wb.SheetNames.map(sheetName => {
+        const ws = wb.Sheets[sheetName];
+        return '[Sheet: ' + sheetName + ']\n' + XLSX.utils.sheet_to_csv(ws);
+      }).join('\n\n');
+    }
+    throw new Error('Unsupported file type: ' + file.name);
   }
 
-  // ── Main check ────────────────────────────────────────────────────────────
   async function runCheck() {
     const apiKey = keyInput.value.trim();
     document.getElementById('errorBox').innerHTML = '';
@@ -362,25 +360,7 @@
 
     setStatus('<span class="spinner"></span> Analysing compliance with AI…');
 
-    const prompt = `You are a compliance auditor. Compare a submitted document against a specification and produce a detailed compliance report.
-
-## Specification Document
-${specText}
-
-## Submitted Document
-${submittedText}
-
-## Your Task
-Analyse the submitted document against every requirement in the specification. Produce a structured report with:
-
-1. **Overall Compliance Summary** — Verdict (Compliant / Partially Compliant / Non-Compliant) with a short paragraph.
-2. **Compliance Score** — A percentage (0–100%) with brief justification.
-3. **Requirements Met** — Bullet list of satisfied requirements, referencing relevant sections.
-4. **Requirements Not Met** — Bullet list of missing or inadequate requirements, explaining what is missing.
-5. **Partial Compliance** — Requirements partially addressed, with guidance on what needs to change.
-6. **Recommendations** — Prioritised action items to reach full compliance.
-
-Be specific, referencing actual content from both documents.`;
+    const prompt = `You are a compliance auditor. Compare a submitted document against a specification and produce a detailed compliance report.\n\n## Specification Document\n${specText}\n\n## Submitted Document\n${submittedText}\n\n## Your Task\nAnalyse the submitted document against every requirement in the specification. Produce a structured report with:\n\n1. **Overall Compliance Summary** — Verdict (Compliant / Partially Compliant / Non-Compliant) with a short paragraph.\n2. **Compliance Score** — A percentage (0–100%) with brief justification.\n3. **Requirements Met** — Bullet list of satisfied requirements, referencing relevant sections.\n4. **Requirements Not Met** — Bullet list of missing or inadequate requirements, explaining what is missing.\n5. **Partial Compliance** — Requirements partially addressed, with guidance on what needs to change.\n6. **Recommendations** — Prioritised action items to reach full compliance.\n\nBe specific, referencing actual content from both documents.`;
 
     try {
       const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -400,7 +380,7 @@ Be specific, referencing actual content from both documents.`;
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        const msg = err?.error?.message || `HTTP ${res.status}`;
+        const msg = err && err.error && err.error.message ? err.error.message : 'HTTP ' + res.status;
         if (res.status === 401) throw new Error('Invalid API key. Check the key you entered.');
         throw new Error(msg);
       }
@@ -414,14 +394,13 @@ Be specific, referencing actual content from both documents.`;
     }
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
   function setStatus(html) {
     document.getElementById('status').innerHTML = html;
   }
 
   function showError(msg) {
     setStatus('');
-    document.getElementById('errorBox').innerHTML = `<div class="error-box">⚠️ ${msg}</div>`;
+    document.getElementById('errorBox').innerHTML = '<div class="error-box">⚠️ ' + msg + '</div>';
     document.getElementById('submitBtn').disabled = false;
   }
 
@@ -453,7 +432,7 @@ Be specific, referencing actual content from both documents.`;
     badge.textContent = verdict;
     badge.className   = 'verdict-badge ' + cls;
     document.getElementById('verdictSub').textContent =
-      score !== null ? `Compliance score: ${score}%` : '';
+      score !== null ? 'Compliance score: ' + score + '%' : '';
 
     if (score !== null) {
       const offset = 163.4 * (1 - score / 100);
