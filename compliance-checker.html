@@ -8,6 +8,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- Word (.docx) parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <!-- Excel (.xlsx/.xls) parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -214,20 +216,20 @@
   <!-- Upload -->
   <div class="upload-grid">
     <div class="upload-card" id="submittedCard">
-      <input type="file" id="submittedFile" accept=".pdf,.doc,.docx,.txt" />
+      <input type="file" id="submittedFile" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" />
       <div class="upload-icon">📄</div>
       <div class="badge badge-blue">Submitted Document</div>
       <h3>Document for Review</h3>
-      <div class="hint">PDF, Word, or TXT</div>
+      <div class="hint">PDF, Word, Excel, or TXT</div>
       <div class="file-name" id="submittedName"></div>
     </div>
 
     <div class="upload-card" id="specCard">
-      <input type="file" id="specFile" accept=".pdf,.doc,.docx,.txt" />
+      <input type="file" id="specFile" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" />
       <div class="upload-icon">📋</div>
       <div class="badge badge-amber">Specification</div>
       <h3>Requirements / Specification</h3>
-      <div class="hint">PDF, Word, or TXT</div>
+      <div class="hint">PDF, Word, Excel, or TXT</div>
       <div class="file-name" id="specName"></div>
     </div>
   </div>
@@ -333,6 +335,14 @@
       const buf = await file.arrayBuffer();
       const result = await mammoth.extractRawText({ arrayBuffer: buf });
       return result.value;
+    }
+    if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      return wb.SheetNames.map(name => {
+        const ws = wb.Sheets[name];
+        return `[Sheet: ${name}]\n` + XLSX.utils.sheet_to_csv(ws);
+      }).join('\n\n');
     }
     throw new Error(`Unsupported file type: ${file.name}`);
   }
