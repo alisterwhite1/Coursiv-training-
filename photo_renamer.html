@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Photo Renamer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f5f5f7;
+      --surface: #ffffff;
+      --border: #d1d1d6;
+      --accent: #0071e3;
+      --accent-hover: #0077ed;
+      --danger: #ff3b30;
+      --green: #1a7f37;
+      --grey: #8e8e93;
+      --text: #1d1d1f;
+      --radius: 10px;
+      --shadow: 0 2px 8px rgba(0,0,0,.08);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px 48px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      color: var(--grey);
+      font-size: 14px;
+      margin-bottom: 28px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px 24px;
+      width: 100%;
+      max-width: 860px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--grey);
+      margin-bottom: 14px;
+    }
+
+    /* Folder picker */
+    .folder-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .folder-path {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 14px;
+      color: var(--grey);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .folder-path.selected { color: var(--text); }
+
+    button {
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 18px;
+      cursor: pointer;
+      transition: background .15s, opacity .15s;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:disabled { opacity: .45; cursor: default; }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-outline:hover { background: var(--bg); }
+
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+    }
+    .btn-danger:hover { opacity: .88; }
+
+    /* Options grid */
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px 32px;
+    }
+    @media (max-width: 520px) { .options-grid { grid-template-columns: 1fr; } }
+
+    .option-group { display: flex; flex-direction: column; gap: 8px; }
+    .option-label { font-size: 13px; font-weight: 500; color: var(--grey); }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .toggle-row input[type=checkbox] {
+      width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer;
+    }
+    .toggle-row span { font-size: 14px; }
+
+    .text-input {
+      font-family: inherit;
+      font-size: 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 11px;
+      width: 100%;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .text-input:focus { border-color: var(--accent); }
+
+    /* Preview table */
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .preview-count {
+      font-size: 13px;
+      color: var(--grey);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    thead th {
+      background: var(--bg);
+      padding: 9px 14px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--grey);
+      border-bottom: 1px solid var(--border);
+    }
+    tbody tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
+    tbody td { padding: 9px 14px; }
+    .name-old { color: var(--text); font-family: monospace; }
+    .name-new-changed { color: var(--green); font-family: monospace; font-weight: 500; }
+    .name-new-same { color: var(--grey); font-family: monospace; }
+    .arrow { color: var(--grey); padding: 0 4px; }
+    .badge-changed {
+      display: inline-block;
+      background: #e6f4ea;
+      color: var(--green);
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+    }
+    .badge-same {
+      display: inline-block;
+      background: var(--bg);
+      color: var(--grey);
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--grey);
+      font-size: 14px;
+    }
+    .empty-state .icon { font-size: 36px; margin-bottom: 8px; }
+
+    /* Action bar */
+    .action-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      max-width: 860px;
+      gap: 12px;
+    }
+    .status { font-size: 13px; color: var(--grey); }
+    .status.ok { color: var(--green); font-weight: 500; }
+    .status.warn { color: #c84b00; }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1d1d1f;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 500;
+      opacity: 0;
+      transition: transform .3s ease, opacity .3s ease;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 999;
+    }
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* Compat banner */
+    #compat-banner {
+      background: #fff8e1;
+      border: 1px solid #ffe082;
+      border-radius: var(--radius);
+      padding: 12px 18px;
+      font-size: 13px;
+      color: #5d4037;
+      width: 100%;
+      max-width: 860px;
+      margin-bottom: 12px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Photo Renamer</h1>
+  <p class="subtitle">Rename photos by EXIF date, sequence, prefix &amp; suffix — directly in your browser</p>
+
+  <div id="compat-banner">
+    ⚠️ Your browser doesn't support the File System Access API. Use <strong>Chrome</strong> or <strong>Edge</strong> to rename files directly. Firefox users can download renamed copies instead.
+  </div>
+
+  <!-- Folder picker -->
+  <div class="card">
+    <div class="card-title">Photo Folder</div>
+    <div class="folder-row">
+      <div class="folder-path" id="folder-path">No folder selected</div>
+      <button class="btn-outline" id="browse-btn">Browse…</button>
+    </div>
+  </div>
+
+  <!-- Options -->
+  <div class="card">
+    <div class="card-title">Renaming Options</div>
+    <div class="options-grid">
+      <div class="option-group">
+        <label class="toggle-row">
+          <input type="checkbox" id="opt-date" />
+          <span>Use EXIF date taken</span>
+        </label>
+        <label class="toggle-row">
+          <input type="checkbox" id="opt-seq" />
+          <span>Sequential numbering</span>
+        </label>
+      </div>
+      <div class="option-group">
+        <div>
+          <div class="option-label" style="margin-bottom:5px">Prefix</div>
+          <input class="text-input" id="opt-prefix" type="text" placeholder="e.g. holiday" maxlength="60" />
+        </div>
+        <div>
+          <div class="option-label" style="margin-bottom:5px">Suffix</div>
+          <input class="text-input" id="opt-suffix" type="text" placeholder="e.g. 2024" maxlength="60" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview -->
+  <div class="card">
+    <div class="preview-header">
+      <div class="card-title" style="margin-bottom:0">Preview</div>
+      <div class="preview-count" id="preview-count"></div>
+    </div>
+    <div class="table-wrap">
+      <table id="preview-table">
+        <thead>
+          <tr>
+            <th>Current Name</th>
+            <th></th>
+            <th>New Name</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="preview-body">
+          <tr><td colspan="4">
+            <div class="empty-state">
+              <div class="icon">🖼️</div>
+              Select a folder to see a preview
+            </div>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Action bar -->
+  <div class="action-bar">
+    <span class="status" id="status-msg"></span>
+    <button class="btn-primary" id="rename-btn" disabled>Rename Files</button>
+  </div>
+
+  <div id="toast"></div>
+
+<script>
+// ── EXIF date extraction ─────────────────────────────────────────────────────
+
+async function readExifDate(file) {
+  if (!file.type.includes('jpeg') && !file.name.toLowerCase().endsWith('.jpg') && !file.name.toLowerCase().endsWith('.jpeg')) return null;
+  try {
+    const buf = await file.slice(0, 65536).arrayBuffer();
+    const view = new DataView(buf);
+    if (view.getUint16(0) !== 0xFFD8) return null;
+    let offset = 2;
+    while (offset < view.byteLength - 2) {
+      if (view.getUint8(offset) !== 0xFF) break;
+      const marker = view.getUint8(offset + 1);
+      if (marker === 0xE1) {
+        const segLen = view.getUint16(offset + 2);
+        const seg = new DataView(buf, offset + 4, segLen - 2);
+        const exifHeader = String.fromCharCode(...new Uint8Array(buf, offset + 4, 6));
+        if (exifHeader === 'Exif\0\0') {
+          const date = parseExifSegment(new DataView(buf, offset + 10, segLen - 8));
+          if (date) return date;
+        }
+      }
+      if (marker === 0xD9) break;
+      if (offset + 3 >= view.byteLength) break;
+      const len = view.getUint16(offset + 2);
+      offset += 2 + len;
+    }
+  } catch (_) {}
+  return null;
+}
+
+function parseExifSegment(dv) {
+  try {
+    const little = dv.getUint16(0) === 0x4949; // 'II'
+    const ifdOffset = little ? dv.getUint32(4, true) : dv.getUint32(4, false);
+    return readIFDDate(dv, ifdOffset, little, new Set([0x9003, 0x0132, 0x9004]), 0);
+  } catch (_) { return null; }
+}
+
+function readIFDDate(dv, offset, le, tags, depth) {
+  if (depth > 3 || offset + 2 > dv.byteLength) return null;
+  const count = le ? dv.getUint16(offset, true) : dv.getUint16(offset, false);
+  let best = null;
+  let subIFD = null;
+  for (let i = 0; i < count; i++) {
+    const e = offset + 2 + i * 12;
+    if (e + 12 > dv.byteLength) break;
+    const tag = le ? dv.getUint16(e, true) : dv.getUint16(e, false);
+    const type = le ? dv.getUint16(e + 2, true) : dv.getUint16(e + 2, false);
+    const components = le ? dv.getUint32(e + 4, true) : dv.getUint32(e + 4, false);
+    const valOff = le ? dv.getUint32(e + 8, true) : dv.getUint32(e + 8, false);
+    if (tags.has(tag) && type === 2) {
+      const start = components <= 4 ? e + 8 : valOff;
+      const raw = new Uint8Array(dv.buffer, dv.byteOffset + start, Math.min(components, dv.byteLength - start));
+      const str = String.fromCharCode(...raw).replace(/\0/g, '').trim();
+      const d = parseExifDateStr(str);
+      if (d && (!best || tag === 0x9003)) best = d;
+    }
+    if (tag === 0x8769 && type === 4) subIFD = valOff;
+  }
+  if (best) return best;
+  if (subIFD) return readIFDDate(dv, subIFD, le, tags, depth + 1);
+  return null;
+}
+
+function parseExifDateStr(s) {
+  // "YYYY:MM:DD HH:MM:SS"
+  const m = s.match(/^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})$/);
+  if (!m) return null;
+  return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+}
+
+// ── Filename building ────────────────────────────────────────────────────────
+
+function pad(n, total) {
+  return String(n).padStart(String(total).length, '0');
+}
+
+function sanitize(s) {
+  return s.replace(/[<>:"/\\|?*]/g, '_');
+}
+
+function buildNewName(file, exifDate, index, total, opts) {
+  const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+  const parts = [];
+
+  if (opts.prefix) parts.push(opts.prefix);
+
+  if (opts.useDate) {
+    const dt = exifDate || new Date(file.lastModified);
+    const noExif = !exifDate;
+    const year  = dt.getFullYear();
+    const month = String(dt.getMonth() + 1).padStart(2, '0');
+    const day   = String(dt.getDate()).padStart(2, '0');
+    const hh    = String(dt.getHours()).padStart(2, '0');
+    const mm    = String(dt.getMinutes()).padStart(2, '0');
+    const ss    = String(dt.getSeconds()).padStart(2, '0');
+    parts.push(`${year}${month}${day}_${hh}${mm}${ss}${noExif ? '_noexif' : ''}`);
+  }
+
+  if (opts.useSeq) parts.push(pad(index, total));
+
+  if (opts.suffix) parts.push(opts.suffix);
+
+  if (!parts.length) parts.push(file.name.slice(0, file.name.lastIndexOf('.')));
+
+  return sanitize(parts.join('_')) + ext;
+}
+
+// ── State ────────────────────────────────────────────────────────────────────
+
+const PHOTO_EXTS = new Set(['.jpg','.jpeg','.png','.tiff','.tif','.heic','.webp','.bmp','.gif','.raw','.cr2','.nef','.arw','.dng']);
+
+let dirHandle = null;          // FileSystemDirectoryHandle (null in fallback mode)
+let fileEntries = [];          // [{file, handle|null, exifDate}]
+let previewRows = [];          // [{file, newName, changed}]
+
+// ── DOM refs ─────────────────────────────────────────────────────────────────
+
+const browseBtn   = document.getElementById('browse-btn');
+const folderPath  = document.getElementById('folder-path');
+const optDate     = document.getElementById('opt-date');
+const optSeq      = document.getElementById('opt-seq');
+const optPrefix   = document.getElementById('opt-prefix');
+const optSuffix   = document.getElementById('opt-suffix');
+const previewBody = document.getElementById('preview-body');
+const previewCount= document.getElementById('preview-count');
+const renameBtn   = document.getElementById('rename-btn');
+const statusMsg   = document.getElementById('status-msg');
+const compatBanner= document.getElementById('compat-banner');
+
+const hasNativeFS = 'showDirectoryPicker' in window;
+if (!hasNativeFS) compatBanner.style.display = 'block';
+
+// ── Browse ───────────────────────────────────────────────────────────────────
+
+browseBtn.addEventListener('click', async () => {
+  if (hasNativeFS) {
+    await pickFolder();
+  } else {
+    pickFolderFallback();
+  }
+});
+
+async function pickFolder() {
+  try {
+    dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    folderPath.textContent = dirHandle.name;
+    folderPath.classList.add('selected');
+    await loadFiles();
+  } catch (e) {
+    if (e.name !== 'AbortError') showToast('Could not open folder: ' + e.message);
+  }
+}
+
+function pickFolderFallback() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.multiple = true;
+  input.accept = [...PHOTO_EXTS].join(',');
+  input.addEventListener('change', async () => {
+    const files = [...input.files].filter(f => {
+      const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase();
+      return PHOTO_EXTS.has(ext);
+    });
+    if (!files.length) { showToast('No photo files selected.'); return; }
+    files.sort((a, b) => a.name.localeCompare(b.name));
+    folderPath.textContent = `${files.length} file(s) selected`;
+    folderPath.classList.add('selected');
+    fileEntries = files.map(f => ({ file: f, handle: null, exifDate: null }));
+    await extractExifDates();
+    refreshPreview();
+  });
+  input.click();
+}
+
+async function loadFiles() {
+  fileEntries = [];
+  setStatus('Loading…', '');
+  for await (const [name, handle] of dirHandle.entries()) {
+    if (handle.kind !== 'file') continue;
+    const ext = name.slice(name.lastIndexOf('.')).toLowerCase();
+    if (!PHOTO_EXTS.has(ext)) continue;
+    const file = await handle.getFile();
+    fileEntries.push({ file, handle, exifDate: null });
+  }
+  fileEntries.sort((a, b) => a.file.name.localeCompare(b.file.name));
+  await extractExifDates();
+  refreshPreview();
+}
+
+async function extractExifDates() {
+  await Promise.all(fileEntries.map(async entry => {
+    entry.exifDate = await readExifDate(entry.file);
+  }));
+}
+
+// ── Preview ──────────────────────────────────────────────────────────────────
+
+function getOpts() {
+  return {
+    useDate: optDate.checked,
+    useSeq:  optSeq.checked,
+    prefix:  optPrefix.value.trim(),
+    suffix:  optSuffix.value.trim(),
+  };
+}
+
+function hasAnyOption(opts) {
+  return opts.useDate || opts.useSeq || opts.prefix || opts.suffix;
+}
+
+function refreshPreview() {
+  const opts = getOpts();
+  const total = fileEntries.length;
+
+  if (!total) {
+    previewBody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="icon">🖼️</div>Select a folder to see a preview</div></td></tr>`;
+    previewCount.textContent = '';
+    renameBtn.disabled = true;
+    setStatus('', '');
+    return;
+  }
+
+  if (!hasAnyOption(opts)) {
+    previewBody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="icon">☝️</div>Choose at least one option above</div></td></tr>`;
+    previewCount.textContent = `${total} photo${total !== 1 ? 's' : ''}`;
+    renameBtn.disabled = true;
+    setStatus(`${total} photo(s) found — pick a renaming option.`, '');
+    return;
+  }
+
+  previewRows = fileEntries.map(({ file, exifDate }, i) => {
+    const newName = buildNewName(file, exifDate, i + 1, total, opts);
+    return { file, newName, changed: file.name !== newName };
+  });
+
+  const changed = previewRows.filter(r => r.changed).length;
+
+  const rows = previewRows.map(({ file, newName, changed }) => `
+    <tr>
+      <td class="name-old">${esc(file.name)}</td>
+      <td class="arrow">→</td>
+      <td class="${changed ? 'name-new-changed' : 'name-new-same'}">${esc(newName)}</td>
+      <td>${changed ? '<span class="badge-changed">Rename</span>' : '<span class="badge-same">Same</span>'}</td>
+    </tr>`).join('');
+
+  previewBody.innerHTML = rows;
+  previewCount.textContent = `${total} photo${total !== 1 ? 's' : ''} · ${changed} will change`;
+
+  if (changed === 0) {
+    setStatus('No files need renaming with these settings.', '');
+    renameBtn.disabled = true;
+  } else {
+    setStatus(`${changed} file${changed !== 1 ? 's' : ''} will be renamed.`, 'ok');
+    renameBtn.disabled = false;
+  }
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function setStatus(msg, cls) {
+  statusMsg.textContent = msg;
+  statusMsg.className = 'status' + (cls ? ' ' + cls : '');
+}
+
+// ── Rename ───────────────────────────────────────────────────────────────────
+
+renameBtn.addEventListener('click', async () => {
+  const toChange = previewRows.filter(r => r.changed);
+  if (!toChange.length) return;
+
+  const confirmed = confirm(`Rename ${toChange.length} file(s)?\n\nThis cannot be undone automatically.`);
+  if (!confirmed) return;
+
+  renameBtn.disabled = true;
+  renameBtn.textContent = 'Renaming…';
+
+  if (hasNativeFS && dirHandle) {
+    await renameViaFS(toChange);
+  } else {
+    await downloadRenamed(toChange);
+  }
+
+  renameBtn.textContent = 'Rename Files';
+});
+
+async function renameViaFS(toChange) {
+  let done = 0;
+  const errors = [];
+
+  // Two-pass: rename to temp first to avoid collisions (e.g. a→b when b exists)
+  const tmp = [];
+  for (const row of toChange) {
+    try {
+      const entry = fileEntries.find(e => e.file.name === row.file.name);
+      if (!entry?.handle) continue;
+      const tempName = row.file.name + '__tmp__';
+      await entry.handle.move(tempName);
+      tmp.push({ tempName, newName: row.newName, entry });
+    } catch (e) {
+      errors.push(`${row.file.name}: ${e.message}`);
+    }
+  }
+  for (const { tempName, newName, entry } of tmp) {
+    try {
+      await entry.handle.move(newName);
+      done++;
+    } catch (e) {
+      // Restore original name
+      try { await entry.handle.move(entry.file.name); } catch (_) {}
+      errors.push(`${tempName} → ${newName}: ${e.message}`);
+    }
+  }
+
+  if (errors.length) {
+    alert('Some files could not be renamed:\n\n' + errors.join('\n'));
+  } else {
+    showToast(`✓ ${done} file${done !== 1 ? 's' : ''} renamed`);
+  }
+
+  await loadFiles();
+}
+
+async function downloadRenamed(toChange) {
+  // Fallback: download renamed copies (browser without FS API)
+  for (const row of toChange) {
+    const url = URL.createObjectURL(row.file);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = row.newName;
+    a.click();
+    URL.revokeObjectURL(url);
+    await new Promise(r => setTimeout(r, 80)); // slight delay between downloads
+  }
+  showToast(`↓ ${toChange.length} file${toChange.length !== 1 ? 's' : ''} downloaded with new names`);
+  renameBtn.disabled = false;
+}
+
+// ── Live option changes ──────────────────────────────────────────────────────
+
+[optDate, optSeq].forEach(el => el.addEventListener('change', refreshPreview));
+[optPrefix, optSuffix].forEach(el => el.addEventListener('input', refreshPreview));
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
