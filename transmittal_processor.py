@@ -42,8 +42,7 @@ DOC_REF_RE = re.compile(
     r'[A-Z]{2,10}-[A-Z0-9]{2,10}-[A-Z]{2,5}-[A-Z]{2,5}(?:-[A-Z]{2,5})*-\d{4,6}'
     r'(?:\s+to\s+\d+)?'
 )
-REV_RE = re.compile(r'_Rev\s*([A-Z]\d*)|Rev[:\s]+([A-Z]\d*)\b|[-_\s]([A-Z]\d{2})\s*$',
-                    re.IGNORECASE)
+REV_RE = re.compile(r'_Rev\.([A-Z0-9]+)', re.IGNORECASE)
 DCP_RE = re.compile(r'\bDCP\s*(\d+)\b', re.IGNORECASE)
 
 
@@ -73,20 +72,10 @@ def parse_doc_ref(doc_ref: str) -> dict:
     return result
 
 
-def extract_revision(subject: str) -> tuple[str, str]:
-    """
-    Return (current_rev_number, rev_letter) from subject.
-    e.g. '_Rev C01' → ('01', 'C')
-    """
+def extract_revision(subject: str) -> str:
+    """Return the value after '_Rev.' e.g. '_Rev.C01' → 'C01', '_Rev.01' → '01'."""
     m = REV_RE.search(subject or '')
-    if m:
-        rev_full = (m.group(1) or m.group(2) or m.group(3) or '').strip()
-        if rev_full:
-            # Split letter prefix from number suffix
-            letter = re.match(r'^([A-Z])', rev_full)
-            number = re.search(r'(\d+)$', rev_full)
-            return (number.group(1) if number else '', letter.group(1) if letter else rev_full)
-    return ('', '')
+    return m.group(1) if m else ''
 
 
 def extract_dcp(subject: str) -> str:
@@ -154,28 +143,14 @@ def load_export_mail(path: str) -> list[dict]:
     return records
 
 
-def build_intm_lead_map(mail_records: list[dict]) -> dict:
-    """
-    Build map: normalized subject → lead name
-    INTM entries: their From person = the Lead engineer for the related submittal.
-    """
-    lead_map = {}
-    for rec in mail_records:
-        if rec.get('Type') == 'Internal Memorandum' and rec.get('From'):
-            subj = str(rec.get('Subject') or '').strip()
-            # Strip leading "Re: " prefixes for matching
-            norm = re.sub(r'^(Re:\s*)+', '', subj, flags=re.IGNORECASE).strip().lower()
-            # Also truncate to first 60 chars for fuzzy matching
-            lead_map[norm[:60]] = rec['From']
-    return lead_map
-
-
-def find_lead(subject: str, lead_map: dict) -> str:
-    """Try to match subject to an INTM lead."""
-    if not subject:
+def extract_lead_from_recipients(recipients: str) -> str:
+    """Return the first person name after ':' in the Recipients field."""
+    if not recipients:
         return ''
-    norm = re.sub(r'^(Re:\s*)+', '', subject, flags=re.IGNORECASE).strip().lower()[:60]
-    return lead_map.get(norm, '')
+    idx = recipients.find(':')
+    if idx == -1:
+        return ''
+    return recipients[idx + 1:].split(',')[0].strip()
 
 
 def process_transmittals(mail_records: list[dict],
@@ -187,15 +162,6 @@ def process_transmittals(mail_records: list[dict],
     - INTM → lead person data
     Returns list of row dicts mapping to master log columns.
     """
-    lead_map = build_intm_lead_map(mail_records)
-
-    # Separate PAJV response transmittals keyed by subject for matching
-    response_map: dict[str, dict] = {}
-    for rec in mail_records:
-        if (rec.get('Type') == 'Transmittal'
-                and str(rec.get('From Organization') or '').startswith(ENGINEER_ORGS_PREFIX)):
-            response_map[str(rec.get('Mail No') or '').strip()] = rec
-
     rows = []
     for rec in mail_records:
         if rec.get('Type') != 'Transmittal':
@@ -219,9 +185,9 @@ def process_transmittals(mail_records: list[dict],
         first_ref = doc_refs[0] if doc_refs else ''
         parsed = parse_doc_ref(first_ref) if first_ref else {}
 
-        current_rev, rev_letter = extract_revision(subj)
+        current_rev = extract_revision(subj)   # full value after _Rev. e.g. C01
         dcp = extract_dcp(subj)
-        lead = find_lead(subj, lead_map)
+        lead = extract_lead_from_recipients(str(rec.get('Recipients') or ''))
 
         due_date = date_val + timedelta(days=21) if date_val else None
 
@@ -232,8 +198,8 @@ def process_transmittals(mail_records: list[dict],
             'C': date_val,                                    # Submittal Date
             'D': first_ref if first_ref else '',              # Doc Reference
             'E': subj,                                        # Submittal Item Description
-            'F': current_rev,                                 # Current Rev
-            'G': rev_letter,                                  # Rev.
+            'F': current_rev,                                 # Current Rev (e.g. C01)
+            'G': '',                                          # Rev. — not populated
             'H': parsed.get('type_h', ''),                   # Type
             'I': parsed.get('discipline', ''),               # Discipline
             'J': parsed.get('sub_discipline', ''),           # Sub Discipline

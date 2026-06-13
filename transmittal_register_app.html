@@ -475,7 +475,7 @@ function parseExportMail(wb) {
 // ─── Processing logic ─────────────────────────────────────────────────────────
 
 const DOC_REF_RE = /[A-Z]{2,10}-[A-Z0-9]{2,10}-[A-Z]{2,5}-[A-Z]{2,5}(?:-[A-Z]{2,5})*-\d{4,6}(?:\s+to\s+\d+)?/g;
-const REV_RE = /_Rev\s*([A-Z]\d+)|Rev[:\s]+([A-Z]\d*)\b/i;
+const REV_RE = /_Rev\.([A-Z0-9]+)/i;
 const DCP_RE = /\bDCP\s*(\d+)\b/i;
 
 const DOC_TYPE_MAP = {
@@ -508,14 +508,16 @@ function parseDocRef(ref) {
 }
 
 function extractRevision(subject) {
+  // Returns full value after '_Rev.' e.g. 'C01', '01', 'C02'
   const m = REV_RE.exec(subject || '');
-  if (m) {
-    const full = (m[1] || m[2] || '').trim();
-    const letter = full.match(/^([A-Z])/)?.[1] || '';
-    const num    = full.match(/(\d+)$/)?.[1] || '';
-    return [num, letter];
-  }
-  return ['', ''];
+  return m ? m[1] : '';
+}
+
+function extractLeadFromRecipients(recipients) {
+  if (!recipients) return '';
+  const idx = recipients.indexOf(':');
+  if (idx === -1) return '';
+  return recipients.slice(idx + 1).split(',')[0].trim();
 }
 
 function extractDCP(subject) {
@@ -559,10 +561,7 @@ function buildLeadMap(mailRows) {
 }
 
 function processTransmittals(mailRows, existingMap) {
-  setProgress(10, 'Building lead map from INTM entries…');
-  const leadMap = buildLeadMap(mailRows);
-
-  setProgress(30, 'Processing transmittal rows…');
+  setProgress(20, 'Processing transmittal rows…');
   const rows = [];
 
   for (const rec of mailRows) {
@@ -580,13 +579,10 @@ function processTransmittals(mailRows, existingMap) {
     const refs    = extractDocRefs(subj);
     const first   = refs[0] || '';
     const parsed  = parseDocRef(first);
-    const [curRev, revLetter] = extractRevision(subj);
+    const curRev  = extractRevision(subj);
     const dcp     = extractDCP(subj);
     const dueDate = addDays(date, 21);
-
-    // Try to find lead from INTM match
-    const normSubj = subj.replace(/^(Re:\s*)+/i, '').trim().toLowerCase().slice(0, 60);
-    const lead = leadMap[normSubj] || '';
+    const lead    = extractLeadFromRecipients(rec['Recipients'] || '');
 
     const exists = existingMap.has(mailNo);
     const direction = isContractor ? 'outgoing' : 'incoming';
@@ -600,7 +596,7 @@ function processTransmittals(mailRows, existingMap) {
       D: first,
       E: subj,
       F: curRev,
-      G: revLetter,
+      G: '',
       H: parsed.typeH || '',
       I: parsed.discipline || '',
       J: parsed.subDiscipline || '',
