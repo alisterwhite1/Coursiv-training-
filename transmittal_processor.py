@@ -42,13 +42,20 @@ DOC_REF_RE = re.compile(
     r'[A-Z]{2,10}-[A-Z0-9]{2,10}-[A-Z]{2,5}-[A-Z]{2,5}(?:-[A-Z]{2,5})*-\d{4,6}'
     r'(?:\s+to\s+\d+)?'
 )
+DOT_REF_RE = re.compile(
+    r'\b[A-Z]{2,4}\.[A-Z]{2,4}\.[A-Z]{2,4}\d{0,4}(?:\.[A-Z0-9]{1,5}){1,5}\b'
+)
 REV_RE = re.compile(r'_Rev[.\s]([A-Z0-9]+)', re.IGNORECASE)
 DCP_RE = re.compile(r'\bDCP\s*(\d+)\b', re.IGNORECASE)
 
 
 def extract_doc_refs(subject: str) -> list[str]:
     """Extract all document reference numbers from a subject string."""
-    return DOC_REF_RE.findall(subject or '')
+    dash_refs = DOC_REF_RE.findall(subject or '')
+    if dash_refs:
+        return dash_refs
+    # Fallback: dot-separated ref like DE.TNL.CC02.STR.T2.D3
+    return DOT_REF_RE.findall(subject or '')
 
 
 def parse_doc_ref(doc_ref: str) -> dict:
