@@ -143,14 +143,32 @@ def load_export_mail(path: str) -> list[dict]:
     return records
 
 
-def extract_lead_from_recipients(recipients: str) -> str:
-    """Return the first person name after ':' in the Recipients field."""
-    if not recipients:
+def _first_after_colon(s: str) -> str:
+    """Return first name after the first ':' in a string."""
+    if not s:
         return ''
-    idx = recipients.find(':')
-    if idx == -1:
-        return ''
-    return recipients[idx + 1:].split(',')[0].strip()
+    idx = s.find(':')
+    return s[idx + 1:].split(',')[0].strip() if idx != -1 else ''
+
+
+def _norm_subject(s: str) -> str:
+    """Strip leading Re: prefixes and lowercase for subject matching."""
+    return re.sub(r'^(Re:\s*)+', '', s or '', flags=re.IGNORECASE).strip().lower()
+
+
+def build_intm_lead_map(mail_records: list[dict]) -> dict:
+    """
+    Map normalised subject → lead name.
+    Source: INTM rows, lead = first name after ':' in their Recipients (col G).
+    """
+    lead_map = {}
+    for rec in mail_records:
+        if rec.get('Type') == 'Internal Memorandum':
+            key = _norm_subject(rec.get('Subject', ''))[:120]
+            lead = _first_after_colon(str(rec.get('Recipients') or ''))
+            if key and lead:
+                lead_map[key] = lead
+    return lead_map
 
 
 def process_transmittals(mail_records: list[dict],
@@ -159,9 +177,10 @@ def process_transmittals(mail_records: list[dict],
     Build output rows.
     - Outgoing MLCC/GUNAL transmittals → new submittal rows
     - PAJV transmittals → response data for matching existing rows
-    - INTM → lead person data
+    - Lead (col L): matched from INTM Recipients (col G) by subject
     Returns list of row dicts mapping to master log columns.
     """
+    intm_lead_map = build_intm_lead_map(mail_records)
     rows = []
     for rec in mail_records:
         if rec.get('Type') != 'Transmittal':
@@ -187,7 +206,7 @@ def process_transmittals(mail_records: list[dict],
 
         current_rev = extract_revision(subj)   # full value after _Rev. e.g. C01
         dcp = extract_dcp(subj)
-        lead = extract_lead_from_recipients(str(rec.get('Recipients') or ''))
+        lead = intm_lead_map.get(_norm_subject(subj)[:120], '')
 
         due_date = date_val + timedelta(days=21) if date_val else None
 

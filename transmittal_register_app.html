@@ -549,18 +549,32 @@ function addDays(dateStr, days) {
   return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
 }
 
-function buildLeadMap(mailRows) {
+function normSubject(s) {
+  return (s || '').replace(/^(Re:\s*)+/i, '').trim().toLowerCase().slice(0, 120);
+}
+
+function firstAfterColon(s) {
+  if (!s) return '';
+  const idx = s.indexOf(':');
+  return idx === -1 ? '' : s.slice(idx + 1).split(',')[0].trim();
+}
+
+function buildIntmLeadMap(mailRows) {
+  // INTM rows: lead = first name after ':' in their Recipients (col G)
   const map = {};
   for (const rec of mailRows) {
-    if (rec['Type'] === 'Internal Memorandum' && rec['From']) {
-      const subj = (rec['Subject'] || '').replace(/^(Re:\s*)+/i, '').trim().toLowerCase();
-      map[subj.slice(0, 60)] = rec['From'];
+    if (rec['Type'] === 'Internal Memorandum') {
+      const key  = normSubject(rec['Subject']);
+      const lead = firstAfterColon(rec['Recipients'] || '');
+      if (key && lead) map[key] = lead;
     }
   }
   return map;
 }
 
 function processTransmittals(mailRows, existingMap) {
+  setProgress(10, 'Building lead map from INTM entries…');
+  const intmLeadMap = buildIntmLeadMap(mailRows);
   setProgress(20, 'Processing transmittal rows…');
   const rows = [];
 
@@ -582,7 +596,7 @@ function processTransmittals(mailRows, existingMap) {
     const curRev  = extractRevision(subj);
     const dcp     = extractDCP(subj);
     const dueDate = addDays(date, 21);
-    const lead    = extractLeadFromRecipients(rec['Recipients'] || '');
+    const lead    = intmLeadMap[normSubject(subj)] || '';
 
     const exists = existingMap.has(mailNo);
     const direction = isContractor ? 'outgoing' : 'incoming';
