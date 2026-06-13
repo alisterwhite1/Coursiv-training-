@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transmittal Register Processor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --blue-dark: #1F4E79;
+    --blue-mid: #2E75B6;
+    --blue-light: #BDD7EE;
+    --blue-pale: #EBF3FB;
+    --green-pale: #E2EFDA;
+    --orange-pale: #FCE4D6;
+    --yellow-pale: #FFF2CC;
+    --grey: #F5F5F5;
+    --border: #CCCCCC;
+    --text: #2C2C2C;
+    --shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #F0F4F8;
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--blue-dark);
+    color: #fff;
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: var(--shadow);
+  }
+  header .logo {
+    width: 36px; height: 36px;
+    background: var(--blue-mid);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  header h1 { font-size: 1.2rem; font-weight: 600; }
+  header p  { font-size: 0.8rem; opacity: 0.75; margin-top: 2px; }
+
+  /* ── Layout ── */
+  .main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px 32px;
+  }
+
+  /* ── Drop zones ── */
+  .drop-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+  .drop-panel {
+    background: #fff;
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    min-height: 160px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    position: relative;
+  }
+  .drop-panel:hover, .drop-panel.dragover {
+    border-color: var(--blue-mid);
+    background: var(--blue-pale);
+  }
+  .drop-panel.loaded {
+    border-color: #52c41a;
+    background: #f6ffed;
+  }
+  .drop-panel .icon { font-size: 2.5rem; }
+  .drop-panel .label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--blue-dark);
+  }
+  .drop-panel .hint {
+    font-size: 0.78rem;
+    color: #666;
+  }
+  .drop-panel .filename {
+    font-size: 0.82rem;
+    color: #52c41a;
+    font-weight: 600;
+    word-break: break-all;
+  }
+  .drop-panel .row-count {
+    font-size: 0.78rem;
+    color: #666;
+  }
+  .drop-panel input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  }
+
+  /* ── Run button ── */
+  .action-bar {
+    text-align: center;
+    margin: 16px 0 24px;
+  }
+  .btn-run {
+    background: var(--blue-dark);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 14px 48px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s, transform .1s;
+    box-shadow: var(--shadow);
+  }
+  .btn-run:hover:not(:disabled) { background: var(--blue-mid); transform: translateY(-1px); }
+  .btn-run:disabled { background: #aaa; cursor: not-allowed; }
+  .btn-dl {
+    background: #52c41a;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 36px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-left: 12px;
+    transition: background .2s;
+  }
+  .btn-dl:hover { background: #389e0d; }
+
+  /* ── Progress ── */
+  #progress {
+    background: #fff;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+    display: none;
+  }
+  .progress-bar-wrap {
+    background: #e0e0e0;
+    border-radius: 6px;
+    height: 10px;
+    margin: 8px 0;
+    overflow: hidden;
+  }
+  .progress-bar {
+    background: var(--blue-mid);
+    height: 100%;
+    border-radius: 6px;
+    transition: width .3s;
+  }
+  #progress-label { font-size: 0.85rem; color: #555; }
+
+  /* ── Summary cards ── */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: var(--shadow);
+    text-align: center;
+  }
+  .card .num {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--blue-dark);
+  }
+  .card .lbl {
+    font-size: 0.78rem;
+    color: #666;
+    margin-top: 4px;
+  }
+  .card.green .num { color: #52c41a; }
+  .card.orange .num { color: #fa8c16; }
+  .card.red .num { color: #f5222d; }
+
+  /* ── Table ── */
+  .table-wrap {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--blue-dark);
+    color: #fff;
+  }
+  .table-header h2 { font-size: 0.95rem; }
+  .legend {
+    display: flex; gap: 14px; font-size: 0.78rem; align-items: center;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 5px;
+  }
+  .legend-dot {
+    width: 14px; height: 14px; border-radius: 3px;
+  }
+
+  .table-scroll { overflow-x: auto; max-height: 520px; overflow-y: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.78rem; }
+  th {
+    position: sticky; top: 0; z-index: 2;
+    background: var(--blue-dark); color: #fff;
+    padding: 8px 10px; white-space: nowrap; font-weight: 600;
+    border-right: 1px solid #2E75B6;
+  }
+  td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #EFEFEF;
+    border-right: 1px solid #F5F5F5;
+    white-space: nowrap;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  tr.outgoing td { background: var(--green-pale); }
+  tr.incoming td { background: var(--orange-pale); }
+  tr.exists td   { background: var(--yellow-pale); color: #888; font-style: italic; }
+  tr:hover td    { filter: brightness(0.95); }
+
+  td.subject { white-space: normal; max-width: 320px; word-break: break-word; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 6px; border-radius: 4px;
+    font-size: 0.7rem; font-weight: 600;
+  }
+  .badge-out { background: #d9f7be; color: #237804; }
+  .badge-in  { background: #ffd8bf; color: #ad2102; }
+  .badge-dup { background: #fffbe6; color: #874d00; }
+
+  /* ── Filter bar ── */
+  .filter-bar {
+    display: flex; gap: 10px; padding: 10px 16px;
+    background: #F9F9F9; border-bottom: 1px solid var(--border);
+    flex-wrap: wrap; align-items: center;
+  }
+  .filter-bar label { font-size: 0.8rem; color: #555; }
+  .filter-bar select, .filter-bar input {
+    border: 1px solid var(--border); border-radius: 5px;
+    padding: 4px 8px; font-size: 0.8rem; background: #fff;
+  }
+
+  /* ── Responsive ── */
+  @media(max-width: 768px) {
+    .drop-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">📋</div>
+  <div>
+    <h1>Transmittal Register Processor</h1>
+    <p>Merge Aconex daily export with Master Submittal Log format</p>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Drop zones -->
+  <div class="drop-grid">
+    <div class="drop-panel" id="masterPanel" ondragover="onDragOver(event,'masterPanel')"
+         ondragleave="onDragLeave('masterPanel')" ondrop="onDrop(event,'master')">
+      <input type="file" accept=".xlsx,.xls" onchange="onFileChange(event,'master')" />
+      <div class="icon">📁</div>
+      <div class="label">Master Submittal Log</div>
+      <div class="hint" id="masterHint">Drop .xlsx file here or click to browse</div>
+      <div class="filename" id="masterName" style="display:none"></div>
+      <div class="row-count" id="masterRows"></div>
+    </div>
+
+    <div class="drop-panel" id="exportPanel" ondragover="onDragOver(event,'exportPanel')"
+         ondragleave="onDragLeave('exportPanel')" ondrop="onDrop(event,'export')">
+      <input type="file" accept=".xlsx,.xls" onchange="onFileChange(event,'export')" />
+      <div class="icon">📨</div>
+      <div class="label">Daily Aconex Export (ExportMailAll)</div>
+      <div class="hint" id="exportHint">Drop .xlsx file here or click to browse</div>
+      <div class="filename" id="exportName" style="display:none"></div>
+      <div class="row-count" id="exportRows"></div>
+    </div>
+  </div>
+
+  <!-- Action bar -->
+  <div class="action-bar">
+    <button class="btn-run" id="runBtn" disabled onclick="runProcessor()">
+      ▶ &nbsp;Process &amp; Generate Register
+    </button>
+    <button class="btn-dl" id="dlBtn" style="display:none" onclick="downloadExcel()">
+      ⬇ &nbsp;Download Excel
+    </button>
+  </div>
+
+  <!-- Progress -->
+  <div id="progress">
+    <div id="progress-label">Processing…</div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progressBar" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="summary-grid" id="summaryGrid" style="display:none">
+    <div class="card"><div class="num" id="sTotal">0</div><div class="lbl">Total Processed</div></div>
+    <div class="card green"><div class="num" id="sOut">0</div><div class="lbl">New Outgoing Submittals</div></div>
+    <div class="card orange"><div class="num" id="sIn">0</div><div class="lbl">New Incoming Responses</div></div>
+    <div class="card red"><div class="num" id="sExists">0</div><div class="lbl">Already in Master Log</div></div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap" id="tableWrap" style="display:none">
+    <div class="table-header">
+      <h2>Processed Transmittals</h2>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#d9f7be"></div>Outgoing (Contractor)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ffd8bf"></div>Incoming (Engineer)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#fffbe6"></div>Already in Master Log</div>
+      </div>
+    </div>
+    <div class="filter-bar">
+      <label>Filter:</label>
+      <select id="filterDir" onchange="applyFilter()">
+        <option value="">All Directions</option>
+        <option value="outgoing">Outgoing</option>
+        <option value="incoming">Incoming</option>
+      </select>
+      <select id="filterExists" onchange="applyFilter()">
+        <option value="">All Status</option>
+        <option value="new">New Only</option>
+        <option value="exists">In Master Log</option>
+      </select>
+      <select id="filterType" onchange="applyFilter()">
+        <option value="">All Types</option>
+      </select>
+      <input id="filterSearch" type="text" placeholder="Search Aconex Ref or subject…" oninput="applyFilter()" />
+    </div>
+    <div class="table-scroll">
+      <table id="resultTable">
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Aconex Reference</th>
+            <th>Submittal Date</th>
+            <th>Doc Reference</th>
+            <th>Submittal Item Description</th>
+            <th>Current Rev</th>
+            <th>Rev.</th>
+            <th>Type</th>
+            <th>Discipline</th>
+            <th>Sub Discipline</th>
+            <th>No. Items</th>
+            <th>Lead</th>
+            <th>DCP</th>
+            <th>Due Date (+21d)</th>
+          </tr>
+        </thead>
+        <tbody id="resultBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ─── State ──────────────────────────────────────────────────────────────────
+let masterData = null;   // parsed master log: Map<aconexRef, row[]>
+let exportData = null;   // raw rows from ExportMailAll
+let outputRows = [];     // processed output rows
+
+// ─── Drag & drop / file loading ─────────────────────────────────────────────
+function onDragOver(e, panelId) {
+  e.preventDefault();
+  document.getElementById(panelId).classList.add('dragover');
+}
+function onDragLeave(panelId) {
+  document.getElementById(panelId).classList.remove('dragover');
+}
+function onDrop(e, type) {
+  e.preventDefault();
+  const panelId = type === 'master' ? 'masterPanel' : 'exportPanel';
+  document.getElementById(panelId).classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) loadFile(file, type);
+}
+function onFileChange(e, type) {
+  const file = e.target.files[0];
+  if (file) loadFile(file, type);
+}
+
+function loadFile(file, type) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const wb = XLSX.read(e.target.result, { type: 'binary', cellDates: true });
+    if (type === 'master') {
+      masterData = parseMasterLog(wb);
+      const count = masterData.size;
+      document.getElementById('masterName').textContent = file.name;
+      document.getElementById('masterName').style.display = 'block';
+      document.getElementById('masterHint').style.display = 'none';
+      document.getElementById('masterRows').textContent = `${count} existing records loaded`;
+      document.getElementById('masterPanel').classList.add('loaded');
+    } else {
+      exportData = parseExportMail(wb);
+      const count = exportData.length;
+      document.getElementById('exportName').textContent = file.name;
+      document.getElementById('exportName').style.display = 'block';
+      document.getElementById('exportHint').style.display = 'none';
+      document.getElementById('exportRows').textContent = `${count} mail records loaded`;
+      document.getElementById('exportPanel').classList.add('loaded');
+    }
+    checkReady();
+  };
+  reader.readAsBinaryString(file);
+}
+
+function checkReady() {
+  document.getElementById('runBtn').disabled = !(masterData && exportData);
+}
+
+// ─── Parsers ─────────────────────────────────────────────────────────────────
+function parseMasterLog(wb) {
+  const sheetName = wb.SheetNames.includes('Register') ? 'Register' : wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  const data = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });
+
+  // Find header row containing 'Aconex'
+  let headerRow = 7; // default row 8 (0-indexed = 7)
+  for (let i = 0; i < Math.min(15, data.length); i++) {
+    if (data[i].some(c => c && String(c).includes('Aconex'))) {
+      headerRow = i;
+      break;
+    }
+  }
+
+  const map = new Map();
+  for (let i = headerRow + 1; i < data.length; i++) {
+    const ref = (data[i][1] || '').toString().trim(); // Col B
+    if (ref) map.set(ref, data[i]);
+  }
+  return map;
+}
+
+function parseExportMail(wb) {
+  const sheetName = wb.SheetNames.includes('Mail') ? 'Mail' : wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  return XLSX.utils.sheet_to_json(ws, { raw: false, defval: '' });
+}
+
+// ─── Processing logic ─────────────────────────────────────────────────────────
+
+const DOC_REF_RE = /[A-Z]{2,10}-[A-Z0-9]{2,10}-[A-Z]{2,5}-[A-Z]{2,5}(?:-[A-Z]{2,5})*-\d{4,6}(?:\s+to\s+\d+)?/g;
+const REV_RE = /_Rev\s*([A-Z]\d+)|Rev[:\s]+([A-Z]\d*)\b/i;
+const DCP_RE = /\bDCP\s*(\d+)\b/i;
+
+const DOC_TYPE_MAP = {
+  DRW:'DRW', CAL:'CAL', RPT:'RPT', MTS:'MAT', MAT:'MAT',
+  ITP:'ITP', MST:'MST', PLN:'PLN', PRD:'PRD', PQN:'PQN',
+  SPC:'SPC', MAN:'MAN', OTH:'OTH', DES:'DES', PGM:'OTH',
+  IRE:'OTH', TMP:'PLN', SCH:'OTH',
+};
+
+function extractDocRefs(subject) {
+  return (subject || '').match(DOC_REF_RE) || [];
+}
+
+function parseDocRef(ref) {
+  if (!ref) return {};
+  const parts = ref.split('-');
+  let discipline = '', subDiscipline = '', typeH = '';
+  if (parts.length >= 4) {
+    discipline    = parts[2] || '';
+    subDiscipline = parts[3] || '';
+  }
+  // Find type code: last 3-letter alpha segment
+  for (let i = parts.length - 1; i >= 0; i--) {
+    if (/^[A-Z]{3}$/.test(parts[i])) {
+      typeH = DOC_TYPE_MAP[parts[i]] || parts[i];
+      break;
+    }
+  }
+  return { discipline, subDiscipline, typeH };
+}
+
+function extractRevision(subject) {
+  const m = REV_RE.exec(subject || '');
+  if (m) {
+    const full = (m[1] || m[2] || '').trim();
+    const letter = full.match(/^([A-Z])/)?.[1] || '';
+    const num    = full.match(/(\d+)$/)?.[1] || '';
+    return [num, letter];
+  }
+  return ['', ''];
+}
+
+function extractDCP(subject) {
+  const m = DCP_RE.exec(subject || '');
+  return m ? `DCP${m[1]}` : '';
+}
+
+function formatDate(val) {
+  if (!val) return '';
+  // val may be ISO string like 2026-06-13T00:00:00.000Z or DD/MM/YYYY
+  if (typeof val === 'string') {
+    const iso = val.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+    return val;
+  }
+  return val;
+}
+
+function addDays(dateStr, days) {
+  if (!dateStr) return '';
+  let d;
+  // Try ISO first
+  const iso = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const dmy = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (iso) d = new Date(dateStr);
+  else if (dmy) d = new Date(`${dmy[3]}-${dmy[2]}-${dmy[1]}`);
+  else return '';
+  d.setDate(d.getDate() + days);
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+}
+
+function buildLeadMap(mailRows) {
+  const map = {};
+  for (const rec of mailRows) {
+    if (rec['Type'] === 'Internal Memorandum' && rec['From']) {
+      const subj = (rec['Subject'] || '').replace(/^(Re:\s*)+/i, '').trim().toLowerCase();
+      map[subj.slice(0, 60)] = rec['From'];
+    }
+  }
+  return map;
+}
+
+function processTransmittals(mailRows, existingMap) {
+  setProgress(10, 'Building lead map from INTM entries…');
+  const leadMap = buildLeadMap(mailRows);
+
+  setProgress(30, 'Processing transmittal rows…');
+  const rows = [];
+
+  for (const rec of mailRows) {
+    if (rec['Type'] !== 'Transmittal') continue;
+
+    const org    = rec['From Organization'] || '';
+    const mailNo = (rec['Mail No'] || '').trim();
+    const subj   = (rec['Subject'] || '').trim();
+    const date   = rec['Date'] || '';
+
+    const isContractor = org.includes('MAPA-LIMAK-CRRC') || mailNo.startsWith('MLCC-') || mailNo.startsWith('GUNAL-');
+    const isEngineer   = mailNo.startsWith('PAJV-TRANSMIT');
+    if (!isContractor && !isEngineer) continue;
+
+    const refs    = extractDocRefs(subj);
+    const first   = refs[0] || '';
+    const parsed  = parseDocRef(first);
+    const [curRev, revLetter] = extractRevision(subj);
+    const dcp     = extractDCP(subj);
+    const dueDate = addDays(date, 21);
+
+    // Try to find lead from INTM match
+    const normSubj = subj.replace(/^(Re:\s*)+/i, '').trim().toLowerCase().slice(0, 60);
+    const lead = leadMap[normSubj] || '';
+
+    const exists = existingMap.has(mailNo);
+    const direction = isContractor ? 'outgoing' : 'incoming';
+
+    rows.push({
+      direction,
+      exists,
+      A: '',
+      B: mailNo,
+      C: formatDate(date),
+      D: first,
+      E: subj,
+      F: curRev,
+      G: revLetter,
+      H: parsed.typeH || '',
+      I: parsed.discipline || '',
+      J: parsed.subDiscipline || '',
+      K: refs.length || 1,
+      L: lead,
+      M: dcp,
+      N: dueDate,
+      O: '',
+      P: '',
+      Q: '',
+      R: '',
+      S: '',
+      T: '',
+      U: '',
+      V: '',
+      W: '',
+      X: '',
+      Y: new Date().toLocaleDateString('en-GB'),
+      Z: exists ? '[Already in master log]' : '',
+    });
+  }
+  return rows;
+}
+
+function setProgress(pct, msg) {
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = msg;
+}
+
+// ─── Run ─────────────────────────────────────────────────────────────────────
+function runProcessor() {
+  document.getElementById('progress').style.display = 'block';
+  document.getElementById('tableWrap').style.display = 'none';
+  document.getElementById('summaryGrid').style.display = 'none';
+  document.getElementById('dlBtn').style.display = 'none';
+  document.getElementById('runBtn').disabled = true;
+
+  setTimeout(() => {
+    try {
+      setProgress(5, 'Parsing files…');
+      outputRows = processTransmittals(exportData, masterData);
+      setProgress(60, 'Rendering table…');
+      renderTable(outputRows);
+      setProgress(80, 'Building summary…');
+      renderSummary(outputRows);
+      populateTypeFilter(outputRows);
+      setProgress(100, 'Done!');
+
+      document.getElementById('summaryGrid').style.display = 'grid';
+      document.getElementById('tableWrap').style.display = 'block';
+      document.getElementById('dlBtn').style.display = 'inline-block';
+    } catch(err) {
+      setProgress(0, 'Error: ' + err.message);
+      console.error(err);
+    }
+    document.getElementById('runBtn').disabled = false;
+  }, 50);
+}
+
+// ─── Table ────────────────────────────────────────────────────────────────────
+let filteredRows = [];
+
+function renderTable(rows) {
+  filteredRows = rows;
+  const body = document.getElementById('resultBody');
+  body.innerHTML = '';
+  for (const row of rows) {
+    const tr = document.createElement('tr');
+    tr.className = row.exists ? 'exists' : row.direction;
+    tr.dataset.direction = row.direction;
+    tr.dataset.exists = row.exists ? '1' : '0';
+    tr.dataset.type = row.H;
+    tr.dataset.search = (row.B + ' ' + row.E).toLowerCase();
+
+    const badge = row.exists
+      ? '<span class="badge badge-dup">In Master</span>'
+      : row.direction === 'outgoing'
+        ? '<span class="badge badge-out">Outgoing</span>'
+        : '<span class="badge badge-in">Incoming</span>';
+
+    tr.innerHTML = `
+      <td>${badge}</td>
+      <td>${row.B}</td>
+      <td>${row.C}</td>
+      <td title="${row.D}">${row.D ? row.D.slice(0,40) + (row.D.length>40?'…':'') : ''}</td>
+      <td class="subject" title="${row.E.replace(/"/g,'&quot;')}">${row.E.slice(0,120)}${row.E.length>120?'…':''}</td>
+      <td>${row.F}</td>
+      <td>${row.G}</td>
+      <td>${row.H}</td>
+      <td>${row.I}</td>
+      <td>${row.J}</td>
+      <td>${row.K}</td>
+      <td>${row.L}</td>
+      <td>${row.M}</td>
+      <td>${row.N}</td>
+    `;
+    body.appendChild(tr);
+  }
+}
+
+function applyFilter() {
+  const dir     = document.getElementById('filterDir').value;
+  const exists  = document.getElementById('filterExists').value;
+  const typeVal = document.getElementById('filterType').value;
+  const search  = document.getElementById('filterSearch').value.toLowerCase();
+
+  for (const tr of document.querySelectorAll('#resultBody tr')) {
+    let show = true;
+    if (dir    && tr.dataset.direction !== dir)        show = false;
+    if (exists === 'new'    && tr.dataset.exists !== '0') show = false;
+    if (exists === 'exists' && tr.dataset.exists !== '1') show = false;
+    if (typeVal && tr.dataset.type !== typeVal)         show = false;
+    if (search  && !tr.dataset.search.includes(search)) show = false;
+    tr.style.display = show ? '' : 'none';
+  }
+}
+
+function populateTypeFilter(rows) {
+  const types = [...new Set(rows.map(r => r.H).filter(Boolean))].sort();
+  const sel = document.getElementById('filterType');
+  sel.innerHTML = '<option value="">All Types</option>';
+  for (const t of types) {
+    const opt = document.createElement('option');
+    opt.value = t; opt.textContent = t;
+    sel.appendChild(opt);
+  }
+}
+
+function renderSummary(rows) {
+  document.getElementById('sTotal').textContent   = rows.length;
+  document.getElementById('sOut').textContent     = rows.filter(r => r.direction==='outgoing' && !r.exists).length;
+  document.getElementById('sIn').textContent      = rows.filter(r => r.direction==='incoming' && !r.exists).length;
+  document.getElementById('sExists').textContent  = rows.filter(r => r.exists).length;
+}
+
+// ─── Excel download ───────────────────────────────────────────────────────────
+function downloadExcel() {
+  const HEADERS = [
+    'Draft','Aconex Reference','Submittal Date',
+    'Document Reference No./Package no.','Submittal Item Description',
+    'Current Rev','Rev.','Type','Discipline','Sub Discipline',
+    'No of Items','Lead','DCP',
+    'Due date of Response by the Engineer (+21 days from Submittal date)',
+    'Response Ref.','Date Responded by the Engineer',
+    'Response Status, days','Days Overdue','Review Status',
+    'Actual Status (Latest Rev)',
+    'Contractor Response Due (+14 Days from Response Date)',
+    'Contractor Date Responded','Contractor Days Overdue',
+    'Contractor Response Status Days','Data Date','Remarks',
+  ];
+  const KEYS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+  const wb = XLSX.utils.book_new();
+
+  // ── Register sheet ──────────────────────────────────────────────────────────
+  const wsData = [
+    ['TRANSMITTAL REGISTER'],
+    [`Generated: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString('en-GB')}`],
+    [], [], [], [], [],
+    HEADERS,
+  ];
+
+  for (const row of outputRows) {
+    wsData.push(KEYS.map(k => row[k] ?? ''));
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Column widths
+  const colWidths = [6,22,13,40,60,10,7,7,10,12,8,10,7,16,22,13,13,11,13,13,13,13,13,13,11,35];
+  ws['!cols'] = colWidths.map(w => ({ wch: w }));
+
+  // Freeze panes (row 9 = index 8, col C = index 2)
+  ws['!freeze'] = { xSplit: 2, ySplit: 8, topLeftCell: 'C9', activePane: 'bottomRight', state: 'frozen' };
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Register');
+
+  // ── Summary sheet ───────────────────────────────────────────────────────────
+  const sumData = [
+    ['Processing Summary'],
+    [],
+    ['Total rows processed', outputRows.length],
+    ['New outgoing submittals', outputRows.filter(r=>r.direction==='outgoing'&&!r.exists).length],
+    ['New incoming responses',  outputRows.filter(r=>r.direction==='incoming'&&!r.exists).length],
+    ['Already in master log',   outputRows.filter(r=>r.exists).length],
+    ['Generated', new Date().toLocaleString('en-GB')],
+  ];
+  const wsSummary = XLSX.utils.aoa_to_sheet(sumData);
+  wsSummary['!cols'] = [{wch:35},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+
+  // Save
+  const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  XLSX.writeFile(wb, `TransmittalRegister_${today}.xlsx`);
+}
+</script>
+</body>
+</html>
