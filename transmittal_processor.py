@@ -42,7 +42,7 @@ DOC_REF_RE = re.compile(
     r'[A-Z]{2,10}-[A-Z0-9]{2,10}-[A-Z]{2,5}-[A-Z]{2,5}(?:-[A-Z]{2,5})*-\d{4,6}'
     r'(?:\s+to\s+\d+)?'
 )
-REV_RE = re.compile(r'_Rev\.([A-Z0-9]+)', re.IGNORECASE)
+REV_RE = re.compile(r'_Rev[.\s]([A-Z0-9]+)', re.IGNORECASE)
 DCP_RE = re.compile(r'\bDCP\s*(\d+)\b', re.IGNORECASE)
 
 

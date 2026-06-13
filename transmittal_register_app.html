@@ -475,7 +475,7 @@ function parseExportMail(wb) {
 // ─── Processing logic ─────────────────────────────────────────────────────────
 
 const DOC_REF_RE = /[A-Z]{2,10}-[A-Z0-9]{2,10}-[A-Z]{2,5}-[A-Z]{2,5}(?:-[A-Z]{2,5})*-\d{4,6}(?:\s+to\s+\d+)?/g;
-const REV_RE = /_Rev\.([A-Z0-9]+)/i;
+const REV_RE = /_Rev[.\s]([A-Z0-9]+)/i;
 const DCP_RE = /\bDCP\s*(\d+)\b/i;
 
 const DOC_TYPE_MAP = {
