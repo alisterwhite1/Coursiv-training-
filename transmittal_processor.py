@@ -49,13 +49,16 @@ REV_RE = re.compile(r'_Rev[.\s]([A-Z0-9]+)', re.IGNORECASE)
 DCP_RE = re.compile(r'\bDCP\s*(\d+)\b', re.IGNORECASE)
 
 
-def extract_doc_refs(subject: str) -> list[str]:
-    """Extract all document reference numbers from a subject string."""
+def extract_doc_refs(subject: str) -> tuple[list[str], bool]:
+    """
+    Extract doc refs from subject.
+    Returns (refs, is_dot_format).
+    """
     dash_refs = DOC_REF_RE.findall(subject or '')
     if dash_refs:
-        return dash_refs
-    # Fallback: dot-separated ref like DE.TNL.CC02.STR.T2.D3
-    return DOT_REF_RE.findall(subject or '')
+        return dash_refs, False
+    dot_refs = DOT_REF_RE.findall(subject or '')
+    return dot_refs, bool(dot_refs)
 
 
 def parse_doc_ref(doc_ref: str) -> dict:
@@ -207,9 +210,10 @@ def process_transmittals(mail_records: list[dict],
         date_val = parse_date(rec.get('Date'))
 
         # Extract doc refs from subject
-        doc_refs = extract_doc_refs(subj)
+        doc_refs, is_dot_ref = extract_doc_refs(subj)
         first_ref = doc_refs[0] if doc_refs else ''
-        parsed = parse_doc_ref(first_ref) if first_ref else {}
+        # Dot-format refs don't encode Type/Discipline/Sub-Discipline
+        parsed = {} if is_dot_ref else (parse_doc_ref(first_ref) if first_ref else {})
 
         current_rev = extract_revision(subj)   # full value after _Rev. e.g. C01
         dcp = extract_dcp(subj)

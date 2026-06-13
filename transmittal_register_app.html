@@ -488,9 +488,9 @@ const DOC_TYPE_MAP = {
 
 function extractDocRefs(subject) {
   const dash = (subject || '').match(DOC_REF_RE) || [];
-  if (dash.length) return dash;
-  // Fallback: dot-separated ref like DE.TNL.CC02.STR.T2.D3
-  return (subject || '').match(DOT_REF_RE) || [];
+  if (dash.length) return { refs: dash, isDot: false };
+  const dot = (subject || '').match(DOT_REF_RE) || [];
+  return { refs: dot, isDot: dot.length > 0 };
 }
 
 function parseDocRef(ref) {
@@ -594,9 +594,10 @@ function processTransmittals(mailRows, existingMap) {
     const isEngineer   = mailNo.startsWith('PAJV-TRANSMIT');
     if (!isContractor && !isEngineer) continue;
 
-    const refs    = extractDocRefs(subj);
+    const { refs, isDot } = extractDocRefs(subj);
     const first   = refs[0] || '';
-    const parsed  = parseDocRef(first);
+    // Dot-format refs don't encode Type/Discipline/Sub-Discipline
+    const parsed  = isDot ? {} : parseDocRef(first);
     const curRev  = extractRevision(subj);
     const dcp     = extractDCP(subj);
     const dueDate = addDays(date, 21);
