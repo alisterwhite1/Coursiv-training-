@@ -238,9 +238,10 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  tr.outgoing td { background: var(--green-pale); }
-  tr.incoming td { background: var(--orange-pale); }
-  tr.exists td   { background: var(--yellow-pale); color: #888; font-style: italic; }
+  tr.outgoing td  { background: var(--green-pale); }
+  tr.updated td   { background: #DDEBF7; }
+  tr.unmatched td { background: var(--orange-pale); }
+  tr.exists td    { background: var(--yellow-pale); color: #888; font-style: italic; }
   tr:hover td    { filter: brightness(0.95); }
 
   td.subject { white-space: normal; max-width: 320px; word-break: break-word; }
@@ -251,7 +252,8 @@
     font-size: 0.7rem; font-weight: 600;
   }
   .badge-out { background: #d9f7be; color: #237804; }
-  .badge-in  { background: #ffd8bf; color: #ad2102; }
+  .badge-updated { background: #bdd7ee; color: #1f4e79; }
+  .badge-unmatched { background: #ffd8bf; color: #ad2102; }
   .badge-dup { background: #fffbe6; color: #874d00; }
 
   /* ── Filter bar ── */
@@ -329,8 +331,9 @@
   <div class="summary-grid" id="summaryGrid" style="display:none">
     <div class="card"><div class="num" id="sTotal">0</div><div class="lbl">Total Processed</div></div>
     <div class="card green"><div class="num" id="sOut">0</div><div class="lbl">New Outgoing Submittals</div></div>
-    <div class="card orange"><div class="num" id="sIn">0</div><div class="lbl">New Incoming Responses</div></div>
+    <div class="card orange"><div class="num" id="sIn">0</div><div class="lbl">Existing Rows Updated</div></div>
     <div class="card red"><div class="num" id="sExists">0</div><div class="lbl">Already in Master Log</div></div>
+    <div class="card" style="color:#ad2102"><div class="num" id="sUnmatched">0</div><div class="lbl">Unmatched Responses</div></div>
   </div>
 
   <!-- Table -->
@@ -338,8 +341,9 @@
     <div class="table-header">
       <h2>Processed Transmittals</h2>
       <div class="legend">
-        <div class="legend-item"><div class="legend-dot" style="background:#d9f7be"></div>Outgoing (Contractor)</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#ffd8bf"></div>Incoming (Engineer)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#d9f7be"></div>New Submittal</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#bdd7ee"></div>Updated (Response Added)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ffd8bf"></div>Unmatched Response</div>
         <div class="legend-item"><div class="legend-dot" style="background:#fffbe6"></div>Already in Master Log</div>
       </div>
     </div>
@@ -347,8 +351,9 @@
       <label>Filter:</label>
       <select id="filterDir" onchange="applyFilter()">
         <option value="">All Directions</option>
-        <option value="outgoing">Outgoing</option>
-        <option value="incoming">Incoming</option>
+        <option value="outgoing">New Submittals</option>
+        <option value="updated">Updated (Response Added)</option>
+        <option value="unmatched">Unmatched Responses</option>
       </select>
       <select id="filterExists" onchange="applyFilter()">
         <option value="">All Status</option>
@@ -579,64 +584,100 @@ function buildIntmLeadMap(mailRows) {
 function processTransmittals(mailRows, existingMap) {
   setProgress(10, 'Building lead map from INTM entries…');
   const intmLeadMap = buildIntmLeadMap(mailRows);
-  setProgress(20, 'Processing transmittal rows…');
-  const rows = [];
+  setProgress(20, 'Processing outgoing submittals…');
 
+  // doc ref → aconex ref, for rows already in the master log
+  const masterRefByDocRef = {};
+  for (const [aconexRef, rowArr] of existingMap.entries()) {
+    const d = (rowArr[3] || '').toString().trim(); // Col D
+    if (d) masterRefByDocRef[d] = aconexRef;
+  }
+
+  const newRows = new Map();   // mailNo → row, for today's MLCC/GUNAL transmittals
+  const updateRows = new Map(); // aconexRef → row, for existing master rows being updated
+  const unmatchedResponses = [];
+
+  // Pass 1: build new outgoing submittal rows
   for (const rec of mailRows) {
     if (rec['Type'] !== 'Transmittal') continue;
-
     const org    = rec['From Organization'] || '';
     const mailNo = (rec['Mail No'] || '').trim();
-    const subj   = (rec['Subject'] || '').trim();
-    const date   = rec['Date'] || '';
-
     const isContractor = org.includes('MAPA-LIMAK-CRRC') || mailNo.startsWith('MLCC-') || mailNo.startsWith('GUNAL-');
-    const isEngineer   = mailNo.startsWith('PAJV-TRANSMIT');
-    if (!isContractor && !isEngineer) continue;
+    if (!isContractor) continue;
+
+    const subj = (rec['Subject'] || '').trim();
+    const date = rec['Date'] || '';
 
     const { refs, isDot } = extractDocRefs(subj);
-    const first   = refs[0] || '';
-    // Dot-format refs don't encode Type/Discipline/Sub-Discipline
-    const parsed  = isDot ? {} : parseDocRef(first);
-    const curRev  = extractRevision(subj);
-    const dcp     = extractDCP(subj);
-    const lead    = intmLeadMap[normSubject(subj)] || '';
-
+    const first  = refs[0] || '';
+    const parsed = isDot ? {} : parseDocRef(first);
+    const curRev = extractRevision(subj);
+    const dcp    = extractDCP(subj);
+    const lead   = intmLeadMap[normSubject(subj)] || '';
     const exists = existingMap.has(mailNo);
-    const direction = isContractor ? 'outgoing' : 'incoming';
 
-    rows.push({
-      direction,
+    newRows.set(mailNo, {
+      direction: 'outgoing',
       exists,
-      A: '',
-      B: mailNo,
-      C: formatDate(date),
-      D: first,
-      E: subj,
-      F: curRev,
-      G: '',
-      H: parsed.typeH || '',
-      I: parsed.discipline || '',
-      J: parsed.subDiscipline || '',
-      K: refs.length || 1,
-      L: lead,
-      M: dcp,
-      N: '',
-      O: '',
-      P: '',
-      Q: '',
-      R: '',
-      S: '',
-      T: '',
-      U: '',
-      V: '',
-      W: '',
-      X: '',
-      Y: '',
+      A: '', B: mailNo, C: formatDate(date), D: first, E: subj,
+      F: curRev, G: '',
+      H: parsed.typeH || '', I: parsed.discipline || '', J: parsed.subDiscipline || '',
+      K: refs.length || 1, L: lead, M: dcp,
+      N: '', O: '', P: '', Q: '', R: '', S: '', T: '',
+      U: '', V: '', W: '', X: '', Y: '',
       Z: exists ? '[Already in master log]' : '',
     });
   }
-  return rows;
+
+  // doc ref → mail no, for today's new rows (takes priority over master log)
+  const newRefToMailNo = {};
+  for (const [mailNo, row] of newRows.entries()) {
+    if (row.D) newRefToMailNo[row.D] = mailNo;
+  }
+
+  setProgress(50, 'Matching PAJV responses to originating submittals…');
+
+  // Pass 2: match PAJV responses back onto the originating row
+  for (const rec of mailRows) {
+    if (rec['Type'] !== 'Transmittal') continue;
+    const mailNo = (rec['Mail No'] || '').trim();
+    if (!mailNo.startsWith('PAJV-TRANSMIT')) continue;
+
+    const subj = (rec['Subject'] || '').trim();
+    const date = rec['Date'] || '';
+    const { refs } = extractDocRefs(subj);
+    const ref = refs[0] || '';
+
+    if (ref && newRefToMailNo[ref]) {
+      const target = newRows.get(newRefToMailNo[ref]);
+      target.O = mailNo;
+      target.P = formatDate(date);
+    } else if (ref && masterRefByDocRef[ref]) {
+      const aconexRef = masterRefByDocRef[ref];
+      if (!updateRows.has(aconexRef)) {
+        const masterRow = existingMap.get(aconexRef);
+        const cols = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+        const row = { direction: 'updated', exists: true };
+        cols.forEach((c, i) => { row[c] = masterRow[i] !== undefined ? masterRow[i] : ''; });
+        updateRows.set(aconexRef, row);
+      }
+      const row = updateRows.get(aconexRef);
+      row.O = mailNo;
+      row.P = formatDate(date);
+    } else {
+      unmatchedResponses.push({
+        direction: 'unmatched',
+        exists: false,
+        A: '', B: '', C: '', D: ref, E: subj,
+        F: '', G: '', H: '', I: '', J: '', K: '',
+        L: '', M: '', N: '', O: mailNo, P: formatDate(date),
+        Q: '', R: '', S: '', T: '', U: '', V: '', W: '', X: '', Y: '',
+        Z: 'No matching MLCC/GUNAL submittal found for this response',
+      });
+    }
+  }
+
+  return [...newRows.values(), ...updateRows.values(), ...unmatchedResponses];
 }
 
 function setProgress(pct, msg) {
@@ -683,17 +724,22 @@ function renderTable(rows) {
   body.innerHTML = '';
   for (const row of rows) {
     const tr = document.createElement('tr');
-    tr.className = row.exists ? 'exists' : row.direction;
+    tr.className = row.direction === 'outgoing' && row.exists ? 'exists' : row.direction;
     tr.dataset.direction = row.direction;
     tr.dataset.exists = row.exists ? '1' : '0';
     tr.dataset.type = row.H;
-    tr.dataset.search = (row.B + ' ' + row.E).toLowerCase();
+    tr.dataset.search = (row.B + ' ' + row.D + ' ' + row.E).toLowerCase();
 
-    const badge = row.exists
-      ? '<span class="badge badge-dup">In Master</span>'
-      : row.direction === 'outgoing'
-        ? '<span class="badge badge-out">Outgoing</span>'
-        : '<span class="badge badge-in">Incoming</span>';
+    let badge;
+    if (row.direction === 'updated') {
+      badge = '<span class="badge badge-updated">Updated</span>';
+    } else if (row.direction === 'unmatched') {
+      badge = '<span class="badge badge-unmatched">Unmatched</span>';
+    } else if (row.exists) {
+      badge = '<span class="badge badge-dup">In Master</span>';
+    } else {
+      badge = '<span class="badge badge-out">New</span>';
+    }
 
     tr.innerHTML = `
       <td>${badge}</td>
@@ -744,10 +790,11 @@ function populateTypeFilter(rows) {
 }
 
 function renderSummary(rows) {
-  document.getElementById('sTotal').textContent   = rows.length;
-  document.getElementById('sOut').textContent     = rows.filter(r => r.direction==='outgoing' && !r.exists).length;
-  document.getElementById('sIn').textContent      = rows.filter(r => r.direction==='incoming' && !r.exists).length;
-  document.getElementById('sExists').textContent  = rows.filter(r => r.exists).length;
+  document.getElementById('sTotal').textContent      = rows.length;
+  document.getElementById('sOut').textContent        = rows.filter(r => r.direction==='outgoing' && !r.exists).length;
+  document.getElementById('sIn').textContent         = rows.filter(r => r.direction==='updated').length;
+  document.getElementById('sExists').textContent     = rows.filter(r => r.direction==='outgoing' && r.exists).length;
+  document.getElementById('sUnmatched').textContent  = rows.filter(r => r.direction==='unmatched').length;
 }
 
 // ─── Excel download ───────────────────────────────────────────────────────────
@@ -796,10 +843,11 @@ function downloadExcel() {
   const sumData = [
     ['Processing Summary'],
     [],
-    ['Total rows processed', outputRows.length],
+    ['Total rows produced', outputRows.length],
     ['New outgoing submittals', outputRows.filter(r=>r.direction==='outgoing'&&!r.exists).length],
-    ['New incoming responses',  outputRows.filter(r=>r.direction==='incoming'&&!r.exists).length],
-    ['Already in master log',   outputRows.filter(r=>r.exists).length],
+    ['Already in master log', outputRows.filter(r=>r.direction==='outgoing'&&r.exists).length],
+    ['Existing rows updated with PAJV response', outputRows.filter(r=>r.direction==='updated').length],
+    ['Unmatched PAJV responses (no submittal found)', outputRows.filter(r=>r.direction==='unmatched').length],
     ['Generated', new Date().toLocaleString('en-GB')],
   ];
   const wsSummary = XLSX.utils.aoa_to_sheet(sumData);

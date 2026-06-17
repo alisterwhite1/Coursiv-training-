@@ -186,77 +186,109 @@ def process_transmittals(mail_records: list[dict],
     """
     Build output rows.
     - Outgoing MLCC/GUNAL transmittals → new submittal rows
-    - PAJV transmittals → response data for matching existing rows
+    - PAJV transmittals (engineer responses) are NOT given their own row.
+      Instead, the PAJV reference (O) and response date (P) are matched
+      by document reference back onto the originating MLCC/GUNAL row —
+      either a new row created today, or an existing master-log row.
     - Lead (col L): matched from INTM Recipients (col G) by subject
     Returns list of row dicts mapping to master log columns.
     """
     intm_lead_map = build_intm_lead_map(mail_records)
-    rows = []
+
+    # doc ref → aconex ref, for rows already in the master log
+    master_ref_by_docref = {}
+    for ref, info in existing_records.items():
+        d = info['row'][3] if len(info['row']) > 3 else None
+        if d:
+            master_ref_by_docref[str(d).strip()] = ref
+
+    new_rows: dict[str, dict] = {}     # mail_no → row, for today's MLCC/GUNAL transmittals
+    update_rows: dict[str, dict] = {}  # aconex_ref → row, for existing master rows being updated
+    unmatched_responses = []
+
     for rec in mail_records:
         if rec.get('Type') != 'Transmittal':
             continue
         org = str(rec.get('From Organization') or '')
         mail_no = str(rec.get('Mail No') or '').strip()
-
-        # Determine direction: outgoing contractor submittal or incoming PAJV response
         is_contractor = any(org.startswith(c) for c in CONTRACTOR_ORGS) or \
                         (mail_no.startswith('MLCC-') or mail_no.startswith('GUNAL-'))
-        is_engineer_response = mail_no.startswith('PAJV-TRANSMIT')
-
-        if not (is_contractor or is_engineer_response):
+        if not is_contractor:
             continue
 
         subj = str(rec.get('Subject') or '').strip()
         date_val = parse_date(rec.get('Date'))
 
-        # Extract doc refs from subject
         doc_refs, is_dot_ref = extract_doc_refs(subj)
         first_ref = doc_refs[0] if doc_refs else ''
-        # Dot-format refs don't encode Type/Discipline/Sub-Discipline
         parsed = {} if is_dot_ref else (parse_doc_ref(first_ref) if first_ref else {})
 
-        current_rev = extract_revision(subj)   # full value after _Rev. e.g. C01
+        current_rev = extract_revision(subj)
         dcp = extract_dcp(subj)
         lead = intm_lead_map.get(_norm_subject(subj)[:120], '')
 
-        # Build row dict (matching master log column positions A-Z, AA)
         row = {
-            'A': '',                                           # Draft
-            'B': mail_no,                                     # Aconex Reference
-            'C': date_val,                                    # Submittal Date
-            'D': first_ref if first_ref else '',              # Doc Reference
-            'E': subj,                                        # Submittal Item Description
-            'F': current_rev,                                 # Current Rev (e.g. C01)
-            'G': '',                                          # Rev. — not populated
-            'H': parsed.get('type_h', ''),                   # Type
-            'I': parsed.get('discipline', ''),               # Discipline
-            'J': parsed.get('sub_discipline', ''),           # Sub Discipline
-            'K': len(doc_refs) if doc_refs else 1,            # No of Items
-            'L': lead,                                        # Lead
-            'M': dcp,                                         # DCP
-            'N': '',                                          # Due date — formula in master, not populated
-            'O': '',                                          # Response Ref.
-            'P': '',                                          # Date Responded
-            'Q': '',                                          # Response Status days — formula, not populated
-            'R': '',                                          # Days Overdue — formula, not populated
-            'S': '',                                          # Review Status
-            'T': '',                                          # Actual Status
-            'U': '',                                          # Contractor Response Due — formula, not populated
-            'V': '',                                          # Contractor Date Responded — formula, not populated
-            'W': '',                                          # Contractor Days Overdue — formula, not populated
-            'X': '',                                          # Contractor Response Status Days — formula, not populated
-            'Y': '',                                          # Data Date — formula in master, not populated
-            'Z': '',                                          # Remarks
-            '_direction': 'outgoing' if is_contractor else 'incoming',
-            '_raw': rec,
+            'A': '', 'B': mail_no, 'C': date_val,
+            'D': first_ref if first_ref else '', 'E': subj,
+            'F': current_rev, 'G': '',
+            'H': parsed.get('type_h', ''), 'I': parsed.get('discipline', ''),
+            'J': parsed.get('sub_discipline', ''),
+            'K': len(doc_refs) if doc_refs else 1,
+            'L': lead, 'M': dcp,
+            'N': '', 'O': '', 'P': '', 'Q': '', 'R': '', 'S': '', 'T': '',
+            'U': '', 'V': '', 'W': '', 'X': '', 'Y': '', 'Z': '',
+            '_direction': 'outgoing',
+            '_exists': mail_no in existing_records,
         }
+        new_rows[mail_no] = row
+        if first_ref:
+            # Allow PAJV responses arriving today to match this new row too
+            master_ref_by_docref.setdefault(first_ref, None)
 
-        # Check if already in master log (skip duplicates — just flag them)
-        row['_exists'] = mail_no in existing_records
+    # doc ref → mail_no, for today's new rows (takes priority over master log)
+    new_ref_to_mailno = {r['D']: mail_no for mail_no, r in new_rows.items() if r['D']}
 
-        rows.append(row)
+    for rec in mail_records:
+        if rec.get('Type') != 'Transmittal':
+            continue
+        mail_no = str(rec.get('Mail No') or '').strip()
+        if not mail_no.startswith('PAJV-TRANSMIT'):
+            continue
 
-    return rows
+        subj = str(rec.get('Subject') or '').strip()
+        date_val = parse_date(rec.get('Date'))
+        doc_refs, _ = extract_doc_refs(subj)
+        ref = doc_refs[0] if doc_refs else ''
+
+        if ref and ref in new_ref_to_mailno:
+            target = new_rows[new_ref_to_mailno[ref]]
+            target['O'] = mail_no
+            target['P'] = date_val
+        elif ref and master_ref_by_docref.get(ref):
+            aconex_ref = master_ref_by_docref[ref]
+            if aconex_ref not in update_rows:
+                master_row = existing_records[aconex_ref]['row']
+                cols = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+                update_rows[aconex_ref] = {
+                    c: master_row[i] if i < len(master_row) else ''
+                    for i, c in enumerate(cols)
+                }
+                update_rows[aconex_ref]['_direction'] = 'updated'
+                update_rows[aconex_ref]['_exists'] = True
+            update_rows[aconex_ref]['O'] = mail_no
+            update_rows[aconex_ref]['P'] = date_val
+        else:
+            unmatched_responses.append({
+                'A': '', 'B': '', 'C': '', 'D': ref, 'E': subj,
+                'F': '', 'G': '', 'H': '', 'I': '', 'J': '', 'K': '',
+                'L': '', 'M': '', 'N': '', 'O': mail_no, 'P': date_val,
+                'Q': '', 'R': '', 'S': '', 'T': '', 'U': '', 'V': '',
+                'W': '', 'X': '', 'Y': '',
+                'Z': 'No matching MLCC/GUNAL submittal found for this response',
+                '_direction': 'unmatched', '_exists': False,
+            })
+
+    return list(new_rows.values()) + list(update_rows.values()) + unmatched_responses
 
 
 def write_output_excel(rows: list[dict], output_path: str,
@@ -318,22 +350,31 @@ def write_output_excel(rows: list[dict], output_path: str,
     data_font = Font(size=9)
     data_font_exists = Font(size=9, italic=True, color='808080')
 
-    outgoing_fill = PatternFill('solid', fgColor='E2EFDA')
-    incoming_fill = PatternFill('solid', fgColor='FCE4D6')
+    outgoing_fill   = PatternFill('solid', fgColor='E2EFDA')   # new submittal rows
+    updated_fill    = PatternFill('solid', fgColor='DDEBF7')   # existing rows getting a response today
+    unmatched_fill  = PatternFill('solid', fgColor='FCE4D6')   # orphaned PAJV responses
 
-    new_rows = [r for r in rows if not r['_exists']]
-    exists_rows = [r for r in rows if r['_exists']]
+    FILL_BY_DIRECTION = {
+        'outgoing': outgoing_fill,
+        'updated': updated_fill,
+        'unmatched': unmatched_fill,
+    }
 
-    print(f"New transmittals (not in master log): {len(new_rows)}")
-    print(f"Already in master log (skipped):      {len(exists_rows)}")
+    new_count       = len([r for r in rows if r['_direction'] == 'outgoing' and not r['_exists']])
+    exists_count    = len([r for r in rows if r['_direction'] == 'outgoing' and r['_exists']])
+    updated_count   = len([r for r in rows if r['_direction'] == 'updated'])
+    unmatched_count = len([r for r in rows if r['_direction'] == 'unmatched'])
+
+    print(f"New submittal rows:                {new_count}")
+    print(f"Already in master log (flagged):   {exists_count}")
+    print(f"Existing rows updated with response: {updated_count}")
+    print(f"Unmatched PAJV responses:          {unmatched_count}")
 
     row_num = 9
-    for i, row in enumerate(rows):
-        fill = outgoing_fill if row['_direction'] == 'outgoing' else incoming_fill
-        if row['_exists']:
+    for row in rows:
+        fill = FILL_BY_DIRECTION.get(row['_direction'], outgoing_fill)
+        if row['_exists'] and row['_direction'] == 'outgoing':
             fill = alt_fill_exists
-        elif i % 2 == 0:
-            pass  # keep direction fill
 
         for col_idx, key in enumerate(COL_KEYS, 1):
             val = row.get(key, '')
@@ -349,8 +390,7 @@ def write_output_excel(rows: list[dict], output_path: str,
             else:
                 cell.alignment = Alignment(horizontal='left', vertical='center')
 
-        # Add a note in remarks if already exists
-        if row['_exists']:
+        if row['_exists'] and row['_direction'] == 'outgoing':
             ws.cell(row=row_num, column=26, value='[Already in master log]')
 
         row_num += 1
@@ -372,10 +412,11 @@ def write_output_excel(rows: list[dict], output_path: str,
     ws_sum['A1'] = 'Processing Summary'
     ws_sum['A1'].font = Font(bold=True, size=12)
     summary_data = [
-        ['Total rows in ExportMail', len(rows)],
-        ['New outgoing submittals', len([r for r in rows if r['_direction'] == 'outgoing' and not r['_exists']])],
-        ['New incoming responses', len([r for r in rows if r['_direction'] == 'incoming' and not r['_exists']])],
-        ['Already in master log', len(exists_rows)],
+        ['Total rows produced', len(rows)],
+        ['New outgoing submittals', new_count],
+        ['Already in master log', exists_count],
+        ['Existing rows updated with PAJV response', updated_count],
+        ['Unmatched PAJV responses (no submittal found)', unmatched_count],
         ['Generated', datetime.now().strftime('%d/%m/%Y %H:%M')],
     ]
     for r_idx, (label, val) in enumerate(summary_data, 3):
