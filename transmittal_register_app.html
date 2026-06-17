@@ -569,6 +569,54 @@ function firstAfterColon(s) {
   return idx === -1 ? '' : s.slice(idx + 1).split(',')[0].trim();
 }
 
+const NAME_INITIALS = {
+  'arunkumar ramakrishnan': 'AKR', 'mahmoud saad': 'MS', 'darren de silva': 'DAD',
+  'daniel maddy': 'DM', 'yazan safieh': 'YS', 'rohit tharakan': 'RT',
+  'lynneth santos': 'LS', 'ashok kumar muthuswamy': 'AKM', 'shahab ahmad khan': 'SAK',
+  'ismaiel salama': 'IS', 'ahmad chikh bakri': 'ACB', 'mike lewey': 'ML',
+  'amit kumar': 'AK', 'mazar syed': 'MSD', 'mohamed yahia': 'MY',
+  'oladele kupolati': 'OK', 'john prabhu': 'JP', 'evripidis zampiras': 'EZ',
+  'kaddour lardjani': 'KLI', 'stephen beadle': 'SAB', 'shaji aboobaker': 'SA',
+  'alexander castellanos': 'AC', 'khaleel hamdan': 'KMH', 'reyad mahmoud': 'RM',
+  'allan halferty': 'AH', 'fareed siddiqi': 'FS', 'loren leiski': 'LL',
+  'vinod kalwaghe': 'VAK', 'ganesh chandra padhy': 'GCP', 'sherif zayed': 'SZ',
+  'mohsin patel': 'MP', 'nageswara rao ampolu': 'NRA', 'christopher harvey': 'CH',
+  'ezzeldin khattab': 'EK', 'suresh shetty': 'SSY', 'ahmed ibrahim': 'AI',
+  'siddarth jayaraman': 'SRJ', 'alister white': 'AW', 'james varley': 'JV',
+  'nuri suslu': 'NSU', 'sandeep jha': 'SJ', 'saipulezam ahmadnasir': 'SEN',
+  'mohamed fahim abdelhady': 'MFA', 'dilip raju sarasa': 'DRS',
+  'kent chin chang': 'KCC', 'sandip ghumde': 'SG', 'jason moore': 'JDM',
+  'voon lee': 'VHL', 'fareed salih': 'FSL', 'reginald hingston': 'RH',
+  'vishnu sadanand': 'VS', 'cristian bostan': 'CB', 'david song': 'DS',
+  'roopa shah': 'RS', 'ahmed abdelhafez': 'AAH', 'andreas tauschinger': 'AT',
+  'basil issac': 'BI', 'ahmed amin': 'AA', 'barkat ahmed': 'BA',
+  'ade ogunsola': 'AO', 'ryan lamban': 'RL', 'naresh atmaram achpalia': 'NAA',
+  'anna zouzoulas': 'AZ', 'greg watt': 'GW', 'lekha kumar': 'LSK',
+  'yogesh kulkarni': 'YK',
+};
+
+function buildNameAliases() {
+  const aliases = { ...NAME_INITIALS };
+  for (const [key, initials] of Object.entries(NAME_INITIALS)) {
+    const words = key.split(' ');
+    if (words.length >= 3) {
+      const surnameKey = `${words[0]} ${words[words.length - 1]}`;
+      const middleKey = `${words[0]} ${words[1]}`;
+      if (!(surnameKey in aliases)) aliases[surnameKey] = initials;
+      if (!(middleKey in aliases)) aliases[middleKey] = initials;
+    }
+  }
+  return aliases;
+}
+
+const NAME_INITIALS_ALIASED = buildNameAliases();
+
+function leadInitials(name) {
+  if (!name) return '';
+  const key = name.trim().toLowerCase().replace(/\s+/g, ' ');
+  return NAME_INITIALS_ALIASED[key] !== undefined ? NAME_INITIALS_ALIASED[key] : name;
+}
+
 function buildIntmLeadMap(mailRows) {
   // INTM rows: lead = first name after ':' in their Recipients (col G)
   const map = {};
@@ -614,7 +662,7 @@ function processTransmittals(mailRows, existingMap) {
     const parsed = isDot ? {} : parseDocRef(first);
     const curRev = extractRevision(subj);
     const dcp    = extractDCP(subj);
-    const lead   = intmLeadMap[normSubject(subj)] || '';
+    const lead   = leadInitials(intmLeadMap[normSubject(subj)] || '');
     const exists = existingMap.has(mailNo);
 
     newRows.set(mailNo, {

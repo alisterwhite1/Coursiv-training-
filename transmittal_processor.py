@@ -33,6 +33,55 @@ CONTRACTOR_ORGS = {'MAPA-LIMAK-CRRC', 'GUNAL'}
 # Engineer org prefix → responses
 ENGINEER_ORGS_PREFIX = ('PAJV',)
 
+# Full name → initials lookup for Lead Reviewer (Col L)
+NAME_INITIALS = {
+    'arunkumar ramakrishnan': 'AKR', 'mahmoud saad': 'MS', 'darren de silva': 'DAD',
+    'daniel maddy': 'DM', 'yazan safieh': 'YS', 'rohit tharakan': 'RT',
+    'lynneth santos': 'LS', 'ashok kumar muthuswamy': 'AKM', 'shahab ahmad khan': 'SAK',
+    'ismaiel salama': 'IS', 'ahmad chikh bakri': 'ACB', 'mike lewey': 'ML',
+    'amit kumar': 'AK', 'mazar syed': 'MSD', 'mohamed yahia': 'MY',
+    'oladele kupolati': 'OK', 'john prabhu': 'JP', 'evripidis zampiras': 'EZ',
+    'kaddour lardjani': 'KLI', 'stephen beadle': 'SAB', 'shaji aboobaker': 'SA',
+    'alexander castellanos': 'AC', 'khaleel hamdan': 'KMH', 'reyad mahmoud': 'RM',
+    'allan halferty': 'AH', 'fareed siddiqi': 'FS', 'loren leiski': 'LL',
+    'vinod kalwaghe': 'VAK', 'ganesh chandra padhy': 'GCP', 'sherif zayed': 'SZ',
+    'mohsin patel': 'MP', 'nageswara rao ampolu': 'NRA', 'christopher harvey': 'CH',
+    'ezzeldin khattab': 'EK', 'suresh shetty': 'SSY', 'ahmed ibrahim': 'AI',
+    'siddarth jayaraman': 'SRJ', 'alister white': 'AW', 'james varley': 'JV',
+    'nuri suslu': 'NSU', 'sandeep jha': 'SJ', 'saipulezam ahmadnasir': 'SEN',
+    'mohamed fahim abdelhady': 'MFA', 'dilip raju sarasa': 'DRS',
+    'kent chin chang': 'KCC', 'sandip ghumde': 'SG', 'jason moore': 'JDM',
+    'voon lee': 'VHL', 'fareed salih': 'FSL', 'reginald hingston': 'RH',
+    'vishnu sadanand': 'VS', 'cristian bostan': 'CB', 'david song': 'DS',
+    'roopa shah': 'RS', 'ahmed abdelhafez': 'AAH', 'andreas tauschinger': 'AT',
+    'basil issac': 'BI', 'ahmed amin': 'AA', 'barkat ahmed': 'BA',
+    'ade ogunsola': 'AO', 'ryan lamban': 'RL', 'naresh atmaram achpalia': 'NAA',
+    'anna zouzoulas': 'AZ', 'greg watt': 'GW', 'lekha kumar': 'LSK',
+    'yogesh kulkarni': 'YK',
+}
+
+
+def _build_name_aliases() -> dict:
+    """Add aliases for 3+ word names where a middle/last name is dropped."""
+    aliases = dict(NAME_INITIALS)
+    for key, initials in NAME_INITIALS.items():
+        words = key.split(' ')
+        if len(words) >= 3:
+            aliases.setdefault(f'{words[0]} {words[-1]}', initials)   # first + surname
+            aliases.setdefault(f'{words[0]} {words[1]}', initials)    # first + middle
+    return aliases
+
+
+NAME_INITIALS_ALIASED = _build_name_aliases()
+
+
+def lead_initials(name: str) -> str:
+    """Map a full Lead name to its initials; return original name if no match."""
+    if not name:
+        return ''
+    key = re.sub(r'\s+', ' ', name.strip().lower())
+    return NAME_INITIALS_ALIASED.get(key, name)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Parsing helpers
@@ -227,7 +276,7 @@ def process_transmittals(mail_records: list[dict],
 
         current_rev = extract_revision(subj)
         dcp = extract_dcp(subj)
-        lead = intm_lead_map.get(_norm_subject(subj)[:120], '')
+        lead = lead_initials(intm_lead_map.get(_norm_subject(subj)[:120], ''))
 
         row = {
             'A': '', 'B': mail_no, 'C': date_val,
