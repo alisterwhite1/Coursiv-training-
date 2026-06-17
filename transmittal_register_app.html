@@ -600,7 +600,6 @@ function processTransmittals(mailRows, existingMap) {
     const parsed  = isDot ? {} : parseDocRef(first);
     const curRev  = extractRevision(subj);
     const dcp     = extractDCP(subj);
-    const dueDate = addDays(date, 21);
     const lead    = intmLeadMap[normSubject(subj)] || '';
 
     const exists = existingMap.has(mailNo);
@@ -622,7 +621,7 @@ function processTransmittals(mailRows, existingMap) {
       K: refs.length || 1,
       L: lead,
       M: dcp,
-      N: dueDate,
+      N: '',
       O: '',
       P: '',
       Q: '',
@@ -633,7 +632,7 @@ function processTransmittals(mailRows, existingMap) {
       V: '',
       W: '',
       X: '',
-      Y: new Date().toLocaleDateString('en-GB'),
+      Y: '',
       Z: exists ? '[Already in master log]' : '',
     });
   }

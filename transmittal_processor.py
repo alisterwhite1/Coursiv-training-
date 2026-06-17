@@ -219,8 +219,6 @@ def process_transmittals(mail_records: list[dict],
         dcp = extract_dcp(subj)
         lead = intm_lead_map.get(_norm_subject(subj)[:120], '')
 
-        due_date = date_val + timedelta(days=21) if date_val else None
-
         # Build row dict (matching master log column positions A-Z, AA)
         row = {
             'A': '',                                           # Draft
@@ -236,18 +234,18 @@ def process_transmittals(mail_records: list[dict],
             'K': len(doc_refs) if doc_refs else 1,            # No of Items
             'L': lead,                                        # Lead
             'M': dcp,                                         # DCP
-            'N': due_date,                                    # Due date (+21 days)
+            'N': '',                                          # Due date — formula in master, not populated
             'O': '',                                          # Response Ref.
             'P': '',                                          # Date Responded
-            'Q': '',                                          # Response Status days
-            'R': '',                                          # Days Overdue
+            'Q': '',                                          # Response Status days — formula, not populated
+            'R': '',                                          # Days Overdue — formula, not populated
             'S': '',                                          # Review Status
             'T': '',                                          # Actual Status
-            'U': '',                                          # Contractor Response Due
-            'V': '',                                          # Contractor Date Responded
-            'W': '',                                          # Contractor Days Overdue
-            'X': '',                                          # Contractor Response Status Days
-            'Y': datetime.now(),                              # Data Date
+            'U': '',                                          # Contractor Response Due — formula, not populated
+            'V': '',                                          # Contractor Date Responded — formula, not populated
+            'W': '',                                          # Contractor Days Overdue — formula, not populated
+            'X': '',                                          # Contractor Response Status Days — formula, not populated
+            'Y': '',                                          # Data Date — formula in master, not populated
             'Z': '',                                          # Remarks
             '_direction': 'outgoing' if is_contractor else 'incoming',
             '_raw': rec,
