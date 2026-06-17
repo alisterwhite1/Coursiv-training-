@@ -162,8 +162,9 @@ def _first_after_colon(s: str) -> str:
 
 
 def _norm_subject(s: str) -> str:
-    """Strip leading Re: prefixes and lowercase for subject matching."""
-    return re.sub(r'^(Re:\s*)+', '', s or '', flags=re.IGNORECASE).strip().lower()
+    """Strip leading Re: prefixes, collapse whitespace, lowercase for matching."""
+    s = re.sub(r'^(Re:\s*)+', '', s or '', flags=re.IGNORECASE).strip().lower()
+    return re.sub(r'\s+', ' ', s)
 
 
 def build_intm_lead_map(mail_records: list[dict]) -> dict:
@@ -188,19 +189,20 @@ def process_transmittals(mail_records: list[dict],
     - Outgoing MLCC/GUNAL transmittals → new submittal rows
     - PAJV transmittals (engineer responses) are NOT given their own row.
       Instead, the PAJV reference (O) and response date (P) are matched
-      by document reference back onto the originating MLCC/GUNAL row —
-      either a new row created today, or an existing master-log row.
+      by Submittal Item Description (col E) back onto the originating
+      MLCC/GUNAL row — either a new row created today, or an existing
+      master-log row.
     - Lead (col L): matched from INTM Recipients (col G) by subject
     Returns list of row dicts mapping to master log columns.
     """
     intm_lead_map = build_intm_lead_map(mail_records)
 
-    # doc ref → aconex ref, for rows already in the master log
-    master_ref_by_docref = {}
+    # normalised description (col E) → aconex ref, for rows already in the master log
+    master_ref_by_desc = {}
     for ref, info in existing_records.items():
-        d = info['row'][3] if len(info['row']) > 3 else None
-        if d:
-            master_ref_by_docref[str(d).strip()] = ref
+        e = info['row'][4] if len(info['row']) > 4 else None
+        if e:
+            master_ref_by_desc[_norm_subject(str(e))] = ref
 
     new_rows: dict[str, dict] = {}     # mail_no → row, for today's MLCC/GUNAL transmittals
     update_rows: dict[str, dict] = {}  # aconex_ref → row, for existing master rows being updated
@@ -241,12 +243,9 @@ def process_transmittals(mail_records: list[dict],
             '_exists': mail_no in existing_records,
         }
         new_rows[mail_no] = row
-        if first_ref:
-            # Allow PAJV responses arriving today to match this new row too
-            master_ref_by_docref.setdefault(first_ref, None)
 
-    # doc ref → mail_no, for today's new rows (takes priority over master log)
-    new_ref_to_mailno = {r['D']: mail_no for mail_no, r in new_rows.items() if r['D']}
+    # normalised description (col E) → mail_no, for today's new rows (priority over master log)
+    new_desc_to_mailno = {_norm_subject(r['E']): mail_no for mail_no, r in new_rows.items() if r['E']}
 
     for rec in mail_records:
         if rec.get('Type') != 'Transmittal':
@@ -257,15 +256,16 @@ def process_transmittals(mail_records: list[dict],
 
         subj = str(rec.get('Subject') or '').strip()
         date_val = parse_date(rec.get('Date'))
+        desc_key = _norm_subject(subj)
         doc_refs, _ = extract_doc_refs(subj)
         ref = doc_refs[0] if doc_refs else ''
 
-        if ref and ref in new_ref_to_mailno:
-            target = new_rows[new_ref_to_mailno[ref]]
+        if desc_key in new_desc_to_mailno:
+            target = new_rows[new_desc_to_mailno[desc_key]]
             target['O'] = mail_no
             target['P'] = date_val
-        elif ref and master_ref_by_docref.get(ref):
-            aconex_ref = master_ref_by_docref[ref]
+        elif desc_key in master_ref_by_desc:
+            aconex_ref = master_ref_by_desc[desc_key]
             if aconex_ref not in update_rows:
                 master_row = existing_records[aconex_ref]['row']
                 cols = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'

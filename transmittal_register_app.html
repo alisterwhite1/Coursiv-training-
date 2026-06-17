@@ -559,7 +559,8 @@ function addDays(dateStr, days) {
 }
 
 function normSubject(s) {
-  return (s || '').replace(/^(Re:\s*)+/i, '').trim().toLowerCase().slice(0, 120);
+  const t = (s || '').replace(/^(Re:\s*)+/i, '').trim().toLowerCase();
+  return t.replace(/\s+/g, ' ');
 }
 
 function firstAfterColon(s) {
@@ -586,11 +587,11 @@ function processTransmittals(mailRows, existingMap) {
   const intmLeadMap = buildIntmLeadMap(mailRows);
   setProgress(20, 'Processing outgoing submittals…');
 
-  // doc ref → aconex ref, for rows already in the master log
-  const masterRefByDocRef = {};
+  // normalised description (col E) → aconex ref, for rows already in the master log
+  const masterRefByDesc = {};
   for (const [aconexRef, rowArr] of existingMap.entries()) {
-    const d = (rowArr[3] || '').toString().trim(); // Col D
-    if (d) masterRefByDocRef[d] = aconexRef;
+    const e = (rowArr[4] || '').toString(); // Col E
+    if (e) masterRefByDesc[normSubject(e)] = aconexRef;
   }
 
   const newRows = new Map();   // mailNo → row, for today's MLCC/GUNAL transmittals
@@ -629,15 +630,15 @@ function processTransmittals(mailRows, existingMap) {
     });
   }
 
-  // doc ref → mail no, for today's new rows (takes priority over master log)
-  const newRefToMailNo = {};
+  // normalised description (col E) → mail no, for today's new rows (priority over master log)
+  const newDescToMailNo = {};
   for (const [mailNo, row] of newRows.entries()) {
-    if (row.D) newRefToMailNo[row.D] = mailNo;
+    if (row.E) newDescToMailNo[normSubject(row.E)] = mailNo;
   }
 
   setProgress(50, 'Matching PAJV responses to originating submittals…');
 
-  // Pass 2: match PAJV responses back onto the originating row
+  // Pass 2: match PAJV responses back onto the originating row by description
   for (const rec of mailRows) {
     if (rec['Type'] !== 'Transmittal') continue;
     const mailNo = (rec['Mail No'] || '').trim();
@@ -645,15 +646,16 @@ function processTransmittals(mailRows, existingMap) {
 
     const subj = (rec['Subject'] || '').trim();
     const date = rec['Date'] || '';
+    const descKey = normSubject(subj);
     const { refs } = extractDocRefs(subj);
     const ref = refs[0] || '';
 
-    if (ref && newRefToMailNo[ref]) {
-      const target = newRows.get(newRefToMailNo[ref]);
+    if (newDescToMailNo[descKey]) {
+      const target = newRows.get(newDescToMailNo[descKey]);
       target.O = mailNo;
       target.P = formatDate(date);
-    } else if (ref && masterRefByDocRef[ref]) {
-      const aconexRef = masterRefByDocRef[ref];
+    } else if (masterRefByDesc[descKey]) {
+      const aconexRef = masterRefByDesc[descKey];
       if (!updateRows.has(aconexRef)) {
         const masterRow = existingMap.get(aconexRef);
         const cols = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
