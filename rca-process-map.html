@@ -94,6 +94,28 @@
     padding: 1.6rem 1.5rem 4rem;
   }
 
+  .nav-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .8rem;
+    margin-bottom: 1.2rem;
+  }
+  .back-btn {
+    flex-shrink: 0;
+    padding: .4rem .85rem;
+    border-radius: 999px;
+    border: 1.5px solid var(--line);
+    background: var(--paper-card);
+    color: var(--slate);
+    font-size: .82rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .back-btn:hover { background: var(--paper-dim); color: var(--navy); }
+  .back-btn.is-hidden { visibility: hidden; }
+
   .breadcrumb {
     display: flex;
     flex-wrap: wrap;
@@ -101,7 +123,6 @@
     gap: .35rem;
     font-size: .84rem;
     color: var(--text-soft);
-    margin-bottom: 1.2rem;
   }
   .breadcrumb button {
     background: none; border: none; cursor: pointer;
@@ -246,6 +267,20 @@
     line-height: 1.5;
   }
   .evidence-input:focus { border-color: var(--slate); background: #fff; }
+  .evidence-suggest {
+    width: 100%;
+    margin-top: .5rem;
+    padding: .55rem .8rem;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--amber);
+    background: #fdf6e9;
+    color: var(--amber-deep);
+    font-size: .82rem;
+    font-weight: 600;
+    font-family: inherit;
+    outline: none;
+    cursor: pointer;
+  }
 
   .deeper-btn {
     margin-top: .3rem;
@@ -436,7 +471,10 @@
 <div id="faultBanner" style="display:none;"></div>
 
 <main>
-  <nav class="breadcrumb" id="breadcrumb"></nav>
+  <div class="nav-row">
+    <button class="back-btn is-hidden" id="backBtn">← Back</button>
+    <nav class="breadcrumb" id="breadcrumb"></nav>
+  </div>
   <div id="content"></div>
 </main>
 
@@ -482,7 +520,9 @@
     return {
       faultTitle: '',
       evidence: {},
+      navPath: [1],
       concludedNodeId: null,
+      concludedPath: null,
       capa: { correctiveAction: '', preventiveAction: '', owner: '', targetDate: '', approvedBy: '', approvedDate: '', approved: false }
     };
   }
@@ -494,6 +534,7 @@
         const parsed = JSON.parse(raw);
         return Object.assign(base, parsed, {
           evidence: Object.assign({}, base.evidence, parsed.evidence || {}),
+          navPath: (parsed.navPath && parsed.navPath.length) ? parsed.navPath : base.navPath,
           capa: Object.assign({}, base.capa, parsed.capa || {})
         });
       }
@@ -505,6 +546,7 @@
   }
   const state = loadState();
   let currentView = 'node'; // 'node' | 'conclusion' | 'capa'
+  let historyStack = [];
 
   function evidenceLabel(n){
     return (n.level === 'rootcausetype' || n.level === 'rootcause') ? 'What needs fixed' : 'RC Evidence';
@@ -533,6 +575,81 @@
 
   let currentId = 1;
 
+  // ---- Navigation / history ----
+
+  function snapshotLocation(){
+    return { view: currentView, id: currentView === 'node' ? currentId : null, navPath: state.navPath.slice() };
+  }
+  function pushHistory(){
+    historyStack.push(snapshotLocation());
+  }
+  function goBack(){
+    if (!historyStack.length) return;
+    const prev = historyStack.pop();
+    state.navPath = prev.navPath;
+    saveState();
+    if (prev.view === 'conclusion') showConclusion();
+    else if (prev.view === 'capa') showCapa();
+    else render(prev.id);
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  function renderBackButton(){
+    const btn = document.getElementById('backBtn');
+    if (!btn) return;
+    btn.classList.toggle('is-hidden', historyStack.length === 0);
+  }
+
+  function goToNode(id, mode){
+    pushHistory();
+    if (mode === 'child') {
+      if (state.navPath[state.navPath.length - 1] !== id) state.navPath.push(id);
+    } else if (mode === 'ancestor') {
+      const idx = state.navPath.indexOf(id);
+      state.navPath = idx !== -1 ? state.navPath.slice(0, idx + 1) : parentChain(byId[id]).map(n => n.id);
+    } else if (mode === 'jump') {
+      state.navPath = parentChain(byId[id]).map(n => n.id);
+    } else if (mode === 'home') {
+      state.navPath = [1];
+    } else if (mode === 'deeper') {
+      state.navPath.push(id);
+    }
+    saveState();
+    render(id);
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  function goConclude(nodeId){
+    pushHistory();
+    state.concludedNodeId = nodeId;
+    state.concludedPath = state.navPath.slice();
+    saveState();
+    showConclusion();
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  function goCapa(){
+    pushHistory();
+    showCapa();
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  function goBackToNodeFromSummary(nodeId){
+    pushHistory();
+    render(nodeId);
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  function goBackToSummaryFromCapa(){
+    pushHistory();
+    showConclusion();
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  function suggestionOptions(n){
+    const isRootLevel = n.level === 'rootcausetype' || n.level === 'rootcause';
+    if (isRootLevel && n.recommendations) {
+      return n.recommendations.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
+    }
+    return (n.questions || []).slice();
+  }
+
   function render(id){
     currentView = 'node';
     currentId = id;
@@ -547,7 +664,7 @@
         <div class="grid">${kids.map(cardHtml).join('')}</div>
       `;
       el.querySelectorAll('.node-card').forEach(c => {
-        c.addEventListener('click', () => { render(parseInt(c.dataset.id)); window.scrollTo({top:0, behavior:'smooth'}); });
+        c.addEventListener('click', () => { goToNode(parseInt(c.dataset.id), 'child'); });
       });
       if (node.id !== 1 && node.definition) {
         el.insertAdjacentHTML('afterbegin', detailHtml(node, true));
@@ -560,7 +677,7 @@
     }
     const deeperBtn = document.getElementById('deeperBtn');
     if (deeperBtn) {
-      deeperBtn.addEventListener('click', () => { render(231); window.scrollTo({top:0, behavior:'smooth'}); });
+      deeperBtn.addEventListener('click', () => { goToNode(231, 'deeper'); });
     }
     const faultInput = document.getElementById('faultTitleInput');
     if (faultInput) {
@@ -579,16 +696,30 @@
         if (cb) cb.disabled = !evidenceInput.value.trim();
       });
     }
-    const concludeBtn = document.getElementById('concludeBtn');
-    if (concludeBtn) {
-      concludeBtn.addEventListener('click', () => {
-        state.concludedNodeId = parseInt(concludeBtn.dataset.id);
+    const evidenceSuggest = document.getElementById('evidenceSuggest');
+    if (evidenceSuggest) {
+      const opts = suggestionOptions(node);
+      evidenceSuggest.addEventListener('change', () => {
+        if (evidenceSuggest.value === '') return;
+        const text = opts[parseInt(evidenceSuggest.value)];
+        const ta = document.getElementById('evidenceInput');
+        const lead = (!ta.value.trim() && state.faultTitle && state.faultTitle.trim()) ? `Re: ${state.faultTitle.trim()} — ` : '';
+        const insertion = lead + text;
+        ta.value = ta.value.trim() ? ta.value.trim() + '\n' + insertion : insertion;
+        state.evidence[node.id] = ta.value;
         saveState();
-        showConclusion();
-        window.scrollTo({top:0, behavior:'smooth'});
+        const cb = document.getElementById('concludeBtn');
+        if (cb) cb.disabled = !ta.value.trim();
+        evidenceSuggest.value = '';
+        ta.focus();
       });
     }
+    const concludeBtn = document.getElementById('concludeBtn');
+    if (concludeBtn) {
+      concludeBtn.addEventListener('click', () => { goConclude(parseInt(concludeBtn.dataset.id)); });
+    }
     renderFaultBanner();
+    renderBackButton();
   }
 
   function faultTitleHtml(){
@@ -650,8 +781,16 @@
 
   function evidenceHtml(n){
     const val = escapeHtml(state.evidence[n.id] || '');
+    const opts = suggestionOptions(n);
+    const rootLevel = n.level === 'rootcausetype' || n.level === 'rootcause';
+    const selectHtml = opts.length ? `
+      <select id="evidenceSuggest" class="evidence-suggest">
+        <option value="">${rootLevel ? 'Suggested fixes…' : 'Suggested prompts…'}</option>
+        ${opts.map((o,i) => `<option value="${i}">${escapeHtml(o.length > 90 ? o.slice(0,87) + '…' : o)}</option>`).join('')}
+      </select>` : '';
     return `<div class="evidence-block">
       <div class="field-label">${evidenceLabel(n)}</div>
+      ${selectHtml}
       <textarea id="evidenceInput" class="evidence-input" rows="3" placeholder="${escapeHtml(evidencePrompt(n))}">${val}</textarea>
     </div>`;
   }
@@ -659,20 +798,23 @@
   function renderBreadcrumb(node){
     const bc = document.getElementById('breadcrumb');
     if (node.id === 1) { bc.innerHTML = ''; return; }
-    const chain = parentChain(node);
+    const idx = state.navPath.indexOf(node.id);
+    const chainIds = idx !== -1 ? state.navPath.slice(0, idx + 1) : parentChain(node).map(n => n.id);
+    const chain = chainIds.map(id => byId[id]);
     bc.innerHTML = chain.map((n,i) => {
       if (i === chain.length-1) return `<span class="current">${escapeHtml(n.name)}</span>`;
       return `<button data-id="${n.id}">${escapeHtml(n.name)}</button><span class="sep">›</span>`;
     }).join('');
     bc.querySelectorAll('button').forEach(b=>{
-      b.addEventListener('click', ()=>{ render(parseInt(b.dataset.id)); window.scrollTo({top:0, behavior:'smooth'}); });
+      b.addEventListener('click', ()=>{ goToNode(parseInt(b.dataset.id), 'ancestor'); });
     });
   }
 
   // ---- Investigation summary / conclusion ----
 
-  function evidenceTrail(rootCauseNode){
-    return parentChain(rootCauseNode).filter(n => n.id !== 1 && n.level !== 'pivot');
+  function evidenceTrail(){
+    const ids = (state.concludedPath && state.concludedPath.length) ? state.concludedPath : parentChain(byId[state.concludedNodeId]).map(n => n.id);
+    return ids.map(id => byId[id]).filter(n => n.id !== 1 && n.level !== 'pivot');
   }
 
   function showConclusion(){
@@ -680,9 +822,9 @@
     const node = byId[state.concludedNodeId];
     const bc = document.getElementById('breadcrumb');
     bc.innerHTML = `<button id="bcBackToNode">${escapeHtml(node.name)}</button><span class="sep">›</span><span class="current">Investigation Summary</span>`;
-    document.getElementById('bcBackToNode').addEventListener('click', () => { render(node.id); window.scrollTo({top:0, behavior:'smooth'}); });
+    document.getElementById('bcBackToNode').addEventListener('click', () => { goBackToNodeFromSummary(node.id); });
 
-    const trail = evidenceTrail(node);
+    const trail = evidenceTrail();
     const el = document.getElementById('content');
     el.innerHTML = `
       <div class="report-card">
@@ -701,8 +843,9 @@
       </div>
       <button class="capa-launch-btn" id="capaLaunchBtn">Corrective Action / Preventive Action →</button>
     `;
-    document.getElementById('capaLaunchBtn').addEventListener('click', () => { showCapa(); window.scrollTo({top:0, behavior:'smooth'}); });
+    document.getElementById('capaLaunchBtn').addEventListener('click', () => { goCapa(); });
     renderFaultBanner();
+    renderBackButton();
   }
 
   // ---- CAPA ----
@@ -712,7 +855,7 @@
     const node = byId[state.concludedNodeId];
     const bc = document.getElementById('breadcrumb');
     bc.innerHTML = `<button id="bcBackToSummary">Investigation Summary</button><span class="sep">›</span><span class="current">Corrective / Preventive Action</span>`;
-    document.getElementById('bcBackToSummary').addEventListener('click', () => { showConclusion(); window.scrollTo({top:0, behavior:'smooth'}); });
+    document.getElementById('bcBackToSummary').addEventListener('click', () => { goBackToSummaryFromCapa(); });
 
     const c = state.capa;
     const locked = c.approved;
@@ -777,11 +920,12 @@
     }
     document.getElementById('printBtn').addEventListener('click', () => { buildPrintReport(); window.print(); });
     renderFaultBanner();
+    renderBackButton();
   }
 
   function buildPrintReport(){
     const node = byId[state.concludedNodeId];
-    const trail = evidenceTrail(node);
+    const trail = evidenceTrail();
     const c = state.capa;
     const html = `
       <h1>Root Cause Analysis Report</h1>
@@ -824,10 +968,9 @@
     searchResults.style.display = 'block';
     searchResults.querySelectorAll('.res-item[data-id]').forEach(r=>{
       r.addEventListener('click', ()=>{
-        render(parseInt(r.dataset.id));
+        goToNode(parseInt(r.dataset.id), 'jump');
         searchResults.style.display = 'none';
         searchInput.value = '';
-        window.scrollTo({top:0, behavior:'smooth'});
       });
     });
   });
@@ -835,7 +978,8 @@
     if (!e.target.closest('.search-wrap')) searchResults.style.display = 'none';
   });
 
-  document.getElementById('homeBtn').addEventListener('click', () => { render(1); window.scrollTo({top:0, behavior:'smooth'}); });
+  document.getElementById('homeBtn').addEventListener('click', () => { goToNode(1, 'home'); });
+  document.getElementById('backBtn').addEventListener('click', goBack);
 
   const legendModal = document.getElementById('legendModal');
   document.getElementById('legendBtn').addEventListener('click', () => legendModal.classList.add('open'));
