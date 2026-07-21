@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Root Cause Navigator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy:         #0f2438;
+    --navy-deep:    #0a1a29;
+    --slate:        #3d5166;
+    --slate-soft:   #64798d;
+    --amber:        #e8a13a;
+    --amber-deep:   #c9821d;
+    --paper:        #f4f2ec;
+    --paper-card:   #ffffff;
+    --paper-dim:    #e8e4d8;
+    --line:         #dcd7c7;
+    --text:         #1c2531;
+    --text-soft:    #52606f;
+    --muted:        #8a93a0;
+    --radius-lg:    18px;
+    --radius-md:    12px;
+    --radius-sm:    8px;
+    --shadow:       0 2px 16px rgba(15,36,56,.08), 0 1px 3px rgba(15,36,56,.06);
+    --shadow-hover: 0 8px 28px rgba(15,36,56,.14), 0 2px 6px rgba(15,36,56,.08);
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-deep) 100%);
+    color: #fff;
+    padding: 1.6rem 1.5rem 1.4rem;
+  }
+  .header-inner { max-width: 1100px; margin: 0 auto; }
+  .eyebrow {
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: .3rem;
+  }
+  header h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: -.4px; }
+  header p.sub { color: #b7c3d1; font-size: .88rem; margin-top: .25rem; max-width: 62ch; }
+
+  .search-row {
+    max-width: 1100px;
+    margin: 1.1rem auto 0;
+    display: flex;
+    gap: .6rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  #searchInput {
+    flex: 1;
+    min-width: 220px;
+    padding: .7rem 1rem;
+    border-radius: 999px;
+    border: none;
+    font-size: .92rem;
+    background: rgba(255,255,255,.12);
+    color: #fff;
+    outline: none;
+  }
+  #searchInput::placeholder { color: #a9b7c6; }
+  #searchInput:focus { background: rgba(255,255,255,.2); }
+  .legend-btn, .map-btn {
+    padding: .68rem 1.1rem;
+    border-radius: 999px;
+    border: 1.5px solid rgba(255,255,255,.25);
+    background: transparent;
+    color: #fff;
+    font-size: .85rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .legend-btn:hover, .map-btn:hover { background: rgba(255,255,255,.12); }
+
+  /* ── Layout ── */
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1.6rem 1.5rem 4rem;
+  }
+
+  .breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .35rem;
+    font-size: .84rem;
+    color: var(--text-soft);
+    margin-bottom: 1.2rem;
+  }
+  .breadcrumb button {
+    background: none; border: none; cursor: pointer;
+    color: var(--slate); font-weight: 700; font-size: .84rem;
+    padding: .15rem .3rem; border-radius: 6px;
+    font-family: inherit;
+  }
+  .breadcrumb button:hover { background: var(--paper-dim); color: var(--navy); }
+  .breadcrumb .sep { color: var(--muted); }
+  .breadcrumb .current { color: var(--text); font-weight: 700; }
+
+  .section-label {
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--slate-soft);
+    margin-bottom: .7rem;
+  }
+
+  /* ── Card grid ── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: .85rem;
+  }
+  .node-card {
+    background: var(--paper-card);
+    border-radius: var(--radius-md);
+    padding: 1.1rem 1.2rem;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    border-left: 5px solid var(--slate);
+    transition: box-shadow .15s, transform .1s;
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    text-align: left;
+  }
+  .node-card:hover { box-shadow: var(--shadow-hover); transform: translateY(-1px); }
+  .node-card .id-chip {
+    font-size: .68rem;
+    font-weight: 800;
+    color: var(--muted);
+    letter-spacing: .04em;
+  }
+  .node-card .name { font-size: .98rem; font-weight: 700; color: var(--text); line-height: 1.3; }
+  .node-card .peek {
+    font-size: .8rem;
+    color: var(--text-soft);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .node-card .child-count {
+    margin-top: .2rem;
+    font-size: .72rem;
+    color: var(--slate-soft);
+    font-weight: 600;
+  }
+
+  /* ── Detail view ── */
+  .detail-card {
+    background: var(--paper-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .detail-head {
+    padding: 1.5rem 1.7rem 1.3rem;
+    border-bottom: 1px solid var(--line);
+    border-left: 6px solid var(--slate);
+  }
+  .detail-head .id-chip {
+    font-size: .72rem; font-weight: 800; color: var(--muted); letter-spacing: .06em; margin-bottom: .3rem;
+  }
+  .detail-head h2 { font-size: 1.4rem; font-weight: 800; color: var(--text); }
+  .detail-head .path {
+    margin-top: .35rem; font-size: .8rem; color: var(--text-soft);
+  }
+  .detail-body { padding: 1.4rem 1.7rem 1.8rem; display: flex; flex-direction: column; gap: 1.3rem; }
+  .field-block .field-label {
+    font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--amber-deep); margin-bottom: .4rem;
+  }
+  .field-block p { font-size: .93rem; line-height: 1.6; color: var(--text); }
+  .field-block ul { margin-left: 1.2rem; font-size: .93rem; line-height: 1.7; color: var(--text); }
+  .field-block.example p { font-style: italic; color: var(--text-soft); }
+
+  .children-nav {
+    margin-top: .4rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid var(--line);
+  }
+
+  /* ── Legend modal ── */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(15,26,41,.55);
+    display: none; align-items: center; justify-content: center; padding: 1.5rem; z-index: 50;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--paper-card); border-radius: var(--radius-lg);
+    max-width: 560px; width: 100%; max-height: 85vh; overflow-y: auto;
+    padding: 1.6rem 1.8rem;
+    box-shadow: 0 20px 60px rgba(0,0,0,.3);
+  }
+  .modal h3 { font-size: 1.15rem; font-weight: 800; margin-bottom: 1rem; color: var(--text); }
+  .modal .close-x {
+    float: right; background: none; border: none; cursor: pointer;
+    font-size: 1.3rem; color: var(--muted); line-height: 1;
+  }
+  .legend-row { display: flex; align-items: center; gap: .7rem; padding: .5rem 0; border-bottom: 1px solid var(--paper-dim); }
+  .legend-shape { width: 30px; height: 20px; border-radius: 4px; flex-shrink: 0; }
+  .legend-row .ltxt { font-size: .88rem; }
+  .legend-row .ltxt strong { display: block; color: var(--text); }
+  .legend-row .ltxt span { color: var(--text-soft); font-size: .8rem; }
+  .legend-colors { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+  .swatch { display: flex; align-items: center; gap: .4rem; font-size: .76rem; color: var(--text-soft); }
+  .swatch i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+
+  /* ── Search results ── */
+  .search-results {
+    position: absolute; z-index: 40; background: #fff; border-radius: var(--radius-md);
+    box-shadow: var(--shadow-hover); max-width: 520px; width: 100%; max-height: 360px; overflow-y: auto;
+    margin-top: .4rem;
+  }
+  .search-results .res-item { padding: .7rem 1rem; cursor: pointer; border-bottom: 1px solid var(--paper-dim); }
+  .search-results .res-item:hover { background: var(--paper); }
+  .search-results .res-item .rname { font-weight: 700; font-size: .88rem; color: var(--text); }
+  .search-results .res-item .rpath { font-size: .74rem; color: var(--muted); }
+  .search-wrap { position: relative; flex: 1; min-width: 220px; }
+
+  footer {
+    text-align: center; padding: 2rem 1rem 3rem; color: var(--muted); font-size: .78rem;
+  }
+
+  @media (max-width: 600px) {
+    header h1 { font-size: 1.3rem; }
+    .detail-head, .detail-body { padding-left: 1.1rem; padding-right: 1.1rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="eyebrow">Quality &amp; Reliability</div>
+    <h1>Root Cause Navigator</h1>
+    <p class="sub">An interactive walk-through of the Root Cause Map: start with a causal factor, drill down through equipment and personnel branches, and land on practical, field-tested guidance for each cause.</p>
+  </div>
+  <div class="search-row">
+    <div class="search-wrap">
+      <input type="text" id="searchInput" placeholder="Search causes by name… e.g. &quot;No Training&quot;" autocomplete="off" />
+      <div class="search-results" id="searchResults" style="display:none;"></div>
+    </div>
+    <button class="map-btn" id="homeBtn">⌂ Start Over</button>
+    <button class="legend-btn" id="legendBtn">Legend</button>
+  </div>
+</header>
+
+<main>
+  <nav class="breadcrumb" id="breadcrumb"></nav>
+  <div id="content"></div>
+</main>
+
+<footer>Root Cause Navigator — content adapted from ABS Group's Root Cause Map™ framework, rewritten for field use.</footer>
+
+<div class="modal-backdrop" id="legendModal">
+  <div class="modal">
+    <button class="close-x" id="closeLegend">&times;</button>
+    <h3>How to read the map</h3>
+    <div class="legend-row"><div class="legend-shape" style="background:#0f2438;"></div><div class="ltxt"><strong>Problem Category</strong><span>The broadest split — equipment, people, or external factors.</span></div></div>
+    <div class="legend-row"><div class="legend-shape" style="background:#64798d;"></div><div class="ltxt"><strong>Major Intermediate Cause Category</strong><span>Narrows down which part of that branch is involved.</span></div></div>
+    <div class="legend-row"><div class="legend-shape" style="background:#3d5166;"></div><div class="ltxt"><strong>Intermediate Cause Category</strong><span>A named family of issues, e.g. "Design Issue" or "Procedure Issue".</span></div></div>
+    <div class="legend-row"><div class="legend-shape" style="background:#e8a13a;"></div><div class="ltxt"><strong>Intermediate Cause</strong><span>The specific, actionable cause — this is where the guidance lives.</span></div></div>
+    <p style="margin-top:1rem; font-size:.82rem; color:var(--text-soft); line-height:1.6;">Equipment-type branches (Process Equipment, Software, Material/Product, Utility Systems, Other Equipment) all share the same five cause categories: Design, Reliability Program, Documentation &amp; Records, Material/Parts &amp; Product, and Hazard/Defect Analysis. Personnel-type branches (Company, Contract, Third-party) all share the same six: Procedure, Human Factors, Training/Qualification, Supervision, Communication, and Personal Performance.</p>
+    <div class="legend-colors" id="colorSwatches"></div>
+  </div>
+</div>
+
+<script id="rca-data" type="application/json">[{"id": 1, "name": "Start here with each causal factor", "level": "start", "color": "yellow", "parent": null, "group": "root", "category": null, "definition": "This is the entry point for every causal factor you've identified. It's not a cause in itself — it's the question you ask first: was this factor driven mainly by equipment, by the people involved, or by something external to the operation?", "typicalIssues": "Investigators sometimes skip this step and jump straight to a favourite explanation — usually blaming the person closest to the failure. That shortcut buries the equipment and system issues that are often sitting underneath.", "recommendations": "Work through each causal factor on its own, and force yourself to check all three branches — equipment, personnel, and external — before you settle on one. Most real incidents have more than one contributing branch.", "questions": ["Was equipment involved in this factor, in any way?", "Was a person's action or decision involved?", "Could something outside the organisation's control have caused or contributed to this?"], "example": "A tank overflowed. The operator missed a level alarm (personnel), but the alarm had also been out of calibration for months (equipment) — both branches needed following."}, {"id": 2, "name": "Equipment/Software Issue", "level": "problem", "color": "darkgreen", "parent": 1, "group": "equipment", "category": null, "definition": "The causal factor traces back to a piece of equipment, machinery, software, or material — not to what a person did or didn't do.", "typicalIssues": "Teams under time pressure often label an equipment failure as a training issue instead, because it's faster to write up and easier to close out. That leaves the actual equipment or design gap in place, waiting to fail again.", "recommendations": "Get someone with real equipment/engineering knowledge into the investigation early. Don't accept 'the part failed' as a root cause — push into why it failed and why the reliability program didn't catch it.", "questions": ["Would this have happened regardless of who was operating the equipment?", "Has this same equipment or equipment type failed before?", "What did the maintenance and inspection history show going into this event?"], "example": "A valve failed in service because it wasn't rated for the process conditions it was actually exposed to."}, {"id": 3, "name": "Front-line Personnel Issue", "level": "problem", "color": "darkgreen", "parent": 1, "group": "personnel", "category": null, "definition": "The causal factor traces back to the actions, decisions, or performance of the people directly doing the work — whether they're your own employees, contractors, or a third party.", "typicalIssues": "It's tempting to stop at 'the person made a mistake.' That's a symptom, not a cause. Almost every human error has a system reason behind it — a bad procedure, missing training, poor supervision, a communication breakdown, or an unreasonable workload.", "recommendations": "Treat the individual's action as the start of the investigation, not the end of it. Work back through procedures, training, supervision, and communication to find out what set them up to make that error.", "questions": ["What was this person trying to accomplish when the error happened?", "Would a well-trained, well-supervised person in the same situation have been likely to make the same mistake?", "What in the surrounding system made the error more likely, or made it harder to catch?"], "example": "An operator opened the wrong valve. On investigation, both valves were unlabelled and physically identical."}, {"id": 4, "name": "External Factors", "level": "problem", "color": "darkgreen", "parent": 1, "group": "external", "category": null, "definition": "The causal factor originates outside the organisation's operations entirely — weather, natural disaster, an outside party's action, or deliberate sabotage.", "typicalIssues": "External Factors gets used as a catch-all more often than it should. If your own design, procedures, or planning didn't account for a foreseeable external event, the real gap is back inside the organisation, not out here.", "recommendations": "Before you close a cause out as external, check whether it was genuinely unforeseeable, and whether your design basis, procedures, and emergency planning reasonably accounted for it.", "questions": ["Was this event foreseeable given the location, industry, or history of the site?", "Did the organisation's plans, procedures, or design standards address this type of event at all?", "Was there a reasonable opportunity to prevent or mitigate the consequence, even if the trigger was external?"], "example": "A storm knocked out grid power to a site that had no documented basis for its backup power sizing."}, {"id": 5, "name": "Tolerable Risk", "level": "problem", "color": "darkgreen", "parent": 1, "group": "terminal", "category": null, "definition": "The investigation concluded that the residual risk from this factor is within the level the organisation has formally accepted — so it isn't something to keep drilling into.", "typicalIssues": "This gets misused as an easy exit from a difficult investigation. If there's no documented, deliberate risk acceptance decision behind it, it isn't a tolerable risk — it's an unexamined one.", "recommendations": "Only use this when you can point to the actual risk assessment and the sign-off that accepted it. If that documentation doesn't exist, the real finding is that the risk was never formally evaluated.", "questions": ["Is there a documented risk assessment that covers this specific scenario?", "Who accepted the risk, and against what criteria?", "Is that acceptance still current, or has something changed since it was made?"], "example": "A minor corrosion allowance was flagged during design and formally accepted under the plant's risk-based inspection program."}, {"id": 6, "name": "Cause Cannot Be Determined", "level": "problem", "color": "darkgreen", "parent": 1, "group": "terminal", "category": null, "definition": "The investigation team worked the evidence as far as it goes and genuinely cannot pin down a root cause with confidence.", "typicalIssues": "This gets reached for too early, usually when evidence is thin, the trail has gone cold, or the investigation has run out of time or appetite. A real 'cannot be determined' finding should be rare, not routine.", "recommendations": "Before you land here, make sure you've exhausted the physical evidence, interviews, and records available — and document what you tried. Flag what evidence would have helped, so it gets preserved next time.", "questions": ["What evidence would have answered this, and was it ever available?", "Was evidence lost, not collected in time, or never generated in the first place?", "What should change in evidence-preservation practice so this doesn't happen again on the next event?"], "example": "A failed component was scrapped before metallurgical examination could be arranged, closing off the one piece of evidence that could have confirmed the failure mode."}, {"id": 7, "name": "Process/Manufacturing Equipment Issue", "level": "major", "color": "grey", "parent": 2, "group": "equipment", "category": null, "definition": "The equipment issue sits with process or manufacturing equipment itself — the machinery, vessels, piping, and hardware that does the actual work.", "typicalIssues": "This is the broadest equipment bucket, so it's where design gaps, maintenance program gaps, documentation gaps, material problems, and analysis gaps all eventually get sorted into one of five more specific categories below.", "recommendations": "Use this as a signpost, not a destination — drill into whichever of Design, Reliability Program, Documentation, Material, or Hazard/Defect Analysis actually fits what you found.", "questions": ["Was the problem with how the equipment was designed, how it was maintained, or how it was specified/procured?"], "example": "A pump repeatedly failed prematurely — the investigation had to work out whether that was a design issue, a maintenance program issue, or both."}, {"id": 8, "name": "Software Issue", "level": "major", "color": "grey", "parent": 2, "group": "equipment", "category": null, "definition": "The equipment issue sits specifically with software — control logic, firmware, or application code — rather than physical hardware.", "typicalIssues": "Software issues get mislabelled as operator error surprisingly often, because the symptom shows up as 'the operator did something the system allowed' rather than as a visible broken part.", "recommendations": "Treat software the same way you'd treat any other engineered component: it has a design, a change history, a test record, and a reliability program. Pull all three when something goes wrong.", "questions": ["Did the software behave as designed, or did it do something unintended?", "Was there a recent change, patch, or configuration update before this happened?"], "example": "A control system permitted two interlocked valves to open at once because a logic change hadn't been fully tested."}, {"id": 9, "name": "Material/Product Issue", "level": "major", "color": "grey", "parent": 2, "group": "equipment", "category": null, "definition": "The equipment issue sits with a material or product itself — a component, raw material, or finished product that didn't perform as it should have.", "typicalIssues": "This is easy to confuse with a design issue. Design issues are about what was specified; material/product issues are about whether what showed up matched the specification, and whether it was handled correctly afterward.", "recommendations": "Check the paper trail from purchase order through receiving inspection to storage and issue — the failure often traces to one specific handoff in that chain, not the material itself.", "questions": ["Did the material or product meet its specification when it arrived?", "Was it stored, handled, or shelf-life-managed correctly before use?"], "example": "A gasket failed prematurely because a substitute material had been accepted without checking its chemical compatibility."}, {"id": 10, "name": "Utility/Support Equipment Issue", "level": "major", "color": "grey", "parent": 2, "group": "equipment", "category": null, "definition": "The equipment issue sits with a utility or support system — power, air, water, steam, HVAC — rather than the primary process equipment it feeds.", "typicalIssues": "Utility systems get less attention than process equipment because they're 'just support,' so their own design and maintenance issues can go unmanaged until they take something else down with them.", "recommendations": "Give utility and support systems the same design, maintenance, and documentation rigor as primary process equipment — don't let 'it's just support' become an excuse for a thinner reliability program.", "questions": ["Which utility or support system was involved, and does it have its own maintenance and inspection program?", "Was the failure in the utility system itself, or in how the process depended on it?"], "example": "A batch was lost when instrument air pressure dropped, closing several fail-safe valves that had no backup air supply."}, {"id": 11, "name": "Other Equipment Issue", "level": "major", "color": "grey", "parent": 2, "group": "equipment", "category": null, "definition": "An equipment issue that doesn't fit cleanly into process/manufacturing equipment, software, material, or utility systems — a genuine miscellaneous bucket.", "typicalIssues": "Before you use this, double-check it isn't actually one of the other four categories in disguise. This bucket should be small.", "recommendations": "If you keep landing here, it's worth reviewing whether your equipment categories need adjusting, or whether the same 'other' issue keeps repeating and deserves its own category.", "questions": ["Have the other four equipment categories genuinely been ruled out?"], "example": "A piece of shared tooling used across several unrelated equipment types failed in a way none of the standard categories captured well."}, {"id": 12, "name": "Company Personnel Issue", "level": "major", "color": "grey", "parent": 3, "group": "personnel", "category": null, "definition": "The people involved were your own employees, not contractors or a third party.", "typicalIssues": "Nothing distinguishes a company-employee issue structurally from a contractor issue — the difference matters for which management system (your training, your supervision, your procedures) is actually responsible for the gap.", "recommendations": "Once you've confirmed it's a company employee, drill straight into Procedures, Human Factors, Training, Supervision, Communication, or Personal Performance to find the real cause.", "questions": ["Was this person a direct employee at the time of the event?"], "example": "A technician on the day shift, employed directly by the site, missed a step in a procedure."}, {"id": 13, "name": "Contract Personnel Issue", "level": "major", "color": "grey", "parent": 3, "group": "personnel", "category": null, "definition": "The people involved worked for a contractor engaged by the organisation, not direct employees.", "typicalIssues": "Contractors often work under different training, supervision, and procedure-access arrangements than direct employees — gaps there can look identical to a personal-performance issue on the surface but have a completely different fix.", "recommendations": "Check specifically whether the contractor had access to the same procedures, training, and site-specific knowledge a direct employee would have had. A generic contract with no site-specific onboarding is a common root cause here.", "questions": ["Did the contractor receive the same procedures and site orientation a direct employee would get?", "Was the contractor directly supervised by someone from your organisation?"], "example": "A contract mechanic fitted the wrong gasket material because the work procedure didn't specify it, relying on knowledge only in-house mechanics had picked up informally."}, {"id": 14, "name": "Third-party Personnel Issue", "level": "major", "color": "grey", "parent": 3, "group": "personnel", "category": null, "definition": "The people involved worked for a third party with a looser or more transient relationship to the site than a standard contractor — a visitor, a delivery driver, a vendor representative.", "typicalIssues": "Third parties are the group least likely to know local hazards, rules, or layout, and the group most likely to be given the least instruction before they're on site.", "recommendations": "Make sure anyone in this category gets a minimum safety and site-rules briefing before they're allowed into operational areas, even for a short visit.", "questions": ["What briefing or orientation, if any, did this person receive before entering the site?", "Were they escorted, or working unsupervised in an area they weren't familiar with?"], "example": "A vending-machine supplier entered a facility to restock machines and wasn't aware PPE was required in the corridor they had to walk through."}, {"id": 15, "name": "Natural Phenomena", "level": "major", "color": "grey", "parent": 4, "group": "external", "category": null, "definition": "The causal factor was a natural event — severe weather, earthquake, flood, lightning — outside anyone's control.", "typicalIssues": "The event itself isn't the root cause worth chasing; whether it was reasonably foreseeable and designed for is. Sites in known flood plains or storm corridors are expected to have planned for it.", "recommendations": "Make sure natural-phenomena risks relevant to the site's location are built into design basis, procedures, training, and risk acceptance criteria — and revisit them periodically as conditions or standards change.", "questions": ["Was this type of event foreseeable for this location?", "Did the design basis, procedures, or emergency plans account for it?"], "example": "A site lost power when lightning struck a transformer that had no documented lightning-protection review."}, {"id": 16, "name": "External Events", "level": "major", "color": "grey", "parent": 4, "group": "external", "category": null, "definition": "The causal factor was an event originating outside the organisation that isn't a natural phenomenon and isn't sabotage — a grid outage, a supplier failure, a nearby incident affecting the site.", "typicalIssues": "These get treated as pure bad luck more often than they should. Many external events are foreseeable risks that simply weren't planned for.", "recommendations": "Treat foreseeable external events the same as any internal risk — assess them, plan contingencies, and build resilience where the cost of doing so is reasonable.", "questions": ["Was there any indication or history that this type of external event could occur?", "What contingency existed, if any, for this dependency failing?"], "example": "A production line stopped when an outside supplier's plant shut down unexpectedly, and no backup source had been qualified."}, {"id": 17, "name": "External Sabotage and Other Criminal Activity", "level": "major", "color": "grey", "parent": 4, "group": "external", "category": null, "definition": "The causal factor was a deliberate act — sabotage, theft, vandalism, or other criminal activity — carried out by someone outside the organisation.", "typicalIssues": "This category gets reached for prematurely when investigators can't otherwise explain an event. Deliberate external acts should be supported by real evidence, not assumed by elimination.", "recommendations": "Involve security and, where appropriate, law enforcement early. Look at physical security, access control, and monitoring gaps that allowed the act to happen, not just the act itself.", "questions": ["What direct evidence points to a deliberate outside act, rather than an internal cause?", "What access-control or monitoring gap allowed it to happen?"], "example": "A remote valve was found deliberately opened outside of normal operating hours, with no site access log covering that area."}, {"id": 18, "name": "Design Issue", "level": "category", "color": "orange", "parent": 7, "group": "equipment", "category": "Design Issue"}, {"id": 19, "name": "Design Input Issue", "level": "cause", "color": "orange", "parent": 18, "group": "equipment", "category": "Design Issue"}, {"id": 20, "name": "Design Scope Issue", "level": "cause", "color": "orange", "parent": 18, "group": "equipment", "category": "Design Issue"}, {"id": 21, "name": "Design Input Data Issue", "level": "cause", "color": "orange", "parent": 18, "group": "equipment", "category": "Design Issue"}, {"id": 22, "name": "Design Output Issue", "level": "cause", "color": "orange", "parent": 18, "group": "equipment", "category": "Design Issue"}, {"id": 23, "name": "Design Output Incorrect", "level": "cause", "color": "orange", "parent": 18, "group": "equipment", "category": "Design Issue"}, {"id": 24, "name": "Design Output Unclear or Inconsistent", "level": "cause", "color": "orange", "parent": 18, "group": "equipment", "category": "Design Issue"}, {"id": 25, "name": "Design Review/Verification Issue", "level": "cause", "color": "orange", "parent": 18, "group": "equipment", "category": "Design Issue"}, {"id": 26, "name": "No Review/Verification", "level": "cause", "color": "orange", "parent": 18, "group": "equipment", "category": "Design Issue"}, {"id": 27, "name": "Review/Verification Issue", "level": "cause", "color": "orange", "parent": 18, "group": "equipment", "category": "Design Issue"}, {"id": 28, "name": "Equipment Reliability Program Issue", "level": "category", "color": "pink", "parent": 7, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 29, "name": "Critical Equipment Not Identified", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 30, "name": "No or Inappropriate Maintenance Selected", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 31, "name": "Risk Acceptance Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 32, "name": "Periodic Maintenance Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 33, "name": "Scope Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 34, "name": "Frequency Specification Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 35, "name": "Implementation Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 36, "name": "Event-based Maintenance Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 37, "name": "Scope Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 38, "name": "Event Specification Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 39, "name": "Monitoring Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 40, "name": "Implementation Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 41, "name": "Condition-based Maintenance Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 42, "name": "Scope Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 43, "name": "Detection Method Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 44, "name": "Monitoring Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 45, "name": "Data Interpretation Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 46, "name": "Implementation Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 47, "name": "Fault-finding Maintenance and Inspection Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 48, "name": "Scope Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 49, "name": "Scheduling/Frequency Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 50, "name": "Implementation Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 51, "name": "Corrective Maintenance Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 52, "name": "Troubleshooting/Corrective Action Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 53, "name": "Repair Implementation Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 54, "name": "Routine Inspection and Servicing Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 55, "name": "Scope Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 56, "name": "Scheduling/Frequency Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 57, "name": "Troubleshooting/Corrective Action Issue", "level": "cause", "color": "pink", "parent": 28, "group": "equipment", "category": "Equipment Reliability Program Issue"}, {"id": 58, "name": "Documentation and Records Issue", "level": "category", "color": "brown", "parent": 7, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 59, "name": "Equipment Records and Manuals Issue", "level": "cause", "color": "brown", "parent": 58, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 60, "name": "Documentation Content Inaccurate or Incomplete", "level": "cause", "color": "brown", "parent": 58, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 61, "name": "Documents Not Available or Missing", "level": "cause", "color": "brown", "parent": 58, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 62, "name": "Out-of-date Documents Used", "level": "cause", "color": "brown", "parent": 58, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 63, "name": "Operational and Maintenance History Issue", "level": "cause", "color": "brown", "parent": 58, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 64, "name": "Documentation Content Inaccurate or Incomplete", "level": "cause", "color": "brown", "parent": 58, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 65, "name": "Documents Not Available or Missing", "level": "cause", "color": "brown", "parent": 58, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 66, "name": "Out-of-date Documents Used", "level": "cause", "color": "brown", "parent": 58, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 67, "name": "Risk Assessment Records Issue", "level": "cause", "color": "brown", "parent": 58, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 68, "name": "Documentation Content Inaccurate or Incomplete", "level": "cause", "color": "brown", "parent": 58, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 69, "name": "Documents Not Available or Missing", "level": "cause", "color": "brown", "parent": 58, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 70, "name": "Out-of-date Documents Used", "level": "cause", "color": "brown", "parent": 58, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 71, "name": "Personnel Records Issue", "level": "cause", "color": "brown", "parent": 58, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 72, "name": "Documentation Content Inaccurate or Incomplete", "level": "cause", "color": "brown", "parent": 58, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 73, "name": "Documents Not Available or Missing", "level": "cause", "color": "brown", "parent": 58, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 74, "name": "Out-of-date Documents Used", "level": "cause", "color": "brown", "parent": 58, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 75, "name": "Other Documents and Records Issue", "level": "cause", "color": "brown", "parent": 58, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 76, "name": "Documentation Content Inaccurate or Incomplete", "level": "cause", "color": "brown", "parent": 58, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 77, "name": "Documents Not Available or Missing", "level": "cause", "color": "brown", "parent": 58, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 78, "name": "Out-of-date Documents Used", "level": "cause", "color": "brown", "parent": 58, "group": "equipment", "category": "Documentation and Records Issue"}, {"id": 79, "name": "Material/Parts and Product Issue", "level": "category", "color": "cyan", "parent": 7, "group": "equipment", "category": "Material/Parts and Product Issue"}, {"id": 80, "name": "Material/Parts Issue", "level": "cause", "color": "cyan", "parent": 79, "group": "equipment", "category": "Material/Parts and Product Issue"}, {"id": 81, "name": "Purchasing Specification Issue", "level": "cause", "color": "cyan", "parent": 79, "group": "equipment", "category": "Material/Parts and Product Issue"}, {"id": 82, "name": "Packaging/Transportation Issue", "level": "cause", "color": "cyan", "parent": 79, "group": "equipment", "category": "Material/Parts and Product Issue"}, {"id": 83, "name": "Acceptance Testing Issue", "level": "cause", "color": "cyan", "parent": 79, "group": "equipment", "category": "Material/Parts and Product Issue"}, {"id": 84, "name": "Acceptance Testing Implementation Issue", "level": "cause", "color": "cyan", "parent": 79, "group": "equipment", "category": "Material/Parts and Product Issue"}, {"id": 85, "name": "Handling and Storage Issue", "level": "cause", "color": "cyan", "parent": 79, "group": "equipment", "category": "Material/Parts and Product Issue"}, {"id": 86, "name": "Inventory Level Issue", "level": "cause", "color": "cyan", "parent": 79, "group": "equipment", "category": "Material/Parts and Product Issue"}, {"id": 87, "name": "Product Control and Acceptance Issue", "level": "cause", "color": "cyan", "parent": 79, "group": "equipment", "category": "Material/Parts and Product Issue"}, {"id": 88, "name": "Product Specification Issue", "level": "cause", "color": "cyan", "parent": 79, "group": "equipment", "category": "Material/Parts and Product Issue"}, {"id": 89, "name": "Product Acceptance Criteria Issue", "level": "cause", "color": "cyan", "parent": 79, "group": "equipment", "category": "Material/Parts and Product Issue"}, {"id": 90, "name": "Inspection Issue", "level": "cause", "color": "cyan", "parent": 79, "group": "equipment", "category": "Material/Parts and Product Issue"}, {"id": 91, "name": "Packaging, Handling, Transportation Issue", "level": "cause", "color": "cyan", "parent": 79, "group": "equipment", "category": "Material/Parts and Product Issue"}, {"id": 92, "name": "Storage Issue", "level": "cause", "color": "cyan", "parent": 79, "group": "equipment", "category": "Material/Parts and Product Issue"}, {"id": 93, "name": "Inventory Level Issue", "level": "cause", "color": "cyan", "parent": 79, "group": "equipment", "category": "Material/Parts and Product Issue"}, {"id": 94, "name": "Hazard/Defect Identification and Analysis Issue", "level": "category", "color": "yellowgreen", "parent": 7, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 95, "name": "Readiness Review Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 96, "name": "Review Not Performed", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 97, "name": "Implementation Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 98, "name": "Change Control Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 99, "name": "Change Identification Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 100, "name": "No Change Assessment Performed", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 101, "name": "Change Assessment Timing Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 102, "name": "Risk Acceptance Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 103, "name": "Proactive Risk/Safety/Reliability/Quality/Security Analysis Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 104, "name": "Analysis Not Performed", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 105, "name": "Analysis Recommendation Identification Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 106, "name": "Recommendation Implementation Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 107, "name": "Risk Acceptance Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 108, "name": "Reactive Risk/Safety/Reliability/Quality/Security Analysis Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 109, "name": "Problem/Incident Reporting/Identification Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 110, "name": "Investigation Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 111, "name": "Recommendation Identification Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 112, "name": "Recommendation Implementation Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 113, "name": "Risk Acceptance Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 114, "name": "Inspection/Audit/Measurement Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 115, "name": "Requirements Not Identified", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 116, "name": "Implementation Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 117, "name": "Recommendation Identification Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 118, "name": "Recommendation Implementation Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 119, "name": "Issue Tracking/Implementation Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 120, "name": "Risk Acceptance Issue", "level": "cause", "color": "yellowgreen", "parent": 94, "group": "equipment", "category": "Hazard/Defect Identification and Analysis Issue"}, {"id": 121, "name": "Procedure Issue", "level": "category", "color": "maroon", "parent": 12, "group": "personnel", "category": "Procedure Issue"}, {"id": 122, "name": "Correct Procedure Not Used", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 123, "name": "No Procedure for Task/Operation", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 124, "name": "Procedure Difficult to Obtain", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 125, "name": "Procedure Use Discouraged", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 126, "name": "Procedure Difficult to Use", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 127, "name": "Change Assessment Issue", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 128, "name": "No Change Assessment Performed", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 129, "name": "Change Assessment Timing Issue", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 130, "name": "Risk Acceptance Issue", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 131, "name": "Correct Procedure Used Incorrectly", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 132, "name": "Format Inappropriate", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 133, "name": "Confusing/Complex/Difficult to Use", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 134, "name": "More than One Action Per Step", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 135, "name": "Inadequate Checklist", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 136, "name": "Graphics/Drawing Issue", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 137, "name": "Language/Wording Issue", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 138, "name": "Insufficient or Excessive References", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 139, "name": "Too Much/Too Little Detail", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 140, "name": "Analysis Not Performed", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 141, "name": "Recommendation Identification Issue", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 142, "name": "Recommendation Implementation Issue", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 143, "name": "Risk Acceptance Issue", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 144, "name": "Inspection/Audit/Measurement Issue", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 145, "name": "Requirements Not Identified", "level": "cause", "color": "maroon", "parent": 121, "group": "personnel", "category": "Procedure Issue"}, {"id": 146, "name": "Human Factors Issue", "level": "category", "color": "teal", "parent": 12, "group": "personnel", "category": "Human Factors Issue"}, {"id": 147, "name": "Tools/Equipment Issue", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 148, "name": "Appropriate Tools/Equipment Not Used", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 149, "name": "Tools/Equipment Not Functioning Properly", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 150, "name": "Workplace Layout Issue", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 151, "name": "Individual Control/Display/Alarm Issue", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 152, "name": "Control/Display/Alarm Integration/Arrangement Issue", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 153, "name": "Awkward/Inconvenient/Inaccessible Location of Control/Display/Alarm", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 154, "name": "Awkward/Inconvenient/Inaccessible Equipment Location", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 155, "name": "Work Environment Issue", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 156, "name": "Housekeeping Issue", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 157, "name": "Ambient Conditions Issue", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 158, "name": "Protective Clothing/Equipment Issue", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 159, "name": "Physical Workload Issue", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 160, "name": "Sustained High Workload/Fatigue", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 161, "name": "High Transient Workload", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 162, "name": "Mental Workload Issue", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 163, "name": "Knowledge-based Behavior Issue", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 164, "name": "Rule-based Behavior Issue", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 165, "name": "Skill-based Behavior Issue", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 166, "name": "Unrealistic Monitoring Requirement", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 167, "name": "Error Mitigation Issue", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 168, "name": "Errors Not Detectable", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 169, "name": "Errors Could Not Be Corrected/Mitigated", "level": "cause", "color": "teal", "parent": 146, "group": "personnel", "category": "Human Factors Issue"}, {"id": 170, "name": "Training/Personnel Qualification Issue", "level": "category", "color": "lightblue", "parent": 12, "group": "personnel", "category": "Training/Personnel Qualification Issue"}, {"id": 171, "name": "No Training", "level": "cause", "color": "lightblue", "parent": 170, "group": "personnel", "category": "Training/Personnel Qualification Issue"}, {"id": 172, "name": "Decision Not to Train", "level": "cause", "color": "lightblue", "parent": 170, "group": "personnel", "category": "Training/Personnel Qualification Issue"}, {"id": 173, "name": "Training Need Not Identified", "level": "cause", "color": "lightblue", "parent": 170, "group": "personnel", "category": "Training/Personnel Qualification Issue"}, {"id": 174, "name": "Training Requirements Not Completed", "level": "cause", "color": "lightblue", "parent": 170, "group": "personnel", "category": "Training/Personnel Qualification Issue"}, {"id": 175, "name": "Training Implementation Issue", "level": "cause", "color": "lightblue", "parent": 170, "group": "personnel", "category": "Training/Personnel Qualification Issue"}, {"id": 176, "name": "Training Program Design/Development Issue", "level": "cause", "color": "lightblue", "parent": 170, "group": "personnel", "category": "Training/Personnel Qualification Issue"}, {"id": 177, "name": "Classroom Training Issue", "level": "cause", "color": "lightblue", "parent": 170, "group": "personnel", "category": "Training/Personnel Qualification Issue"}, {"id": 178, "name": "Laboratory/Practical Training Issue", "level": "cause", "color": "lightblue", "parent": 170, "group": "personnel", "category": "Training/Personnel Qualification Issue"}, {"id": 179, "name": "On-the-job Training Issue", "level": "cause", "color": "lightblue", "parent": 170, "group": "personnel", "category": "Training/Personnel Qualification Issue"}, {"id": 180, "name": "Self Study and Computer-based Training Issue", "level": "cause", "color": "lightblue", "parent": 170, "group": "personnel", "category": "Training/Personnel Qualification Issue"}, {"id": 181, "name": "Continuing Training Issue", "level": "cause", "color": "lightblue", "parent": 170, "group": "personnel", "category": "Training/Personnel Qualification Issue"}, {"id": 182, "name": "Training Resources LTA", "level": "cause", "color": "lightblue", "parent": 170, "group": "personnel", "category": "Training/Personnel Qualification Issue"}, {"id": 183, "name": "Qualification Issue", "level": "cause", "color": "lightblue", "parent": 170, "group": "personnel", "category": "Training/Personnel Qualification Issue"}, {"id": 184, "name": "Supervision Issue", "level": "category", "color": "darkorange", "parent": 12, "group": "personnel", "category": "Supervision Issue"}, {"id": 185, "name": "Preparation Issue", "level": "cause", "color": "darkorange", "parent": 184, "group": "personnel", "category": "Supervision Issue"}, {"id": 186, "name": "Job Plan/Instructions to Workers Issue", "level": "cause", "color": "darkorange", "parent": 184, "group": "personnel", "category": "Supervision Issue"}, {"id": 187, "name": "Ineffective Walkthrough", "level": "cause", "color": "darkorange", "parent": 184, "group": "personnel", "category": "Supervision Issue"}, {"id": 188, "name": "Job Scheduling Issue", "level": "cause", "color": "darkorange", "parent": 184, "group": "personnel", "category": "Supervision Issue"}, {"id": 189, "name": "Personnel Selection/Assignment/Scheduling Issue", "level": "cause", "color": "darkorange", "parent": 184, "group": "personnel", "category": "Supervision Issue"}, {"id": 190, "name": "Responsibility/Authority Issue", "level": "cause", "color": "darkorange", "parent": 184, "group": "personnel", "category": "Supervision Issue"}, {"id": 191, "name": "Supervision During Work Issue", "level": "cause", "color": "darkorange", "parent": 184, "group": "personnel", "category": "Supervision Issue"}, {"id": 192, "name": "Improper Performance Not Corrected", "level": "cause", "color": "darkorange", "parent": 184, "group": "personnel", "category": "Supervision Issue"}, {"id": 193, "name": "Teamwork/Coordination Issue", "level": "cause", "color": "darkorange", "parent": 184, "group": "personnel", "category": "Supervision Issue"}, {"id": 194, "name": "Too Much/Too Little Supervision", "level": "cause", "color": "darkorange", "parent": 184, "group": "personnel", "category": "Supervision Issue"}, {"id": 195, "name": "Verbal and Informal Written Communication Issue", "level": "category", "color": "lavender", "parent": 12, "group": "personnel", "category": "Verbal and Informal Written Communication Issue"}, {"id": 196, "name": "No Communication or Not Timely", "level": "cause", "color": "lavender", "parent": 195, "group": "personnel", "category": "Verbal and Informal Written Communication Issue"}, {"id": 197, "name": "Method Unavailable or Inadequate", "level": "cause", "color": "lavender", "parent": 195, "group": "personnel", "category": "Verbal and Informal Written Communication Issue"}, {"id": 198, "name": "Communication Not Timely/Not Performed", "level": "cause", "color": "lavender", "parent": 195, "group": "personnel", "category": "Verbal and Informal Written Communication Issue"}, {"id": 199, "name": "Communication Misunderstood/Incorrect", "level": "cause", "color": "lavender", "parent": 195, "group": "personnel", "category": "Verbal and Informal Written Communication Issue"}, {"id": 200, "name": "Standard Terminology Not Used", "level": "cause", "color": "lavender", "parent": 195, "group": "personnel", "category": "Verbal and Informal Written Communication Issue"}, {"id": 201, "name": "Language/Translation Issue", "level": "cause", "color": "lavender", "parent": 195, "group": "personnel", "category": "Verbal and Informal Written Communication Issue"}, {"id": 202, "name": "Verification/Repeat-back Not Used", "level": "cause", "color": "lavender", "parent": 195, "group": "personnel", "category": "Verbal and Informal Written Communication Issue"}, {"id": 203, "name": "Long Message", "level": "cause", "color": "lavender", "parent": 195, "group": "personnel", "category": "Verbal and Informal Written Communication Issue"}, {"id": 204, "name": "Wrong Instructions", "level": "cause", "color": "lavender", "parent": 195, "group": "personnel", "category": "Verbal and Informal Written Communication Issue"}, {"id": 205, "name": "Personnel Performance Issue", "level": "category", "color": "red", "parent": 12, "group": "personnel", "category": "Personnel Performance Issue"}, {"id": 206, "name": "Company Issue", "level": "cause", "color": "red", "parent": 205, "group": "personnel", "category": "Personnel Performance Issue"}, {"id": 207, "name": "Personnel Hiring Issue", "level": "cause", "color": "red", "parent": 205, "group": "personnel", "category": "Personnel Performance Issue"}, {"id": 208, "name": "Resource/Staffing Issue", "level": "cause", "color": "red", "parent": 205, "group": "personnel", "category": "Personnel Performance Issue"}, {"id": 209, "name": "Rewards/Incentives Issue", "level": "cause", "color": "red", "parent": 205, "group": "personnel", "category": "Personnel Performance Issue"}, {"id": 210, "name": "Detection of Individual Performance Problem Issue", "level": "cause", "color": "red", "parent": 205, "group": "personnel", "category": "Personnel Performance Issue"}, {"id": 211, "name": "Individual Issue", "level": "cause", "color": "red", "parent": 205, "group": "personnel", "category": "Personnel Performance Issue"}, {"id": 212, "name": "Sensory/Perceptual Capabilities Issue", "level": "cause", "color": "red", "parent": 205, "group": "personnel", "category": "Personnel Performance Issue"}, {"id": 213, "name": "Mental Capabilities Issue", "level": "cause", "color": "red", "parent": 205, "group": "personnel", "category": "Personnel Performance Issue"}, {"id": 214, "name": "Personal Problem", "level": "cause", "color": "red", "parent": 205, "group": "personnel", "category": "Personnel Performance Issue"}, {"id": 215, "name": "Other Misunderstood Communications", "level": "cause", "color": "red", "parent": 205, "group": "personnel", "category": "Personnel Performance Issue"}, {"id": 216, "name": "Physical Capabilities Issue", "level": "cause", "color": "red", "parent": 205, "group": "personnel", "category": "Personnel Performance Issue"}, {"id": 217, "name": "Prescribed Drug Interaction Issue", "level": "cause", "color": "red", "parent": 205, "group": "personnel", "category": "Personnel Performance Issue"}, {"id": 218, "name": "Horseplay", "level": "cause", "color": "red", "parent": 205, "group": "personnel", "category": "Personnel Performance Issue"}, {"id": 219, "name": "Off-the-job Rest/Sleep (Fatigue) Issue", "level": "cause", "color": "red", "parent": 205, "group": "personnel", "category": "Personnel Performance Issue"}, {"id": 220, "name": "Disregard for Company Procedures/Policies", "level": "cause", "color": "red", "parent": 205, "group": "personnel", "category": "Personnel Performance Issue"}, {"id": 221, "name": "Drug/Alcohol Abuse", "level": "cause", "color": "red", "parent": 205, "group": "personnel", "category": "Personnel Performance Issue"}, {"id": 222, "name": "Internal Sabotage or Criminal Activity", "level": "cause", "color": "red", "parent": 205, "group": "personnel", "category": "Personnel Performance Issue"}]</script>
+<script>
+(function(){
+  const DATA = JSON.parse(document.getElementById('rca-data').textContent);
+  const byId = {};
+  DATA.forEach(n => byId[n.id] = n);
+
+  const COLOR_HEX = {
+    yellow: '#e8c33a', darkgreen: '#0f2438', grey: '#64798d',
+    orange: '#e07b2e', pink: '#d1568f', brown: '#8a5a34',
+    cyan: '#2a9fb0', yellowgreen: '#8fae2e', maroon: '#7a2331',
+    teal: '#1f7a6c', lightblue: '#3d8fc4', darkorange: '#d9722c',
+    lavender: '#8a6fb0', red: '#c23a3a'
+  };
+
+  function children(node){
+    if (node.level === 'major' && (node.group === 'equipment' || node.group === 'personnel')) {
+      return DATA.filter(n => n.level === 'category' && n.group === node.group);
+    }
+    return DATA.filter(n => n.parent === node.id);
+  }
+  function parentChain(node){
+    const chain = [];
+    let cur = node;
+    while (cur) {
+      chain.unshift(cur);
+      cur = cur.parent != null ? byId[cur.parent] : null;
+    }
+    return chain;
+  }
+
+  let currentId = 1;
+
+  function render(id){
+    currentId = id;
+    const node = byId[id];
+    const kids = children(node);
+    renderBreadcrumb(node);
+    const el = document.getElementById('content');
+    if (kids.length > 0) {
+      const label = node.id === 1 ? 'Choose a branch to begin' : `${escapeHtml(node.name)} — choose a branch`;
+      el.innerHTML = `
+        <div class="section-label">${label}</div>
+        <div class="grid">${kids.map(cardHtml).join('')}</div>
+      `;
+      el.querySelectorAll('.node-card').forEach(c => {
+        c.addEventListener('click', () => { render(parseInt(c.dataset.id)); window.scrollTo({top:0, behavior:'smooth'}); });
+      });
+      if (node.id !== 1 && node.definition) {
+        el.insertAdjacentHTML('afterbegin', detailHtml(node, true));
+      }
+    } else {
+      el.innerHTML = detailHtml(node, false);
+    }
+  }
+
+  function cardHtml(n){
+    const hex = COLOR_HEX[n.color] || '#3d5166';
+    const kids = children(n).length;
+    return `<button class="node-card" style="border-left-color:${hex}" data-id="${n.id}">
+      <span class="id-chip">${n.level.toUpperCase()}</span>
+      <span class="name">${escapeHtml(n.name)}</span>
+      ${n.definition ? `<span class="peek">${escapeHtml(n.definition)}</span>` : ''}
+      ${kids ? `<span class="child-count">${kids} sub-item${kids===1?'':'s'} →</span>` : ''}
+    </button>`;
+  }
+
+  function detailHtml(n, compact){
+    const hex = COLOR_HEX[n.color] || '#3d5166';
+    const chain = parentChain(n).slice(0,-1).map(p=>p.name).join(' → ');
+    return `<div class="detail-card" style="margin-bottom:${compact?'1.4rem':'0'}">
+      <div class="detail-head" style="border-left-color:${hex}">
+        <div class="id-chip">${n.level.toUpperCase()}</div>
+        <h2>${escapeHtml(n.name)}</h2>
+        ${chain ? `<div class="path">${escapeHtml(chain)}</div>` : ''}
+      </div>
+      <div class="detail-body">
+        ${field('What it is', n.definition)}
+        ${field('Typical issues', n.typicalIssues)}
+        ${field('Recommendations', n.recommendations)}
+        ${n.questions && n.questions.length ? `<div class="field-block"><div class="field-label">Questions to ask</div><ul>${n.questions.map(q=>`<li>${escapeHtml(q)}</li>`).join('')}</ul></div>` : ''}
+        ${n.example ? `<div class="field-block example"><div class="field-label">Example</div><p>${escapeHtml(n.example)}</p></div>` : ''}
+      </div>
+    </div>`;
+  }
+  function field(label, text){
+    if (!text) return '';
+    return `<div class="field-block"><div class="field-label">${label}</div><p>${escapeHtml(text)}</p></div>`;
+  }
+
+  function renderBreadcrumb(node){
+    const bc = document.getElementById('breadcrumb');
+    if (node.id === 1) { bc.innerHTML = ''; return; }
+    const chain = parentChain(node);
+    bc.innerHTML = chain.map((n,i) => {
+      if (i === chain.length-1) return `<span class="current">${escapeHtml(n.name)}</span>`;
+      return `<button data-id="${n.id}">${escapeHtml(n.name)}</button><span class="sep">›</span>`;
+    }).join('');
+    bc.querySelectorAll('button').forEach(b=>{
+      b.addEventListener('click', ()=>{ render(parseInt(b.dataset.id)); window.scrollTo({top:0, behavior:'smooth'}); });
+    });
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // Search
+  const searchInput = document.getElementById('searchInput');
+  const searchResults = document.getElementById('searchResults');
+  searchInput.addEventListener('input', () => {
+    const q = searchInput.value.trim().toLowerCase();
+    if (q.length < 2) { searchResults.style.display = 'none'; return; }
+    const matches = DATA.filter(n => n.name.toLowerCase().includes(q)).slice(0, 25);
+    if (!matches.length) { searchResults.innerHTML = '<div class="res-item"><span class="rpath">No matches</span></div>'; searchResults.style.display='block'; return; }
+    searchResults.innerHTML = matches.map(n => {
+      const chain = parentChain(n).slice(0,-1).map(p=>p.name).join(' → ');
+      return `<div class="res-item" data-id="${n.id}"><div class="rname">${escapeHtml(n.name)}</div><div class="rpath">${escapeHtml(chain)}</div></div>`;
+    }).join('');
+    searchResults.style.display = 'block';
+    searchResults.querySelectorAll('.res-item[data-id]').forEach(r=>{
+      r.addEventListener('click', ()=>{
+        render(parseInt(r.dataset.id));
+        searchResults.style.display = 'none';
+        searchInput.value = '';
+        window.scrollTo({top:0, behavior:'smooth'});
+      });
+    });
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.search-wrap')) searchResults.style.display = 'none';
+  });
+
+  document.getElementById('homeBtn').addEventListener('click', () => { render(1); window.scrollTo({top:0, behavior:'smooth'}); });
+
+  const legendModal = document.getElementById('legendModal');
+  document.getElementById('legendBtn').addEventListener('click', () => legendModal.classList.add('open'));
+  document.getElementById('closeLegend').addEventListener('click', () => legendModal.classList.remove('open'));
+  legendModal.addEventListener('click', (e) => { if (e.target === legendModal) legendModal.classList.remove('open'); });
+
+  const swatchWrap = document.getElementById('colorSwatches');
+  const usedColors = [...new Set(DATA.filter(n=>n.level==='category').map(n=>n.color))];
+  swatchWrap.innerHTML = usedColors.map(c => {
+    const n = DATA.find(n=>n.color===c && n.level==='category');
+    return `<span class="swatch"><i style="background:${COLOR_HEX[c]||'#3d5166'}"></i>${escapeHtml(n.name)}</span>`;
+  }).join('');
+
+  render(1);
+})();
+</script>
+</body>
+</html>
