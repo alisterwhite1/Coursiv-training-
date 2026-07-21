@@ -263,6 +263,104 @@
   }
   .deeper-btn:hover { background: #fbecc9; }
 
+  .conclude-btn {
+    margin-top: .3rem;
+    padding: .85rem 1.1rem;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: var(--navy);
+    color: #fff;
+    font-size: .9rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .conclude-btn:hover:not(:disabled) { background: var(--navy-deep); }
+  .conclude-btn:disabled { background: var(--paper-dim); color: var(--muted); cursor: not-allowed; }
+
+  /* ── Summary / CAPA report pages ── */
+  .report-card {
+    background: var(--paper-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 1.6rem 1.8rem 1.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.3rem;
+  }
+  .report-title { font-size: 1.3rem; font-weight: 800; color: var(--text); }
+  .report-block { padding-top: 1rem; border-top: 1px solid var(--line); }
+  .report-block:first-of-type { border-top: none; padding-top: 0; }
+  .report-label { font-size: .82rem; font-weight: 800; color: var(--navy); margin-bottom: .3rem; }
+  .report-sublabel { font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--amber-deep); margin-bottom: .2rem; }
+  .report-value { font-size: .92rem; line-height: 1.6; color: var(--text); white-space: pre-wrap; }
+
+  .capa-launch-btn, .print-btn {
+    margin-top: 1.2rem;
+    padding: .9rem 1.3rem;
+    border-radius: 999px;
+    border: none;
+    background: var(--amber);
+    color: var(--navy-deep);
+    font-size: .92rem;
+    font-weight: 800;
+    cursor: pointer;
+    font-family: inherit;
+    align-self: flex-start;
+  }
+  .capa-launch-btn:hover, .print-btn:hover { filter: brightness(1.05); }
+  .print-btn { background: var(--navy); color: #fff; }
+
+  .capa-form { display: flex; flex-direction: column; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+  .capa-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 560px) { .capa-row { grid-template-columns: 1fr; } }
+  .capa-label { display: flex; flex-direction: column; gap: .4rem; font-size: .82rem; font-weight: 700; color: var(--text); }
+  .capa-hint { font-weight: 500; color: var(--muted); text-transform: none; letter-spacing: 0; }
+  .capa-input {
+    padding: .65rem .85rem;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--line);
+    font-size: .9rem;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--paper);
+    outline: none;
+    resize: vertical;
+  }
+  .capa-input:focus { border-color: var(--slate); background: #fff; }
+  .capa-input:disabled { background: var(--paper-dim); color: var(--text-soft); }
+
+  .approval-block { padding-top: 1rem; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: .8rem; }
+  .approval-block.approved { background: #eef8f0; border-radius: var(--radius-sm); padding: 1rem; border-top: none; }
+  .approve-btn {
+    align-self: flex-start;
+    padding: .7rem 1.2rem;
+    border-radius: 999px;
+    border: none;
+    background: var(--green, #2e8b57);
+    background: #2e8b57;
+    color: #fff;
+    font-weight: 700;
+    font-size: .86rem;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .approve-btn:hover { filter: brightness(1.08); }
+  .approved-badge { font-size: .88rem; font-weight: 700; color: #1e6b3f; }
+
+  .print-only { display: none; }
+  @media print {
+    body > *:not(#printReport) { display: none !important; }
+    #printReport { display: block !important; padding: 1.5rem; color: #000; font-family: Georgia, serif; }
+    #printReport h1 { font-size: 1.4rem; margin-bottom: .3rem; }
+    #printReport h2 { font-size: 1.1rem; font-weight: normal; margin-bottom: 1.2rem; color: #333; }
+    #printReport h3 { font-size: 1rem; margin: 1.3rem 0 .6rem; border-bottom: 1px solid #999; padding-bottom: .2rem; }
+    #printReport .pr-block { margin-bottom: .8rem; }
+    #printReport .pr-label { font-weight: bold; font-size: .85rem; }
+    #printReport .pr-sublabel { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: #555; }
+    #printReport p { font-size: .88rem; line-height: 1.5; margin-top: .15rem; }
+  }
+
   .children-nav {
     margin-top: .4rem;
     padding-top: 1.2rem;
@@ -344,6 +442,8 @@
 
 <footer>Root Cause Navigator — a field guide to finding what actually went wrong.</footer>
 
+<div id="printReport" class="print-only"></div>
+
 <div class="modal-backdrop" id="legendModal">
   <div class="modal">
     <button class="close-x" id="closeLegend">&times;</button>
@@ -378,18 +478,33 @@
   };
 
   const STORAGE_KEY = 'rcaNavigatorState';
+  function defaultState(){
+    return {
+      faultTitle: '',
+      evidence: {},
+      concludedNodeId: null,
+      capa: { correctiveAction: '', preventiveAction: '', owner: '', targetDate: '', approvedBy: '', approvedDate: '', approved: false }
+    };
+  }
   function loadState(){
+    const base = defaultState();
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return Object.assign(base, parsed, {
+          evidence: Object.assign({}, base.evidence, parsed.evidence || {}),
+          capa: Object.assign({}, base.capa, parsed.capa || {})
+        });
+      }
     } catch (e) {}
-    return { faultTitle: '', evidence: {} };
+    return base;
   }
   function saveState(){
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
   }
   const state = loadState();
-  if (!state.evidence) state.evidence = {};
+  let currentView = 'node'; // 'node' | 'conclusion' | 'capa'
 
   function evidenceLabel(n){
     return (n.level === 'rootcausetype' || n.level === 'rootcause') ? 'What needs fixed' : 'RC Evidence';
@@ -419,6 +534,7 @@
   let currentId = 1;
 
   function render(id){
+    currentView = 'node';
     currentId = id;
     const node = byId[id];
     const kids = children(node);
@@ -459,6 +575,17 @@
       evidenceInput.addEventListener('input', () => {
         state.evidence[node.id] = evidenceInput.value;
         saveState();
+        const cb = document.getElementById('concludeBtn');
+        if (cb) cb.disabled = !evidenceInput.value.trim();
+      });
+    }
+    const concludeBtn = document.getElementById('concludeBtn');
+    if (concludeBtn) {
+      concludeBtn.addEventListener('click', () => {
+        state.concludedNodeId = parseInt(concludeBtn.dataset.id);
+        saveState();
+        showConclusion();
+        window.scrollTo({top:0, behavior:'smooth'});
       });
     }
     renderFaultBanner();
@@ -512,6 +639,7 @@
         ${n.example ? `<div class="field-block example"><div class="field-label">Example</div><p>${escapeHtml(n.example)}</p></div>` : ''}
         ${n.id !== 1 ? evidenceHtml(n) : ''}
         ${n.level === 'cause' && !n.noRootCauseDrill ? `<button class="deeper-btn" id="deeperBtn">Not sure this is the root cause yet? Check for a standards/policy/administrative-control issue underneath it →</button>` : ''}
+        ${n.level === 'rootcause' ? `<button class="conclude-btn" id="concludeBtn" data-id="${n.id}" ${(state.evidence[n.id]||'').trim() ? '' : 'disabled'}>Conclude Investigation →</button>` : ''}
       </div>
     </div>`;
   }
@@ -539,6 +667,142 @@
     bc.querySelectorAll('button').forEach(b=>{
       b.addEventListener('click', ()=>{ render(parseInt(b.dataset.id)); window.scrollTo({top:0, behavior:'smooth'}); });
     });
+  }
+
+  // ---- Investigation summary / conclusion ----
+
+  function evidenceTrail(rootCauseNode){
+    return parentChain(rootCauseNode).filter(n => n.id !== 1 && n.level !== 'pivot');
+  }
+
+  function showConclusion(){
+    currentView = 'conclusion';
+    const node = byId[state.concludedNodeId];
+    const bc = document.getElementById('breadcrumb');
+    bc.innerHTML = `<button id="bcBackToNode">${escapeHtml(node.name)}</button><span class="sep">›</span><span class="current">Investigation Summary</span>`;
+    document.getElementById('bcBackToNode').addEventListener('click', () => { render(node.id); window.scrollTo({top:0, behavior:'smooth'}); });
+
+    const trail = evidenceTrail(node);
+    const el = document.getElementById('content');
+    el.innerHTML = `
+      <div class="report-card">
+        <div class="report-title">Investigation Summary</div>
+        <div class="report-block">
+          <div class="report-label">Fault / Defect Title</div>
+          <p class="report-value">${escapeHtml(state.faultTitle || '(not entered)')}</p>
+        </div>
+        ${trail.map((n, i) => `
+          <div class="report-block">
+            <div class="report-label">${i + 1}. ${escapeHtml(n.name)}${n.level==='rootcause' ? ' — root cause' : ''}</div>
+            <div class="report-sublabel">${n.level === 'rootcause' ? 'What needs fixed' : 'RC Evidence'}</div>
+            <p class="report-value">${escapeHtml(state.evidence[n.id] || '(no evidence recorded)')}</p>
+          </div>
+        `).join('')}
+      </div>
+      <button class="capa-launch-btn" id="capaLaunchBtn">Corrective Action / Preventive Action →</button>
+    `;
+    document.getElementById('capaLaunchBtn').addEventListener('click', () => { showCapa(); window.scrollTo({top:0, behavior:'smooth'}); });
+    renderFaultBanner();
+  }
+
+  // ---- CAPA ----
+
+  function showCapa(){
+    currentView = 'capa';
+    const node = byId[state.concludedNodeId];
+    const bc = document.getElementById('breadcrumb');
+    bc.innerHTML = `<button id="bcBackToSummary">Investigation Summary</button><span class="sep">›</span><span class="current">Corrective / Preventive Action</span>`;
+    document.getElementById('bcBackToSummary').addEventListener('click', () => { showConclusion(); window.scrollTo({top:0, behavior:'smooth'}); });
+
+    const c = state.capa;
+    const locked = c.approved;
+    const el = document.getElementById('content');
+    el.innerHTML = `
+      <div class="report-card">
+        <div class="report-title">Proposed Corrective / Preventive Action</div>
+        <div class="report-block">
+          <div class="report-label">Root cause</div>
+          <p class="report-value">${escapeHtml(node.name)} — ${escapeHtml(state.evidence[node.id] || '')}</p>
+        </div>
+        <div class="capa-form">
+          <label class="capa-label">Corrective Action <span class="capa-hint">(fixes this occurrence)</span>
+            <textarea id="capaCorrective" class="capa-input" rows="3" ${locked?'disabled':''} placeholder="What will be done to correct this specific issue?">${escapeHtml(c.correctiveAction)}</textarea>
+          </label>
+          <label class="capa-label">Preventive Action <span class="capa-hint">(stops recurrence)</span>
+            <textarea id="capaPreventive" class="capa-input" rows="3" ${locked?'disabled':''} placeholder="What will be done to prevent this happening again?">${escapeHtml(c.preventiveAction)}</textarea>
+          </label>
+          <div class="capa-row">
+            <label class="capa-label">Responsible Owner
+              <input type="text" id="capaOwner" class="capa-input" ${locked?'disabled':''} value="${escapeHtml(c.owner)}" placeholder="Name / role" />
+            </label>
+            <label class="capa-label">Target Completion Date
+              <input type="date" id="capaTargetDate" class="capa-input" ${locked?'disabled':''} value="${escapeHtml(c.targetDate)}" />
+            </label>
+          </div>
+        </div>
+        <div class="approval-block ${locked ? 'approved' : ''}">
+          <div class="report-label">${locked ? 'Approved' : 'Approval'}</div>
+          <div class="capa-row">
+            <label class="capa-label">Approved By
+              <input type="text" id="capaApprovedBy" class="capa-input" ${locked?'disabled':''} value="${escapeHtml(c.approvedBy)}" placeholder="Name / role" />
+            </label>
+            <label class="capa-label">Approval Date
+              <input type="date" id="capaApprovedDate" class="capa-input" ${locked?'disabled':''} value="${escapeHtml(c.approvedDate)}" />
+            </label>
+          </div>
+          ${locked
+            ? `<div class="approved-badge">✓ Approved by ${escapeHtml(c.approvedBy)} on ${escapeHtml(c.approvedDate)}</div>`
+            : `<button class="approve-btn" id="approveBtn">Approve CAPA</button>`}
+        </div>
+        <button class="print-btn" id="printBtn">Print Report (PDF) →</button>
+      </div>
+    `;
+
+    if (!locked) {
+      ['capaCorrective','capaPreventive','capaOwner','capaTargetDate','capaApprovedBy','capaApprovedDate'].forEach(id => {
+        const elInput = document.getElementById(id);
+        elInput.addEventListener('input', () => {
+          const map = { capaCorrective:'correctiveAction', capaPreventive:'preventiveAction', capaOwner:'owner', capaTargetDate:'targetDate', capaApprovedBy:'approvedBy', capaApprovedDate:'approvedDate' };
+          state.capa[map[id]] = elInput.value;
+          saveState();
+        });
+      });
+      document.getElementById('approveBtn').addEventListener('click', () => {
+        if (!state.capa.approvedBy.trim()) { document.getElementById('capaApprovedBy').focus(); return; }
+        if (!state.capa.approvedDate) { state.capa.approvedDate = new Date().toISOString().slice(0,10); }
+        state.capa.approved = true;
+        saveState();
+        showCapa();
+      });
+    }
+    document.getElementById('printBtn').addEventListener('click', () => { buildPrintReport(); window.print(); });
+    renderFaultBanner();
+  }
+
+  function buildPrintReport(){
+    const node = byId[state.concludedNodeId];
+    const trail = evidenceTrail(node);
+    const c = state.capa;
+    const html = `
+      <h1>Root Cause Analysis Report</h1>
+      <h2>${escapeHtml(state.faultTitle || '(fault/defect title not entered)')}</h2>
+      <h3>Investigation Trail</h3>
+      ${trail.map((n,i) => `
+        <div class="pr-block">
+          <div class="pr-label">${i+1}. ${escapeHtml(n.name)}${n.level==='rootcause' ? ' — Root Cause' : ''}</div>
+          <div class="pr-sublabel">${n.level === 'rootcause' ? 'What needs fixed' : 'RC Evidence'}</div>
+          <p>${escapeHtml(state.evidence[n.id] || '(no evidence recorded)')}</p>
+        </div>
+      `).join('')}
+      <h3>Corrective / Preventive Action</h3>
+      <div class="pr-block"><div class="pr-label">Corrective Action</div><p>${escapeHtml(c.correctiveAction || '(not entered)')}</p></div>
+      <div class="pr-block"><div class="pr-label">Preventive Action</div><p>${escapeHtml(c.preventiveAction || '(not entered)')}</p></div>
+      <div class="pr-block"><div class="pr-label">Responsible Owner</div><p>${escapeHtml(c.owner || '(not entered)')}</p></div>
+      <div class="pr-block"><div class="pr-label">Target Completion Date</div><p>${escapeHtml(c.targetDate || '(not entered)')}</p></div>
+      <h3>Approval</h3>
+      <p>${c.approved ? `Approved by ${escapeHtml(c.approvedBy)} on ${escapeHtml(c.approvedDate)}` : 'Not yet approved'}</p>
+    `;
+    document.getElementById('printReport').innerHTML = html;
   }
 
   function escapeHtml(s){
