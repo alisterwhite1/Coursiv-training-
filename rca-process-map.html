@@ -383,6 +383,69 @@
   .approve-btn:hover { filter: brightness(1.08); }
   .approved-badge { font-size: .88rem; font-weight: 700; color: #1e6b3f; }
 
+  .summary-actions { display: flex; flex-wrap: wrap; gap: .8rem; align-items: center; margin-top: 1.2rem; }
+  .save-lib-btn {
+    padding: .9rem 1.3rem;
+    border-radius: 999px;
+    border: 1.5px solid var(--slate);
+    background: transparent;
+    color: var(--slate);
+    font-size: .88rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    align-self: flex-start;
+  }
+  .save-lib-btn:hover { background: var(--paper-dim); color: var(--navy); }
+
+  /* ── Saved investigations library ── */
+  .library-toolbar { display: flex; gap: .6rem; margin: .8rem 0 .4rem; }
+  .map-btn-inline {
+    padding: .5rem 1rem;
+    border-radius: 999px;
+    border: 1.5px solid var(--line);
+    background: var(--paper);
+    color: var(--navy);
+    font-size: .82rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .map-btn-inline:hover:not(:disabled) { background: var(--paper-dim); }
+  .map-btn-inline:disabled { color: var(--muted); cursor: not-allowed; }
+  .library-list { display: flex; flex-direction: column; gap: .8rem; margin-top: .6rem; }
+  .library-card {
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: .7rem;
+  }
+  .library-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .8rem; }
+  .library-card-title { font-size: 1rem; font-weight: 700; color: var(--text); }
+  .library-card-meta { font-size: .78rem; color: var(--text-soft); margin-top: .15rem; }
+  .approved-chip, .pending-chip {
+    flex-shrink: 0;
+    font-size: .72rem; font-weight: 700; padding: .25rem .6rem; border-radius: 999px; white-space: nowrap;
+  }
+  .approved-chip { background: #eaf6ec; color: #1e6b3f; }
+  .pending-chip { background: var(--paper-dim); color: var(--text-soft); }
+  .library-card-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+  .library-card-actions button {
+    padding: .45rem .85rem;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--line);
+    background: var(--paper-card);
+    color: var(--text);
+    font-size: .8rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .library-card-actions .lib-open { border-color: var(--slate); color: var(--navy); }
+  .library-card-actions .lib-delete:hover { border-color: #c23a3a; color: #c23a3a; }
+
   .print-only { display: none; }
   @media print {
     body > *:not(#printReport) { display: none !important; }
@@ -464,6 +527,7 @@
       <div class="search-results" id="searchResults" style="display:none;"></div>
     </div>
     <button class="map-btn" id="homeBtn">⌂ Start Over</button>
+    <button class="legend-btn" id="libraryBtn">📁 Saved Investigations</button>
     <button class="legend-btn" id="legendBtn">Legend</button>
   </div>
 </header>
@@ -481,6 +545,7 @@
 <footer>Root Cause Navigator — a field guide to finding what actually went wrong.</footer>
 
 <div id="printReport" class="print-only"></div>
+<input type="file" id="importFileInput" accept="application/json" multiple style="display:none;" />
 
 <div class="modal-backdrop" id="legendModal">
   <div class="modal">
@@ -516,6 +581,7 @@
   };
 
   const STORAGE_KEY = 'rcaNavigatorState';
+  const LIBRARY_KEY = 'rcaNavigatorLibrary';
   function defaultState(){
     return {
       faultTitle: '',
@@ -523,6 +589,7 @@
       navPath: [1],
       concludedNodeId: null,
       concludedPath: null,
+      recordId: null,
       capa: { correctiveAction: '', preventiveAction: '', owner: '', targetDate: '', approvedBy: '', approvedDate: '', approved: false }
     };
   }
@@ -545,8 +612,92 @@
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
   }
   const state = loadState();
-  let currentView = 'node'; // 'node' | 'conclusion' | 'capa'
+  let currentView = 'node'; // 'node' | 'conclusion' | 'capa' | 'library'
   let historyStack = [];
+
+  // ---- Saved-investigations library ----
+
+  function loadLibrary(){
+    try {
+      const raw = localStorage.getItem(LIBRARY_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return [];
+  }
+  function saveLibrary(lib){
+    try { localStorage.setItem(LIBRARY_KEY, JSON.stringify(lib)); } catch (e) {}
+  }
+  function newRecordId(){
+    return 'rec_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+  function saveToLibrary(){
+    if (!state.recordId) state.recordId = newRecordId();
+    const record = {
+      id: state.recordId,
+      savedAt: new Date().toISOString(),
+      faultTitle: state.faultTitle,
+      evidence: Object.assign({}, state.evidence),
+      navPath: state.navPath.slice(),
+      concludedNodeId: state.concludedNodeId,
+      concludedPath: state.concludedPath ? state.concludedPath.slice() : null,
+      capa: Object.assign({}, state.capa)
+    };
+    const lib = loadLibrary();
+    const idx = lib.findIndex(r => r.id === state.recordId);
+    if (idx !== -1) lib[idx] = record; else lib.unshift(record);
+    saveLibrary(lib);
+    saveState();
+    return record;
+  }
+  function deleteFromLibrary(id){
+    saveLibrary(loadLibrary().filter(r => r.id !== id));
+  }
+  function openLibraryRecord(record){
+    state.faultTitle = record.faultTitle || '';
+    state.evidence = Object.assign({}, record.evidence || {});
+    state.navPath = (record.navPath && record.navPath.length) ? record.navPath.slice() : (record.concludedPath ? record.concludedPath.slice() : [1]);
+    state.concludedNodeId = record.concludedNodeId;
+    state.concludedPath = record.concludedPath ? record.concludedPath.slice() : null;
+    state.recordId = record.id;
+    state.capa = Object.assign({ correctiveAction: '', preventiveAction: '', owner: '', targetDate: '', approvedBy: '', approvedDate: '', approved: false }, record.capa || {});
+    saveState();
+  }
+  function slugify(s){
+    return String(s || 'investigation').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 40) || 'investigation';
+  }
+  function downloadJson(obj, filename){
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  function importLibraryFiles(fileList){
+    Array.from(fileList).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(reader.result);
+          const records = Array.isArray(parsed) ? parsed : [parsed];
+          const lib = loadLibrary();
+          let added = 0, updated = 0;
+          records.forEach(rec => {
+            if (!rec || typeof rec !== 'object' || !rec.id) return;
+            const idx = lib.findIndex(r => r.id === rec.id);
+            if (idx !== -1) { lib[idx] = rec; updated++; } else { lib.unshift(rec); added++; }
+          });
+          saveLibrary(lib);
+          if (currentView === 'library') showLibrary();
+          if (added || updated) alert(`Imported ${added} new and updated ${updated} existing saved investigation${(added+updated)===1?'':'s'}.`);
+          else alert("That file didn't contain any recognisable saved investigations.");
+        } catch (e) {
+          alert('Could not read that file — is it a valid exported RCA file?');
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
 
   function evidenceLabel(n){
     return (n.level === 'rootcausetype' || n.level === 'rootcause') ? 'What needs fixed' : 'RC Evidence';
@@ -590,6 +741,7 @@
     saveState();
     if (prev.view === 'conclusion') showConclusion();
     else if (prev.view === 'capa') showCapa();
+    else if (prev.view === 'library') showLibrary();
     else render(prev.id);
     window.scrollTo({top:0, behavior:'smooth'});
   }
@@ -629,6 +781,22 @@
   function goCapa(){
     pushHistory();
     showCapa();
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  function goLibrary(){
+    pushHistory();
+    showLibrary();
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  function goOpenLibraryRecord(record){
+    const hasActiveWork = state.faultTitle.trim() || Object.keys(state.evidence).length || state.concludedNodeId;
+    if (hasActiveWork && state.recordId !== record.id) {
+      if (!confirm('Opening this saved investigation will replace what you\'re currently working on (anything unsaved will be lost). Continue?')) return;
+    }
+    pushHistory();
+    openLibraryRecord(record);
+    if (record.concludedNodeId) showConclusion();
+    else render(state.navPath[state.navPath.length - 1] || 1);
     window.scrollTo({top:0, behavior:'smooth'});
   }
   function goBackToNodeFromSummary(nodeId){
@@ -841,9 +1009,18 @@
           </div>
         `).join('')}
       </div>
-      <button class="capa-launch-btn" id="capaLaunchBtn">Corrective Action / Preventive Action →</button>
+      <div class="summary-actions">
+        <button class="capa-launch-btn" id="capaLaunchBtn">Corrective Action / Preventive Action →</button>
+        <button class="save-lib-btn" id="saveLibraryBtn">${state.recordId ? 'Update Saved Investigation' : 'Save to Saved Investigations'}</button>
+      </div>
     `;
     document.getElementById('capaLaunchBtn').addEventListener('click', () => { goCapa(); });
+    const saveLibBtn = document.getElementById('saveLibraryBtn');
+    saveLibBtn.addEventListener('click', () => {
+      saveToLibrary();
+      saveLibBtn.textContent = 'Saved ✓';
+      setTimeout(() => { saveLibBtn.textContent = 'Update Saved Investigation'; }, 1800);
+    });
     renderFaultBanner();
     renderBackButton();
   }
@@ -897,7 +1074,10 @@
             ? `<div class="approved-badge">✓ Approved by ${escapeHtml(c.approvedBy)} on ${escapeHtml(c.approvedDate)}</div>`
             : `<button class="approve-btn" id="approveBtn">Approve CAPA</button>`}
         </div>
-        <button class="print-btn" id="printBtn">Print Report (PDF) →</button>
+        <div class="summary-actions">
+          <button class="print-btn" id="printBtn">Print Report (PDF) →</button>
+          <button class="save-lib-btn" id="saveLibraryBtn">${state.recordId ? 'Update Saved Investigation' : 'Save to Saved Investigations'}</button>
+        </div>
       </div>
     `;
 
@@ -915,12 +1095,86 @@
         if (!state.capa.approvedDate) { state.capa.approvedDate = new Date().toISOString().slice(0,10); }
         state.capa.approved = true;
         saveState();
+        saveToLibrary();
         showCapa();
       });
     }
     document.getElementById('printBtn').addEventListener('click', () => { buildPrintReport(); window.print(); });
+    const saveLibBtn = document.getElementById('saveLibraryBtn');
+    if (saveLibBtn) {
+      saveLibBtn.addEventListener('click', () => {
+        saveToLibrary();
+        saveLibBtn.textContent = 'Saved ✓';
+        setTimeout(() => { saveLibBtn.textContent = 'Save to Saved Investigations'; }, 1800);
+      });
+    }
     renderFaultBanner();
     renderBackButton();
+  }
+
+  // ---- Library screen ----
+
+  function showLibrary(){
+    currentView = 'library';
+    const bc = document.getElementById('breadcrumb');
+    bc.innerHTML = `<span class="current">Saved Investigations</span>`;
+    const lib = loadLibrary();
+    const el = document.getElementById('content');
+    el.innerHTML = `
+      <div class="report-card">
+        <div class="report-title">Saved Investigations</div>
+        <p class="fault-hint">Investigations saved here stay in this browser. Export a copy if you want a backup you can keep elsewhere or hand to someone else.</p>
+        <div class="library-toolbar">
+          <button class="map-btn-inline" id="libImportBtn">Import…</button>
+          <button class="map-btn-inline" id="libExportAllBtn" ${lib.length ? '' : 'disabled'}>Export All</button>
+        </div>
+        ${lib.length === 0 ? `<p class="fault-hint">Nothing saved yet. Once you approve a CAPA (or use "Save to Saved Investigations" on the summary or CAPA page), it'll show up here.</p>` : `
+        <div class="library-list">
+          ${lib.map(r => libraryCardHtml(r)).join('')}
+        </div>`}
+      </div>
+    `;
+    document.getElementById('libImportBtn').addEventListener('click', () => document.getElementById('importFileInput').click());
+    const exportAllBtn = document.getElementById('libExportAllBtn');
+    if (exportAllBtn && !exportAllBtn.disabled) {
+      exportAllBtn.addEventListener('click', () => downloadJson(lib, `rca-library-export-${new Date().toISOString().slice(0,10)}.json`));
+    }
+    el.querySelectorAll('.lib-open').forEach(b => b.addEventListener('click', () => {
+      const rec = lib.find(r => r.id === b.dataset.id);
+      if (rec) goOpenLibraryRecord(rec);
+    }));
+    el.querySelectorAll('.lib-export').forEach(b => b.addEventListener('click', () => {
+      const rec = lib.find(r => r.id === b.dataset.id);
+      if (rec) downloadJson(rec, `rca-${slugify(rec.faultTitle)}-${rec.id}.json`);
+    }));
+    el.querySelectorAll('.lib-delete').forEach(b => b.addEventListener('click', () => {
+      const rec = lib.find(r => r.id === b.dataset.id);
+      if (rec && confirm(`Delete the saved investigation "${rec.faultTitle || '(untitled)'}"? This can't be undone.`)) {
+        deleteFromLibrary(rec.id);
+        showLibrary();
+      }
+    }));
+    renderFaultBanner();
+    renderBackButton();
+  }
+
+  function libraryCardHtml(r){
+    const rootNode = r.concludedNodeId ? byId[r.concludedNodeId] : null;
+    const savedDate = r.savedAt ? new Date(r.savedAt).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' }) : '';
+    return `<div class="library-card">
+      <div class="library-card-head">
+        <div>
+          <div class="library-card-title">${escapeHtml(r.faultTitle || '(untitled investigation)')}</div>
+          <div class="library-card-meta">${rootNode ? escapeHtml(rootNode.name) : 'No root cause recorded'} · saved ${escapeHtml(savedDate)}</div>
+        </div>
+        ${r.capa && r.capa.approved ? '<span class="approved-chip">✓ Approved</span>' : '<span class="pending-chip">Pending</span>'}
+      </div>
+      <div class="library-card-actions">
+        <button class="lib-open" data-id="${r.id}">Open</button>
+        <button class="lib-export" data-id="${r.id}">Export</button>
+        <button class="lib-delete" data-id="${r.id}">Delete</button>
+      </div>
+    </div>`;
   }
 
   function buildPrintReport(){
@@ -978,8 +1232,29 @@
     if (!e.target.closest('.search-wrap')) searchResults.style.display = 'none';
   });
 
-  document.getElementById('homeBtn').addEventListener('click', () => { goToNode(1, 'home'); });
+  document.getElementById('homeBtn').addEventListener('click', () => {
+    const hasContent = state.faultTitle.trim() || Object.keys(state.evidence).length || state.concludedNodeId;
+    if (hasContent && !confirm('Start a new investigation? This clears the current fault title, evidence, and CAPA from the active session. Anything already saved to your library is safe.')) {
+      return;
+    }
+    pushHistory();
+    state.faultTitle = '';
+    state.evidence = {};
+    state.navPath = [1];
+    state.concludedNodeId = null;
+    state.concludedPath = null;
+    state.recordId = null;
+    state.capa = { correctiveAction: '', preventiveAction: '', owner: '', targetDate: '', approvedBy: '', approvedDate: '', approved: false };
+    saveState();
+    render(1);
+    window.scrollTo({top:0, behavior:'smooth'});
+  });
   document.getElementById('backBtn').addEventListener('click', goBack);
+  document.getElementById('libraryBtn').addEventListener('click', () => { goLibrary(); });
+  document.getElementById('importFileInput').addEventListener('change', (e) => {
+    if (e.target.files.length) importLibraryFiles(e.target.files);
+    e.target.value = '';
+  });
 
   const legendModal = document.getElementById('legendModal');
   document.getElementById('legendBtn').addEventListener('click', () => legendModal.classList.add('open'));
