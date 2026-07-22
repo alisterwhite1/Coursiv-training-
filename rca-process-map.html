@@ -665,9 +665,10 @@
       <input type="text" id="searchInput" placeholder="Search causes by name… e.g. &quot;No Training&quot;" autocomplete="off" />
       <div class="search-results" id="searchResults" style="display:none;"></div>
     </div>
-    <button class="map-btn" id="homeBtn">⌂ Start Over</button>
-    <button class="map-btn" id="newNcrBtn">🚩 Raise NCR</button>
     <button class="legend-btn" id="ncrRegisterBtn">📋 NCR Register</button>
+    <button class="map-btn" id="newNcrBtn">🚩 Raise NCR</button>
+    <button class="legend-btn" id="ncrSettingsBtn">⚙ Numbering</button>
+    <button class="map-btn" id="homeBtn">⌂ Direct RCA</button>
     <button class="legend-btn" id="libraryBtn">📁 Saved Investigations</button>
     <button class="legend-btn" id="legendBtn">Legend</button>
   </div>
@@ -700,6 +701,52 @@
     <div class="legend-row"><div class="legend-shape" style="background:#e8a13a;"></div><div class="ltxt"><strong>Root Cause</strong><span>The systemic layer beneath every cause — was it a missing/unclear standard, or a hold point knowingly traded away against the programme?</span></div></div>
     <p style="margin-top:1rem; font-size:.82rem; color:var(--text-soft); line-height:1.6;">Every specific cause you land on leads to the same checkpoint at the bottom of the map, where you can trace it one level deeper into either a <strong>Standards, Policies &amp; Procedures</strong> gap or a <strong>Schedule &amp; Production Pressure</strong> override — the two most common systemic reasons a cause actually happened.</p>
     <div class="legend-colors" id="colorSwatches"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="ncrSettingsModal">
+  <div class="modal">
+    <button class="close-x" id="closeNcrSettings">&times;</button>
+    <h3>NCR Numbering Format</h3>
+    <p style="font-size:.85rem; color:var(--text-soft); line-height:1.6; margin-bottom:1rem;">
+      Sets how new NCR numbers are auto-suggested. This is a per-project setting — different projects
+      often use different numbering conventions. Changing it only affects <em>new</em> NCRs; anything
+      already raised keeps the number it was given.
+    </p>
+    <div class="capa-form">
+      <label class="capa-label">Prefix <span class="capa-hint">(e.g. your project/contract code)</span>
+        <input type="text" id="cfgPrefix" class="capa-input" placeholder="NCR" />
+      </label>
+      <div class="capa-row">
+        <label class="capa-label" style="flex-direction:row;align-items:center;gap:.5rem;">
+          <input type="checkbox" id="cfgIncludeYear" style="width:auto;" /> Include year
+        </label>
+        <label class="capa-label">Year format
+          <select id="cfgYearFormat" class="capa-input">
+            <option value="YYYY">YYYY (2026)</option>
+            <option value="YY">YY (26)</option>
+          </select>
+        </label>
+      </div>
+      <div class="capa-row">
+        <label class="capa-label">Sequence digits
+          <input type="number" id="cfgSeqDigits" class="capa-input" min="1" max="8" />
+        </label>
+        <label class="capa-label">Separator
+          <input type="text" id="cfgSeparator" class="capa-input" maxlength="3" />
+        </label>
+      </div>
+      <label class="capa-label" style="flex-direction:row;align-items:center;gap:.5rem;">
+        <input type="checkbox" id="cfgResetYearly" style="width:auto;" /> Restart sequence at 1 each year
+      </label>
+    </div>
+    <div class="ncr-rca-summary" style="margin-top:1.1rem;">
+      <div class="report-label">Next NCR number will look like</div>
+      <p class="report-value" id="cfgPreview" style="font-weight:800; font-size:1.05rem;">NCR-2026-001</p>
+    </div>
+    <div class="summary-actions">
+      <button class="save-lib-btn" id="cfgSaveBtn">Save Numbering Format</button>
+    </div>
   </div>
 </div>
 
@@ -1346,9 +1393,42 @@
 
   function newNcrId(){ return 'ncr_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
-  function suggestNcrNumber(){
+  const PROJECT_CONFIG_KEY = 'rcaNavigatorProjectConfig';
+  function defaultProjectConfig(){
+    return { prefix: 'NCR', includeYear: true, yearFormat: 'YYYY', sequenceDigits: 3, separator: '-', resetYearly: false };
+  }
+  function loadProjectConfig(){
+    try {
+      const raw = localStorage.getItem(PROJECT_CONFIG_KEY);
+      if (raw) return Object.assign(defaultProjectConfig(), JSON.parse(raw));
+    } catch (e) {}
+    return defaultProjectConfig();
+  }
+  function saveProjectConfig(cfg){
+    try { localStorage.setItem(PROJECT_CONFIG_KEY, JSON.stringify(cfg)); } catch (e) {}
+  }
+  function formatNcrNumber(seq, cfg){
+    cfg = cfg || loadProjectConfig();
+    const year = new Date().getFullYear();
+    const yearStr = cfg.yearFormat === 'YY' ? String(year).slice(-2) : String(year);
+    const digits = Math.max(1, Math.min(8, parseInt(cfg.sequenceDigits) || 3));
+    const parts = [cfg.prefix || 'NCR'];
+    if (cfg.includeYear) parts.push(yearStr);
+    parts.push(String(seq).padStart(digits, '0'));
+    return parts.filter(Boolean).join(cfg.separator != null ? cfg.separator : '-');
+  }
+  function nextNcrSequence(cfg){
+    cfg = cfg || loadProjectConfig();
     const lib = loadNcrLibrary();
-    return 'NCR-' + new Date().getFullYear() + '-' + String(lib.length + 1).padStart(3, '0');
+    if (cfg.resetYearly) {
+      const year = new Date().getFullYear();
+      const countThisYear = lib.filter(r => new Date(r.createdAt).getFullYear() === year).length;
+      return countThisYear + 1;
+    }
+    return lib.length + 1;
+  }
+  function suggestNcrNumber(){
+    return formatNcrNumber(nextNcrSequence());
   }
 
   function defaultNcr(){
@@ -2354,13 +2434,57 @@
   document.getElementById('closeLegend').addEventListener('click', () => legendModal.classList.remove('open'));
   legendModal.addEventListener('click', (e) => { if (e.target === legendModal) legendModal.classList.remove('open'); });
 
+  const ncrSettingsModal = document.getElementById('ncrSettingsModal');
+  const cfgFields = {
+    prefix: document.getElementById('cfgPrefix'),
+    includeYear: document.getElementById('cfgIncludeYear'),
+    yearFormat: document.getElementById('cfgYearFormat'),
+    sequenceDigits: document.getElementById('cfgSeqDigits'),
+    separator: document.getElementById('cfgSeparator'),
+    resetYearly: document.getElementById('cfgResetYearly')
+  };
+  function readCfgFromForm(){
+    return {
+      prefix: cfgFields.prefix.value,
+      includeYear: cfgFields.includeYear.checked,
+      yearFormat: cfgFields.yearFormat.value,
+      sequenceDigits: parseInt(cfgFields.sequenceDigits.value) || 3,
+      separator: cfgFields.separator.value,
+      resetYearly: cfgFields.resetYearly.checked
+    };
+  }
+  function refreshCfgPreview(){
+    const cfg = readCfgFromForm();
+    document.getElementById('cfgPreview').textContent = formatNcrNumber(nextNcrSequence(cfg), cfg);
+  }
+  function openNcrSettings(){
+    const cfg = loadProjectConfig();
+    cfgFields.prefix.value = cfg.prefix;
+    cfgFields.includeYear.checked = cfg.includeYear;
+    cfgFields.yearFormat.value = cfg.yearFormat;
+    cfgFields.sequenceDigits.value = cfg.sequenceDigits;
+    cfgFields.separator.value = cfg.separator;
+    cfgFields.resetYearly.checked = cfg.resetYearly;
+    refreshCfgPreview();
+    ncrSettingsModal.classList.add('open');
+  }
+  Object.values(cfgFields).forEach(elx => elx.addEventListener('input', refreshCfgPreview));
+  document.getElementById('ncrSettingsBtn').addEventListener('click', openNcrSettings);
+  document.getElementById('closeNcrSettings').addEventListener('click', () => ncrSettingsModal.classList.remove('open'));
+  ncrSettingsModal.addEventListener('click', (e) => { if (e.target === ncrSettingsModal) ncrSettingsModal.classList.remove('open'); });
+  document.getElementById('cfgSaveBtn').addEventListener('click', () => {
+    saveProjectConfig(readCfgFromForm());
+    ncrSettingsModal.classList.remove('open');
+    if (currentView === 'ncrRegister') showNcrRegister();
+  });
+
   const swatchWrap = document.getElementById('colorSwatches');
   const branchNodes = DATA.filter(n => n.level === 'branch' && n.color !== 'grey');
   swatchWrap.innerHTML = branchNodes.map(n => {
     return `<span class="swatch"><i style="background:${COLOR_HEX[n.color]||'#3a5a82'}"></i>${escapeHtml(n.name)}</span>`;
   }).join('');
 
-  render(1);
+  showNcrRegister();
 })();
 </script>
 </body>
