@@ -656,9 +656,9 @@
 
 <header>
   <div class="header-inner">
-    <div class="eyebrow">Construction Quality &amp; Reliability</div>
-    <h1>Root Cause Navigator</h1>
-    <p class="sub">An interactive walk-through for construction root cause investigations: start with a potential cause, drill down through design, materials, workmanship, plant, workforce, project management, or site conditions, and land on practical, field-tested guidance for each finding.</p>
+    <div class="eyebrow" id="headerEyebrow">Construction Quality &amp; Reliability</div>
+    <h1 id="headerTitle">Root Cause Navigator</h1>
+    <p class="sub" id="headerSub">An interactive walk-through for construction root cause investigations: start with a potential cause, drill down through design, materials, workmanship, plant, workforce, project management, or site conditions, and land on practical, field-tested guidance for each finding.</p>
   </div>
   <div class="search-row">
     <div class="search-wrap">
@@ -666,7 +666,6 @@
       <div class="search-results" id="searchResults" style="display:none;"></div>
     </div>
     <button class="legend-btn" id="ncrRegisterBtn">📋 NCR Register</button>
-    <button class="map-btn" id="newNcrBtn">🚩 Raise NCR</button>
     <button class="legend-btn" id="ncrSettingsBtn">⚙ Numbering</button>
     <button class="map-btn" id="homeBtn">⌂ Direct RCA</button>
     <button class="legend-btn" id="libraryBtn">📁 Saved Investigations</button>
@@ -767,6 +766,26 @@
     start: 'START', branch: 'BRANCH', category: 'CATEGORY',
     cause: 'CAUSE', pivot: 'ENTRY POINT', rootcausetype: 'ROOT CAUSE TYPE', rootcause: 'ROOT CAUSE'
   };
+
+  const HEADER_CONTENT = {
+    rca: {
+      title: 'Root Cause Navigator',
+      sub: 'An interactive walk-through for construction root cause investigations: start with a potential cause, drill down through design, materials, workmanship, plant, workforce, project management, or site conditions, and land on practical, field-tested guidance for each finding.'
+    },
+    ncr: {
+      title: 'NCR Navigator',
+      sub: "Raise, track, and close out nonconformance reports — the front door before a root cause investigation starts. See what's open, what's overdue, and what still needs sign-off."
+    },
+    capa: {
+      title: 'CAPA Navigator',
+      sub: 'Turn a confirmed root cause into a corrective and preventive action plan — assign an owner, agree a closure date, and get it signed off and ready to print.'
+    }
+  };
+  function setHeaderSection(key){
+    const c = HEADER_CONTENT[key] || HEADER_CONTENT.rca;
+    document.getElementById('headerTitle').textContent = c.title;
+    document.getElementById('headerSub').textContent = c.sub;
+  }
 
   const STORAGE_KEY = 'rcaNavigatorState';
   const LIBRARY_KEY = 'rcaNavigatorLibrary';
@@ -1051,6 +1070,7 @@
   function render(id){
     currentView = 'node';
     currentId = id;
+    setHeaderSection('rca');
     const node = byId[id];
     const kids = children(node);
     renderBreadcrumb(node);
@@ -1232,6 +1252,7 @@
 
   function showConclusion(){
     currentView = 'conclusion';
+    setHeaderSection('rca');
     const node = byId[state.concludedNodeId];
     const bc = document.getElementById('breadcrumb');
     bc.innerHTML = `<button id="bcBackToNode">${escapeHtml(node.name)}</button><span class="sep">›</span><span class="current">Investigation Summary</span>`;
@@ -1274,6 +1295,7 @@
 
   function showCapa(){
     currentView = 'capa';
+    setHeaderSection('capa');
     const node = byId[state.concludedNodeId];
     const bc = document.getElementById('breadcrumb');
     bc.innerHTML = `<button id="bcBackToSummary">Investigation Summary</button><span class="sep">›</span><span class="current">Corrective / Preventive Action</span>`;
@@ -1783,6 +1805,7 @@
 
   function showNcrForm(){
     currentView = 'ncrForm';
+    setHeaderSection('ncr');
     const r = ncrState;
     const bc = document.getElementById('breadcrumb');
     bc.innerHTML = `<button id="bcToRegister">NCR Register</button><span class="sep">›</span><span class="current">${escapeHtml(r.ncrNumber || '(new NCR)')}</span>`;
@@ -2040,6 +2063,7 @@
 
   function showNcrRegister(){
     currentView = 'ncrRegister';
+    setHeaderSection('ncr');
     const bc = document.getElementById('breadcrumb');
     bc.innerHTML = `<span class="current">NCR Register</span>`;
     let lib = loadNcrLibrary();
@@ -2237,6 +2261,7 @@
 
   function showLibrary(){
     currentView = 'library';
+    setHeaderSection('rca');
     const bc = document.getElementById('breadcrumb');
     bc.innerHTML = `<span class="current">Saved Investigations</span>`;
     const lib = loadLibrary();
@@ -2413,7 +2438,6 @@
     window.scrollTo({top:0, behavior:'smooth'});
   });
   document.getElementById('backBtn').addEventListener('click', goBack);
-  document.getElementById('newNcrBtn').addEventListener('click', () => { goNewNcr(); });
   document.getElementById('ncrRegisterBtn').addEventListener('click', () => { goNcrRegister(); });
   document.getElementById('ncrAttachInput').addEventListener('change', (e) => {
     if (e.target.files.length) addNcrAttachmentFiles(e.target.files);
