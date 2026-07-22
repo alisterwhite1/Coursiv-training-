@@ -267,6 +267,29 @@
     line-height: 1.5;
   }
   .evidence-input:focus { border-color: var(--slate); background: #fff; }
+  .required-mark {
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: none;
+    letter-spacing: 0;
+    color: #c23a3a;
+    margin-left: .3rem;
+  }
+  .evidence-required-msg {
+    margin-top: .5rem;
+    font-size: .8rem;
+    font-weight: 600;
+    color: #c23a3a;
+  }
+  .evidence-input.evidence-required-flash {
+    border-color: #c23a3a;
+    animation: evidenceShake .35s;
+  }
+  @keyframes evidenceShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
   .evidence-suggest {
     width: 100%;
     margin-top: .5rem;
@@ -830,6 +853,20 @@
     return (n.questions || []).slice();
   }
 
+  function evidenceMissing(n){
+    return n.id !== 1 && !(state.evidence[n.id] && state.evidence[n.id].trim());
+  }
+  function flagMissingEvidence(){
+    const ta = document.getElementById('evidenceInput');
+    if (!ta) return;
+    ta.classList.add('evidence-required-flash');
+    const warn = document.getElementById('evidenceRequiredMsg');
+    if (warn) warn.style.display = 'block';
+    ta.focus();
+    ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => ta.classList.remove('evidence-required-flash'), 1200);
+  }
+
   function render(id){
     currentView = 'node';
     currentId = id;
@@ -844,7 +881,10 @@
         <div class="grid">${kids.map(cardHtml).join('')}</div>
       `;
       el.querySelectorAll('.node-card').forEach(c => {
-        c.addEventListener('click', () => { goToNode(parseInt(c.dataset.id), 'child'); });
+        c.addEventListener('click', () => {
+          if (evidenceMissing(node)) { flagMissingEvidence(); return; }
+          goToNode(parseInt(c.dataset.id), 'child');
+        });
       });
       if (node.id !== 1 && node.definition) {
         el.insertAdjacentHTML('afterbegin', detailHtml(node, true));
@@ -857,7 +897,10 @@
     }
     const deeperBtn = document.getElementById('deeperBtn');
     if (deeperBtn) {
-      deeperBtn.addEventListener('click', () => { goToNode(pivotNode().id, 'deeper'); });
+      deeperBtn.addEventListener('click', () => {
+        if (evidenceMissing(node)) { flagMissingEvidence(); return; }
+        goToNode(pivotNode().id, 'deeper');
+      });
     }
     const faultInput = document.getElementById('faultTitleInput');
     if (faultInput) {
@@ -874,6 +917,8 @@
         saveState();
         const cb = document.getElementById('concludeBtn');
         if (cb) cb.disabled = !evidenceInput.value.trim();
+        const warn = document.getElementById('evidenceRequiredMsg');
+        if (warn && evidenceInput.value.trim()) warn.style.display = 'none';
       });
     }
     const evidenceSuggest = document.getElementById('evidenceSuggest');
@@ -969,9 +1014,10 @@
         ${opts.map((o,i) => `<option value="${i}">${escapeHtml(o.length > 90 ? o.slice(0,87) + '…' : o)}</option>`).join('')}
       </select>` : '';
     return `<div class="evidence-block">
-      <div class="field-label">${evidenceLabel(n)}</div>
+      <div class="field-label">${evidenceLabel(n)} <span class="required-mark">*required</span></div>
       ${selectHtml}
       <textarea id="evidenceInput" class="evidence-input" rows="3" placeholder="${escapeHtml(evidencePrompt(n))}">${val}</textarea>
+      <div id="evidenceRequiredMsg" class="evidence-required-msg" style="display:none;">Enter your evidence before moving on — every step needs a documented reason.</div>
     </div>`;
   }
 
