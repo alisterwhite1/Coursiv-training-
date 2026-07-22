@@ -281,7 +281,8 @@
     font-weight: 600;
     color: #c23a3a;
   }
-  .evidence-input.evidence-required-flash {
+  .evidence-input.evidence-required-flash,
+  .capa-input.field-required-flash {
     border-color: #c23a3a;
     animation: evidenceShake .35s;
   }
@@ -375,6 +376,8 @@
   .capa-label { display: flex; flex-direction: column; gap: .4rem; font-size: .82rem; font-weight: 700; color: var(--text); }
   .capa-hint { font-weight: 500; color: var(--muted); text-transform: none; letter-spacing: 0; }
   .capa-input {
+    width: 100%;
+    box-sizing: border-box;
     padding: .65rem .85rem;
     border-radius: var(--radius-sm);
     border: 1.5px solid var(--line);
@@ -510,6 +513,10 @@
 
   .ncr-rca-summary { margin-top: .6rem; padding: .9rem 1rem; border-radius: var(--radius-sm); background: var(--paper); border: 1.5px solid var(--line); }
   .ncr-rca-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .8rem; }
+  .ncr-desc-row { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; align-items: start; }
+  @media (max-width: 560px) { .ncr-desc-row { grid-template-columns: 1fr; } }
+  .geo-row { margin-top: .6rem; display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; }
+  .geo-link { font-size: .8rem; }
 
   .ncr-register-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
   .ncr-search-row { display: flex; flex-direction: column; gap: .6rem; margin-top: .4rem; }
@@ -1461,6 +1468,7 @@
   ];
   const NCR_DISPOSITION_OPTIONS = ['Use As Is', 'Rework', 'Repair', 'Reject / Remove & Replace', 'Concession', 'Regrade'];
   const NCR_ACCEPTANCE_OPTIONS = ['Accepted as proposed', 'Accepted with comments', 'Rejected — resubmit'];
+  const NCR_REQUIREMENT_REF_OPTIONS = ['Code', 'Standard', 'Contract', 'Procedure', 'Plan', 'NOC Condition', 'Other'];
 
   function newNcrId(){ return 'ncr_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
@@ -1513,7 +1521,10 @@
       ncrReason: '',
       source: '',
       location: '',
+      geoLat: null,
+      geoLng: null,
       description: '',
+      requirementRef: '',
       referenceDocs: '',
       supportingEvidence: '',
       attachments: [],
@@ -1852,6 +1863,20 @@
     });
   }
 
+  function requirementRefMissing(){
+    return !ncrState.requirementRef;
+  }
+  function flagMissingRequirementRef(){
+    const sel = document.getElementById('ncrRequirementRef');
+    if (!sel) return;
+    sel.classList.add('field-required-flash');
+    const warn = document.getElementById('requirementRefRequiredMsg');
+    if (warn) warn.style.display = 'block';
+    sel.focus();
+    sel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => sel.classList.remove('field-required-flash'), 1200);
+  }
+
   function showNcrForm(){
     currentView = 'ncrForm';
     setHeaderSection('ncr');
@@ -1887,13 +1912,31 @@
           </div>
           <div class="capa-row">
             ${ncrSelect('ncrSource', 'Source of NCR', r.source, NCR_SOURCE_OPTIONS)}
-            ${ncrTextField('ncrLocation', 'Location', r.location, {placeholder:'Project / site / area'})}
+            <label class="capa-label">Location
+              <input type="text" id="ncrLocation" class="capa-input" spellcheck="true" placeholder="Project / site / area" value="${escapeHtml(r.location || '')}" />
+              <div class="geo-row">
+                <button type="button" class="map-btn-inline" id="ncrGeoBtn">📍 Tag current location</button>
+                ${r.geoLat != null ? `<a href="https://www.google.com/maps?q=${r.geoLat},${r.geoLng}" target="_blank" rel="noopener" class="inline-link geo-link">${r.geoLat.toFixed(5)}, ${r.geoLng.toFixed(5)} — View on map →</a>` : ''}
+              </div>
+            </label>
           </div>
         </div>
 
         <div class="report-block">
-          <div class="report-label">Description of Nonconformance</div>
-          <textarea id="ncrDescription" class="capa-input" rows="3" spellcheck="true" placeholder="What is nonconforming, and against what requirement?">${escapeHtml(r.description)}</textarea>
+          <div class="ncr-desc-row">
+            <div>
+              <div class="report-label">Description of Nonconformance</div>
+              <textarea id="ncrDescription" class="capa-input" rows="3" spellcheck="true" placeholder="What is nonconforming, and against what requirement?">${escapeHtml(r.description)}</textarea>
+            </div>
+            <div>
+              <div class="report-label">Requirement Reference <span class="required-mark">*required</span></div>
+              <select id="ncrRequirementRef" class="capa-input">
+                <option value=""${!r.requirementRef ? ' selected' : ''}>Select…</option>
+                ${NCR_REQUIREMENT_REF_OPTIONS.map(o => `<option value="${escapeHtml(o)}"${r.requirementRef===o ? ' selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+              </select>
+              <div id="requirementRefRequiredMsg" class="evidence-required-msg" style="display:none;">Select what type of requirement this breaches before saving — this is a required hold point.</div>
+            </div>
+          </div>
         </div>
 
         <div class="report-block">
@@ -2005,6 +2048,40 @@
     bindNcrField('ncrDisposition', 'dispositionType');
     bindNcrField('ncrCorrectionAcceptance', 'correctionAcceptance');
 
+    const reqRefSelect = document.getElementById('ncrRequirementRef');
+    if (reqRefSelect) {
+      reqRefSelect.addEventListener('change', () => {
+        ncrState.requirementRef = reqRefSelect.value;
+        saveNcrState();
+        if (reqRefSelect.value) {
+          const warn = document.getElementById('requirementRefRequiredMsg');
+          if (warn) warn.style.display = 'none';
+        }
+      });
+    }
+    const geoBtn = document.getElementById('ncrGeoBtn');
+    if (geoBtn) {
+      geoBtn.addEventListener('click', () => {
+        if (!navigator.geolocation) { alert('Geolocation is not available in this browser.'); return; }
+        geoBtn.disabled = true;
+        geoBtn.textContent = 'Locating…';
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            ncrState.geoLat = pos.coords.latitude;
+            ncrState.geoLng = pos.coords.longitude;
+            saveNcrState();
+            showNcrForm();
+          },
+          (err) => {
+            geoBtn.disabled = false;
+            geoBtn.textContent = '📍 Tag current location';
+            alert('Could not get your location: ' + (err && err.message ? err.message : 'permission denied or unavailable.'));
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      });
+    }
+
     wireRcaLinkControls();
 
     document.getElementById('ncrAddAttachmentBtn').addEventListener('click', () => document.getElementById('ncrAttachInput').click());
@@ -2018,10 +2095,12 @@
     });
 
     document.getElementById('ncrSaveBtn').addEventListener('click', () => {
+      if (requirementRefMissing()) { flagMissingRequirementRef(); return; }
       saveNcrToLibrary();
       showNcrForm();
     });
     document.getElementById('ncrPrintBtn').addEventListener('click', () => {
+      if (requirementRefMissing()) { flagMissingRequirementRef(); return; }
       saveNcrToLibrary();
       buildNcrPrintReport();
       window.print();
@@ -2054,6 +2133,7 @@
       ${cell(r.source)}
       ${cell(r.location)}
       ${cell(r.description)}
+      ${cell(r.requirementRef)}
       ${cell(r.referenceDocs)}
       ${cell(r.supportingEvidence)}
       <td class="num-cell">${(r.attachments||[]).length}</td>
@@ -2152,6 +2232,7 @@
                   <th>Source of NCR</th>
                   <th>Location</th>
                   <th>Description</th>
+                  <th>Requirement Reference</th>
                   <th>Reference Documents</th>
                   <th>Supporting Evidence</th>
                   <th>Attachments</th>
@@ -2258,11 +2339,12 @@
         <div class="pr-block"><div class="pr-label">Respondent Company / Person</div><p>${escapeHtml(r.respondent || '—')}</p></div>
         <div class="pr-block"><div class="pr-label">NCR Reason</div><p>${escapeHtml(r.ncrReason || '—')}</p></div>
         <div class="pr-block"><div class="pr-label">Source of NCR</div><p>${escapeHtml(r.source || '—')}</p></div>
-        <div class="pr-block"><div class="pr-label">Location</div><p>${escapeHtml(r.location || '—')}</p></div>
+        <div class="pr-block"><div class="pr-label">Location</div><p>${escapeHtml(r.location || '—')}${r.geoLat != null ? ` (${r.geoLat.toFixed(5)}, ${r.geoLng.toFixed(5)})` : ''}</p></div>
       </div>
 
       <h3>Description of Nonconformance</h3>
       <p>${escapeHtml(r.description || '(not entered)')}</p>
+      <div class="pr-block"><div class="pr-label">Requirement Reference</div><p>${escapeHtml(r.requirementRef || '—')}</p></div>
 
       ${r.referenceDocs ? `<h3>Reference Documents</h3><p>${escapeHtml(r.referenceDocs)}</p>` : ''}
       ${r.supportingEvidence ? `<h3>Supporting Evidence</h3><p>${escapeHtml(r.supportingEvidence)}</p>` : ''}
