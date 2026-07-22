@@ -2031,11 +2031,11 @@
 
         <div class="capa-form">
           <div class="capa-row">
-            ${ncrTextField('ncrRaisedBy', 'Raised By', r.raisedBy)}
+            ${ncrTextField('ncrRaisedBy', 'Raised By', r.raisedBy, {placeholder:'Name / role'})}
             ${ncrTextField('ncrRaisedByDate', 'Date', r.raisedByDate, {type:'date'})}
           </div>
           <div class="capa-row">
-            ${ncrTextField('ncrApprovedByQm', 'Approved By QM', r.approvedByQm)}
+            ${ncrTextField('ncrApprovedByQm', 'Approved By QM', r.approvedByQm, {placeholder:'Name / role'})}
             ${ncrTextField('ncrApprovedByQmDate', 'Date', r.approvedByQmDate, {type:'date'})}
           </div>
         </div>
@@ -2049,7 +2049,7 @@
             </label>
             <div class="capa-row">
               ${ncrTextField('ncrClosureDateAgreed', 'Agreed NCR Closure Date', r.closureDateAgreed, {type:'date'})}
-              ${ncrTextField('ncrProposedBy', 'Proposed By', r.proposedBy)}
+              ${ncrTextField('ncrProposedBy', 'Proposed By', r.proposedBy, {placeholder:'Name / role'})}
             </div>
             ${ncrTextField('ncrProposedByDate', 'Date Proposed', r.proposedByDate, {type:'date'})}
           </div>
@@ -2063,7 +2063,7 @@
               <textarea id="ncrAcceptanceNotes" class="capa-input" rows="2" spellcheck="true" placeholder="Any conditions or comments on acceptance">${escapeHtml(r.acceptanceNotes)}</textarea>
             </label>
             <div class="capa-row">
-              ${ncrTextField('ncrAcceptedByQm', 'Accepted By QM', r.acceptedByQm)}
+              ${ncrTextField('ncrAcceptedByQm', 'Accepted By QM', r.acceptedByQm, {placeholder:'Name / role — who accepted the correction above'})}
               ${ncrTextField('ncrAcceptedByQmDate', 'Date', r.acceptedByQmDate, {type:'date'})}
             </div>
           </div>
@@ -2084,11 +2084,11 @@
               <textarea id="ncrQmRemarks" class="capa-input" rows="2" spellcheck="true">${escapeHtml(r.qmRemarks)}</textarea>
             </label>
             <div class="capa-row">
-              ${ncrTextField('ncrConfirmedBy', 'Confirmed By', r.confirmedBy)}
+              ${ncrTextField('ncrConfirmedBy', 'Confirmed By', r.confirmedBy, {placeholder:'Name / role — who confirmed the correction was done'})}
               ${ncrTextField('ncrConfirmedByDate', 'Date', r.confirmedByDate, {type:'date'})}
             </div>
             <div class="capa-row">
-              ${ncrTextField('ncrCaVerifiedBy', 'Verified By QM (Closure)', r.caVerifiedBy)}
+              ${ncrTextField('ncrCaVerifiedBy', 'Verified By QM (Closure)', r.caVerifiedBy, {placeholder:'Name / role — who verified this is ready to close'})}
               ${ncrTextField('ncrCaVerifiedByDate', 'Date', r.caVerifiedByDate, {type:'date'})}
             </div>
           </div>
