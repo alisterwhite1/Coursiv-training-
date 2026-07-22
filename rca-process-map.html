@@ -1682,19 +1682,41 @@
       reader.readAsDataURL(file);
     });
   }
+  function readFileAsDataUrl(file){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+  const MAX_PDF_BYTES = 3 * 1024 * 1024;
   async function addNcrAttachmentFiles(fileList){
     const remaining = 6 - ncrState.attachments.length;
     if (remaining <= 0) { alert('Up to 6 attachments per NCR for now — remove one before adding another.'); return; }
     const files = Array.from(fileList).slice(0, remaining);
+    const tooLarge = [];
     for (const file of files) {
       let dataUrl = null;
+      let kind = 'Document';
       if (file.type.startsWith('image/')) {
+        kind = 'Photo';
         try { dataUrl = await resizeImageToDataUrl(file, 900, 0.72); } catch (e) {}
+      } else if (file.type === 'application/pdf') {
+        kind = 'PDF';
+        if (file.size <= MAX_PDF_BYTES) {
+          try { dataUrl = await readFileAsDataUrl(file); } catch (e) {}
+        } else {
+          tooLarge.push(file.name);
+        }
       }
-      ncrState.attachments.push({ name: file.name, type: file.type.startsWith('image/') ? 'Photo' : 'Document', dataUrl });
+      ncrState.attachments.push({ name: file.name, type: kind, dataUrl });
     }
     saveNcrState();
     showNcrForm();
+    if (tooLarge.length) {
+      alert(`${tooLarge.join(', ')} — over the 3 MB limit, so only the filename was kept (not the file itself). Attach a smaller/compressed copy if you need it stored.`);
+    }
   }
   function importNcrFiles(fileList){
     Array.from(fileList).forEach(file => {
@@ -1810,11 +1832,15 @@
     </label>`;
   }
   function attachmentHtml(a, i){
+    const preview = (a.type === 'Photo' && a.dataUrl)
+      ? `<img src="${a.dataUrl}" alt="${escapeHtml(a.name)}" class="ncr-attach-thumb" />`
+      : `<div class="ncr-attach-icon">${a.type === 'PDF' ? '📕' : '📄'}</div>`;
+    const downloadLink = a.dataUrl ? `<a href="${a.dataUrl}" download="${escapeHtml(a.name)}" class="inline-link">Download</a>` : '';
     return `<div class="ncr-attachment">
-      ${a.dataUrl ? `<img src="${a.dataUrl}" alt="${escapeHtml(a.name)}" class="ncr-attach-thumb" />` : `<div class="ncr-attach-icon">📄</div>`}
+      ${preview}
       <div class="ncr-attach-meta">
         <div class="ncr-attach-name">${escapeHtml(a.name)}</div>
-        <div class="ncr-attach-type">${escapeHtml(a.type)}</div>
+        <div class="ncr-attach-type">${escapeHtml(a.type)}${downloadLink ? ' · ' + downloadLink : ''}</div>
       </div>
       <button type="button" class="ncr-attach-remove" data-i="${i}" title="Remove">&times;</button>
     </div>`;
@@ -2428,8 +2454,9 @@
     const corrective = ncrCorrectiveActionDisplay(r);
     const preventive = ncrPreventiveActionDisplay(r);
 
-    const photoAttachments = (r.attachments || []).filter(a => a.dataUrl);
-    const otherAttachments = (r.attachments || []).filter(a => !a.dataUrl);
+    const photoAttachments = (r.attachments || []).filter(a => a.type === 'Photo' && a.dataUrl);
+    const pdfAttachments = (r.attachments || []).filter(a => a.type === 'PDF' && a.dataUrl);
+    const unstoredAttachments = (r.attachments || []).filter(a => !a.dataUrl);
     const attachmentsHtml = (r.attachments && r.attachments.length) ? `
       <h3>Attachments</h3>
       ${photoAttachments.length ? `<div class="pr-attachments">
@@ -2440,7 +2467,8 @@
           </div>
         `).join('')}
       </div>` : ''}
-      ${otherAttachments.length ? `<p class="pr-attachment-list-label">Also referenced (file not embedded — see original): ${otherAttachments.map(a => escapeHtml(a.name)).join(', ')}</p>` : ''}
+      ${pdfAttachments.length ? `<p class="pr-attachment-list-label">PDF attachment${pdfAttachments.length===1?'':'s'} — attach as a separate file when issuing this report (a browser print job can't merge another PDF's pages into this one): ${pdfAttachments.map(a => escapeHtml(a.name)).join(', ')}. Download each from the NCR form's Attachments list.</p>` : ''}
+      ${unstoredAttachments.length ? `<p class="pr-attachment-list-label">Also referenced (file not stored — see original): ${unstoredAttachments.map(a => escapeHtml(a.name)).join(', ')}</p>` : ''}
     ` : '';
 
     const html = `
