@@ -536,6 +536,49 @@
   .ncr-row-open:hover { text-decoration: underline; }
   .overdue-cell { color: #a72d2d; font-weight: 700; }
 
+  /* ── Reports & Statistics ── */
+  .reports-kpi-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .85rem;
+    margin-bottom: 1.4rem;
+  }
+  .stat-tile {
+    background: var(--paper-card); border-radius: var(--radius-md); box-shadow: var(--shadow);
+    padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: .3rem;
+    border-left: 4px solid var(--slate);
+  }
+  .stat-tile.stat-overdue { border-left-color: #a72d2d; }
+  .stat-value { font-size: 1.7rem; font-weight: 800; color: var(--text); line-height: 1; }
+  .stat-tile.stat-overdue .stat-value { color: #a72d2d; }
+  .stat-label { font-size: .78rem; color: var(--text-soft); font-weight: 600; }
+
+  .reports-charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1rem; }
+  .chart-card {
+    background: var(--paper-card); border-radius: var(--radius-lg); box-shadow: var(--shadow);
+    padding: 1.3rem 1.4rem 1.4rem;
+  }
+  .chart-title { font-size: .92rem; font-weight: 800; color: var(--text); margin-bottom: 1rem; }
+
+  .hbar-chart { display: flex; flex-direction: column; gap: .6rem; }
+  .hbar-row { display: grid; grid-template-columns: minmax(90px,auto) 1fr auto; align-items: center; gap: .7rem; }
+  .hbar-label { font-size: .8rem; color: var(--text-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hbar-track { background: var(--paper-dim); border-radius: 4px; height: 18px; overflow: hidden; }
+  .hbar-fill { height: 100%; border-radius: 0 4px 4px 0; min-width: 3px; }
+  .hbar-value { font-size: .8rem; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; min-width: 1.4em; text-align: right; }
+
+  .stack-bar { display: flex; height: 22px; border-radius: 4px; overflow: hidden; gap: 2px; background: var(--paper-dim); }
+  .stack-seg { height: 100%; }
+  .stack-legend { display: flex; flex-wrap: wrap; gap: .9rem; margin-top: .9rem; }
+  .stack-legend-item { font-size: .78rem; color: var(--text-soft); display: flex; align-items: center; gap: .4rem; }
+  .stack-legend-item b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .stack-swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+
+  .month-chart { display: flex; align-items: flex-end; gap: .9rem; height: 150px; }
+  .month-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: .3rem; }
+  .month-bar-track { width: 100%; flex: 1; display: flex; align-items: flex-end; }
+  .month-bar { width: 100%; background: var(--slate); border-radius: 4px 4px 0 0; min-height: 2px; }
+  .month-value { font-size: .74rem; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+  .month-label { font-size: .7rem; color: var(--text-soft); }
+
   @media print {
     body { background: #fff !important; }
     body > *:not(#printReport) { display: none !important; }
@@ -666,6 +709,7 @@
       <div class="search-results" id="searchResults" style="display:none;"></div>
     </div>
     <button class="legend-btn" id="ncrRegisterBtn">📋 NCR Register</button>
+    <button class="legend-btn" id="reportsBtn">📊 Reports</button>
     <button class="legend-btn" id="ncrSettingsBtn">⚙ Numbering</button>
     <button class="map-btn" id="homeBtn">⌂ Direct RCA</button>
     <button class="legend-btn" id="libraryBtn">📁 Saved Investigations</button>
@@ -779,6 +823,10 @@
     capa: {
       title: 'CAPA Navigator',
       sub: 'Turn a confirmed root cause into a corrective and preventive action plan — assign an owner, agree a closure date, and get it signed off and ready to print.'
+    },
+    reports: {
+      title: 'Reports & Statistics',
+      sub: 'How the program is actually performing: what’s open, what’s overdue, where root causes cluster, and what keeps coming back.'
     }
   };
   function setHeaderSection(key){
@@ -964,6 +1012,7 @@
     else if (prev.view === 'library') showLibrary();
     else if (prev.view === 'ncrForm') showNcrForm();
     else if (prev.view === 'ncrRegister') showNcrRegister();
+    else if (prev.view === 'reports') showReports();
     else render(prev.id);
     window.scrollTo({top:0, behavior:'smooth'});
   }
@@ -2257,6 +2306,161 @@
     document.getElementById('printReport').innerHTML = html;
   }
 
+  // ---- Reports & Statistics ----
+
+  function computeReportStats(){
+    const ncrs = loadNcrLibrary();
+    const investigations = loadLibrary();
+
+    const stageCounts = { open: 0, progress: 0, pending: 0, closed: 0 };
+    let overdueCount = 0;
+    let caRequiredCount = 0;
+    const reasonCounts = {};
+    const closeDurations = [];
+
+    ncrs.forEach(r => {
+      const stage = ncrStage(r);
+      stageCounts[stage.tone] = (stageCounts[stage.tone] || 0) + 1;
+      if (ncrOverdueDays(r)) overdueCount++;
+      if (r.caRequired === true) caRequiredCount++;
+      if (r.ncrReason) reasonCounts[r.ncrReason] = (reasonCounts[r.ncrReason] || 0) + 1;
+      if (stage.tone === 'closed') {
+        const raised = new Date(r.dateRaised);
+        const closedDates = [r.confirmedByDate, r.caVerifiedByDate].filter(Boolean).map(d => new Date(d));
+        if (!isNaN(raised.getTime()) && closedDates.length) {
+          const closedAt = new Date(Math.max(...closedDates.map(d => d.getTime())));
+          const days = Math.round((closedAt - raised) / 86400000);
+          if (days >= 0) closeDurations.push(days);
+        }
+      }
+    });
+    const avgCloseDays = closeDurations.length ? Math.round(closeDurations.reduce((a,b) => a+b, 0) / closeDurations.length) : null;
+
+    const months = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({ key: d.getFullYear() + '-' + d.getMonth(), label: d.toLocaleString(undefined, { month: 'short' }), count: 0 });
+    }
+    ncrs.forEach(r => {
+      const d = new Date(r.createdAt);
+      if (isNaN(d.getTime())) return;
+      const key = d.getFullYear() + '-' + d.getMonth();
+      const bucket = months.find(m => m.key === key);
+      if (bucket) bucket.count++;
+    });
+
+    const branchCounts = {};
+    const rootTypeCounts = { 196: 0, 205: 0 };
+    const causeCounts = {};
+    let concludedCount = 0;
+    investigations.forEach(inv => {
+      if (!inv.concludedNodeId) return;
+      concludedCount++;
+      causeCounts[inv.concludedNodeId] = (causeCounts[inv.concludedNodeId] || 0) + 1;
+      const path = (inv.concludedPath && inv.concludedPath.length) ? inv.concludedPath : null;
+      if (!path) return;
+      const branchNode = byId[path[1]];
+      if (branchNode) branchCounts[branchNode.name] = (branchCounts[branchNode.name] || 0) + 1;
+      const rootTypeId = path.find(id => id === 196 || id === 205);
+      if (rootTypeId) rootTypeCounts[rootTypeId]++;
+    });
+    const repeatCauses = Object.entries(causeCounts)
+      .filter(([,c]) => c >= 2)
+      .map(([id,c]) => ({ id: parseInt(id), name: byId[parseInt(id)] ? byId[parseInt(id)].name : ('#' + id), count: c }))
+      .sort((a,b) => b.count - a.count);
+
+    return { totalNcrs: ncrs.length, stageCounts, overdueCount, caRequiredCount, reasonCounts, avgCloseDays, months, branchCounts, rootTypeCounts, concludedCount, repeatCauses };
+  }
+
+  function statTileHtml(label, value, tone){
+    return `<div class="stat-tile${tone ? ' stat-' + tone : ''}"><div class="stat-value">${escapeHtml(String(value))}</div><div class="stat-label">${escapeHtml(label)}</div></div>`;
+  }
+  function hbarChartHtml(title, entries, opts){
+    opts = opts || {};
+    if (!entries.length) {
+      return `<div class="chart-card"><div class="chart-title">${escapeHtml(title)}</div><p class="fault-hint">${escapeHtml(opts.emptyText || 'No data yet.')}</p></div>`;
+    }
+    const color = opts.color || 'var(--slate)';
+    const max = Math.max(1, ...entries.map(e => e.count));
+    const rows = entries.map(e => {
+      const pct = Math.round((e.count / max) * 100);
+      return `<div class="hbar-row" title="${escapeHtml(e.label)}: ${e.count}">
+        <div class="hbar-label">${escapeHtml(e.label)}</div>
+        <div class="hbar-track"><div class="hbar-fill" style="width:${pct}%;background:${color};"></div></div>
+        <div class="hbar-value">${e.count}</div>
+      </div>`;
+    }).join('');
+    return `<div class="chart-card"><div class="chart-title">${escapeHtml(title)}</div><div class="hbar-chart">${rows}</div></div>`;
+  }
+  function stackBarChartHtml(title, segments, opts){
+    opts = opts || {};
+    const total = segments.reduce((sum,x) => sum + x.count, 0);
+    if (!total) {
+      return `<div class="chart-card"><div class="chart-title">${escapeHtml(title)}</div><p class="fault-hint">${escapeHtml(opts.emptyText || 'No data yet.')}</p></div>`;
+    }
+    const bar = segments.filter(s => s.count > 0).map(s => {
+      const pct = (s.count / total) * 100;
+      return `<div class="stack-seg" style="width:${pct}%;background:${s.color};" title="${escapeHtml(s.label)}: ${s.count} (${Math.round(pct)}%)"></div>`;
+    }).join('');
+    const legend = segments.map(s => `<div class="stack-legend-item"><span class="stack-swatch" style="background:${s.color};"></span>${escapeHtml(s.label)} <b>${s.count}</b></div>`).join('');
+    return `<div class="chart-card"><div class="chart-title">${escapeHtml(title)}</div><div class="stack-bar">${bar}</div><div class="stack-legend">${legend}</div></div>`;
+  }
+  function monthChartHtml(title, months){
+    const max = Math.max(1, ...months.map(m => m.count));
+    const cols = months.map(m => {
+      const pct = Math.round((m.count / max) * 100);
+      return `<div class="month-col" title="${escapeHtml(m.label)}: ${m.count}">
+        <div class="month-bar-track"><div class="month-bar" style="height:${pct}%;"></div></div>
+        <div class="month-value">${m.count}</div>
+        <div class="month-label">${escapeHtml(m.label)}</div>
+      </div>`;
+    }).join('');
+    return `<div class="chart-card"><div class="chart-title">${escapeHtml(title)}</div><div class="month-chart">${cols}</div></div>`;
+  }
+
+  function goReports(){
+    pushHistory();
+    showReports();
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  function showReports(){
+    currentView = 'reports';
+    setHeaderSection('reports');
+    const bc = document.getElementById('breadcrumb');
+    bc.innerHTML = `<span class="current">Reports &amp; Statistics</span>`;
+
+    const s = computeReportStats();
+    const stageLabels = { open: 'Open', progress: 'In Progress', pending: 'Pending Closure', closed: 'Closed' };
+    const stageColors = { open: '#3d5166', progress: '#c9821d', pending: '#0f2438', closed: '#1e6b3f' };
+
+    const el = document.getElementById('content');
+    el.innerHTML = `
+      <div class="reports-kpi-grid">
+        ${statTileHtml('Total NCRs raised', s.totalNcrs)}
+        ${statTileHtml('Open + in progress', s.stageCounts.open + s.stageCounts.progress + s.stageCounts.pending)}
+        ${statTileHtml('Overdue', s.overdueCount, s.overdueCount ? 'overdue' : '')}
+        ${statTileHtml('Closed', s.stageCounts.closed)}
+        ${statTileHtml('Avg. days to close', s.avgCloseDays == null ? '—' : s.avgCloseDays)}
+        ${statTileHtml('Needed a root cause investigation', s.totalNcrs ? Math.round((s.caRequiredCount / s.totalNcrs) * 100) + '%' : '—')}
+      </div>
+      <div class="reports-charts-grid">
+        ${stackBarChartHtml('NCRs by Stage', ['open','progress','pending','closed'].map(k => ({ label: stageLabels[k], count: s.stageCounts[k] || 0, color: stageColors[k] })), { emptyText: 'No NCRs raised yet.' })}
+        ${monthChartHtml('NCRs Raised — Last 6 Months', s.months)}
+        ${hbarChartHtml('NCRs by Reason', Object.entries(s.reasonCounts).sort((a,b) => b[1]-a[1]).map(([label,count]) => ({ label, count })), { emptyText: 'No NCR reasons recorded yet.' })}
+        ${hbarChartHtml('Root Causes by Branch', Object.entries(s.branchCounts).sort((a,b) => b[1]-a[1]).map(([label,count]) => ({ label, count })), { color: 'var(--navy)', emptyText: 'No concluded investigations yet.' })}
+        ${stackBarChartHtml('Root Cause Type', [
+          { label: 'Standards, Policies & Procedures', count: s.rootTypeCounts[196] || 0, color: '#0f2438' },
+          { label: 'Schedule & Production Pressure', count: s.rootTypeCounts[205] || 0, color: '#c9821d' }
+        ], { emptyText: 'No concluded investigations yet.' })}
+        ${hbarChartHtml('Repeat Root Causes (2+ occurrences)', s.repeatCauses.map(r => ({ label: r.name, count: r.count })), { color: '#a72d2d', emptyText: 'No repeat root causes yet — nothing has recurred.' })}
+      </div>
+    `;
+
+    renderBackButton();
+  }
+
   // ---- Library screen ----
 
   function showLibrary(){
@@ -2439,6 +2643,7 @@
   });
   document.getElementById('backBtn').addEventListener('click', goBack);
   document.getElementById('ncrRegisterBtn').addEventListener('click', () => { goNcrRegister(); });
+  document.getElementById('reportsBtn').addEventListener('click', () => { goReports(); });
   document.getElementById('ncrAttachInput').addEventListener('change', (e) => {
     if (e.target.files.length) addNcrAttachmentFiles(e.target.files);
     e.target.value = '';
