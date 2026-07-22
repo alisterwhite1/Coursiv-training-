@@ -1839,7 +1839,17 @@
       const concluded = inv && inv.concludedNodeId && inv.capa && inv.capa.approved;
       let linkArea;
       if (!r.linkedInvestigationId) {
-        linkArea = `<button type="button" class="capa-launch-btn" id="ncrStartRcaBtn">Start Root Cause Investigation →</button>`;
+        const existing = loadLibrary().filter(inv => inv.concludedNodeId);
+        const existingPicker = existing.length ? `
+          <div class="ncr-rca-summary" style="margin-top:.8rem;">
+            <div class="report-label">Or link an investigation you already completed</div>
+            <select id="ncrLinkExistingSelect" class="capa-input" style="margin-top:.5rem;">
+              <option value="">Select a saved investigation…</option>
+              ${existing.map(inv => `<option value="${inv.id}">${escapeHtml(inv.faultTitle || '(untitled)')} — ${escapeHtml(byId[inv.concludedNodeId] ? byId[inv.concludedNodeId].name : '')}${inv.capa && inv.capa.approved ? ' ✓ CAPA approved' : ' (CAPA not approved yet)'}</option>`).join('')}
+            </select>
+            <button type="button" class="map-btn-inline" id="ncrLinkExistingBtn" style="margin-top:.6rem;">🔗 Link selected investigation</button>
+          </div>` : '';
+        linkArea = `<button type="button" class="capa-launch-btn" id="ncrStartRcaBtn">Start Root Cause Investigation →</button>${existingPicker}`;
       } else if (!concluded) {
         linkArea = `<p class="fault-hint">A root cause investigation is linked but not yet concluded and approved.</p>
           <button type="button" class="capa-launch-btn" id="ncrContinueRcaBtn">Continue Root Cause Investigation →</button>`;
@@ -1889,6 +1899,16 @@
 
     const startBtn = document.getElementById('ncrStartRcaBtn');
     if (startBtn) startBtn.addEventListener('click', () => launchRcaFromNcr());
+    const linkExistingBtn = document.getElementById('ncrLinkExistingBtn');
+    if (linkExistingBtn) {
+      linkExistingBtn.addEventListener('click', () => {
+        const sel = document.getElementById('ncrLinkExistingSelect');
+        if (!sel || !sel.value) { alert('Choose a saved investigation from the list first.'); return; }
+        ncrState.linkedInvestigationId = sel.value;
+        saveNcrToLibrary();
+        showNcrForm();
+      });
+    }
     const continueBtn = document.getElementById('ncrContinueRcaBtn');
     if (continueBtn) continueBtn.addEventListener('click', () => resumeRcaFromNcr());
     const backfillBtn = document.getElementById('ncrBackfillBtn');
