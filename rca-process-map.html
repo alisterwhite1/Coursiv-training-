@@ -472,6 +472,70 @@
   .print-only { display: none; }
   @page { margin: 18mm 16mm; }
 
+  /* ── NCR forms & register ── */
+  .inline-link { color: var(--amber-deep); font-weight: 700; text-decoration: none; }
+  .inline-link:hover { text-decoration: underline; }
+
+  .stage-chip {
+    display: inline-block;
+    font-size: .72rem; font-weight: 700; padding: .3rem .7rem; border-radius: 999px;
+    white-space: nowrap;
+  }
+  .stage-open      { background: #eef1f6; color: var(--slate); }
+  .stage-progress  { background: #fdf6e9; color: var(--amber-deep); }
+  .stage-pending   { background: #e8effa; color: var(--navy); }
+  .stage-closed    { background: #eaf6ec; color: #1e6b3f; }
+  .stage-overdue   { background: #fbe7e7; color: #a72d2d; }
+  .ncr-form-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .ncr-stage-row { display: flex; gap: .5rem; margin-top: .5rem; flex-wrap: wrap; }
+
+  .ncr-attachments { display: flex; flex-direction: column; gap: .6rem; margin-top: .5rem; }
+  .ncr-attachment {
+    display: flex; align-items: center; gap: .8rem;
+    border: 1.5px solid var(--line); border-radius: var(--radius-sm); padding: .6rem .8rem;
+  }
+  .ncr-attach-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
+  .ncr-attach-icon {
+    width: 52px; height: 52px; border-radius: 6px; background: var(--paper-dim);
+    display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0;
+  }
+  .ncr-attach-meta { flex: 1; min-width: 0; }
+  .ncr-attach-name { font-size: .86rem; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ncr-attach-type { font-size: .74rem; color: var(--text-soft); }
+  .ncr-attach-remove {
+    border: none; background: none; color: var(--muted); font-size: 1.2rem; cursor: pointer; flex-shrink: 0; line-height: 1;
+    font-family: inherit;
+  }
+  .ncr-attach-remove:hover { color: #c23a3a; }
+
+  .ncr-rca-summary { margin-top: .6rem; padding: .9rem 1rem; border-radius: var(--radius-sm); background: var(--paper); border: 1.5px solid var(--line); }
+  .ncr-rca-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .8rem; }
+
+  .ncr-register-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .ncr-search-row { display: flex; flex-direction: column; gap: .6rem; margin-top: .4rem; }
+  .ncr-stage-filters { display: flex; gap: .4rem; flex-wrap: wrap; }
+  .stage-filter { border: 1.5px solid transparent; cursor: pointer; font-family: inherit; opacity: .6; }
+  .stage-filter.is-active { opacity: 1; border-color: currentColor; }
+
+  .ncr-table-wrap { overflow-x: auto; margin-top: .8rem; border: 1.5px solid var(--line); border-radius: var(--radius-md); max-height: 70vh; overflow-y: auto; }
+  .ncr-table { border-collapse: collapse; width: 100%; font-size: .8rem; }
+  .ncr-table th, .ncr-table td {
+    padding: .55rem .7rem; border-bottom: 1px solid var(--line); text-align: left;
+    white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ncr-table thead th {
+    position: sticky; top: 0; background: var(--paper-dim); color: var(--slate-soft);
+    font-size: .68rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; cursor: pointer;
+    white-space: nowrap; z-index: 3;
+  }
+  .ncr-table thead th:hover { color: var(--navy); }
+  .ncr-table td.num-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ncr-id-cell { position: sticky; left: 0; background: var(--paper-card); z-index: 1; }
+  .ncr-table thead th:first-child { position: sticky; left: 0; z-index: 4; }
+  .ncr-row-open { color: var(--navy); font-weight: 700; text-decoration: none; }
+  .ncr-row-open:hover { text-decoration: underline; }
+  .overdue-cell { color: #a72d2d; font-weight: 700; }
+
   @media print {
     body { background: #fff !important; }
     body > *:not(#printReport) { display: none !important; }
@@ -602,6 +666,8 @@
       <div class="search-results" id="searchResults" style="display:none;"></div>
     </div>
     <button class="map-btn" id="homeBtn">⌂ Start Over</button>
+    <button class="map-btn" id="newNcrBtn">🚩 Raise NCR</button>
+    <button class="legend-btn" id="ncrRegisterBtn">📋 NCR Register</button>
     <button class="legend-btn" id="libraryBtn">📁 Saved Investigations</button>
     <button class="legend-btn" id="legendBtn">Legend</button>
   </div>
@@ -621,6 +687,8 @@
 
 <div id="printReport" class="print-only"></div>
 <input type="file" id="importFileInput" accept="application/json" multiple style="display:none;" />
+<input type="file" id="ncrAttachInput" accept="image/*,application/pdf" multiple style="display:none;" />
+<input type="file" id="ncrImportFileInput" accept="application/json" multiple style="display:none;" />
 
 <div class="modal-backdrop" id="legendModal">
   <div class="modal">
@@ -665,6 +733,7 @@
       concludedNodeId: null,
       concludedPath: null,
       recordId: null,
+      linkedNcrId: null,
       capa: { correctiveAction: '', preventiveAction: '', owner: '', targetDate: '', approvedBy: '', approvedDate: '', approved: false }
     };
   }
@@ -723,6 +792,7 @@
       navPath: state.navPath.slice(),
       concludedNodeId: state.concludedNodeId,
       concludedPath: state.concludedPath ? state.concludedPath.slice() : null,
+      linkedNcrId: state.linkedNcrId || null,
       capa: Object.assign({}, state.capa)
     };
     const lib = loadLibrary();
@@ -742,6 +812,7 @@
     state.concludedNodeId = record.concludedNodeId;
     state.concludedPath = record.concludedPath ? record.concludedPath.slice() : null;
     state.recordId = record.id;
+    state.linkedNcrId = record.linkedNcrId || null;
     state.capa = Object.assign({ correctiveAction: '', preventiveAction: '', owner: '', targetDate: '', approvedBy: '', approvedDate: '', approved: false }, record.capa || {});
     saveState();
   }
@@ -825,6 +896,8 @@
     if (prev.view === 'conclusion') showConclusion();
     else if (prev.view === 'capa') showCapa();
     else if (prev.view === 'library') showLibrary();
+    else if (prev.view === 'ncrForm') showNcrForm();
+    else if (prev.view === 'ncrRegister') showNcrRegister();
     else render(prev.id);
     window.scrollTo({top:0, behavior:'smooth'});
   }
@@ -971,6 +1044,8 @@
         renderFaultBanner();
       });
     }
+    const ncrHint = document.getElementById('fromNcrHint');
+    if (ncrHint) ncrHint.addEventListener('click', (e) => { e.preventDefault(); goNcrRegister(); });
     const evidenceInput = document.getElementById('evidenceInput');
     if (evidenceInput) {
       evidenceInput.addEventListener('input', () => {
@@ -1014,6 +1089,7 @@
       <div class="field-label">Fault / Defect Title</div>
       <p class="fault-hint">Describe the issue being analysed — this stays visible while you investigate.</p>
       <input type="text" id="faultTitleInput" class="fault-input" spellcheck="true" placeholder="e.g. Level 3 slab honeycombing, Block C, 14 March" value="${val}" />
+      <p class="fault-hint">Already have a Nonconformance Report? <a href="#" id="fromNcrHint" class="inline-link">Open the NCR Register →</a></p>
     </div>`;
   }
 
@@ -1199,6 +1275,7 @@
         <div class="summary-actions">
           <button class="print-btn" id="printBtn">Print Report (PDF) →</button>
           <button class="save-lib-btn" id="saveLibraryBtn">${state.recordId ? 'Update Saved Investigation' : 'Save to Saved Investigations'}</button>
+          ${(locked && state.linkedNcrId) ? `<button class="capa-launch-btn" id="returnToNcrBtn">← Return to NCR</button>` : ''}
         </div>
       </div>
     `;
@@ -1222,6 +1299,22 @@
       });
     }
     document.getElementById('printBtn').addEventListener('click', () => { buildPrintReport(); window.print(); });
+    const returnToNcrBtn = document.getElementById('returnToNcrBtn');
+    if (returnToNcrBtn) {
+      returnToNcrBtn.addEventListener('click', () => {
+        const lib = loadNcrLibrary();
+        const rec = lib.find(x => x.id === state.linkedNcrId);
+        if (rec) {
+          rec.linkedInvestigationId = state.recordId;
+          rec.caRequired = true;
+          ncrState = rec;
+          saveNcrToLibrary();
+        }
+        pushHistory();
+        showNcrForm();
+        window.scrollTo({top:0, behavior:'smooth'});
+      });
+    }
     const saveLibBtn = document.getElementById('saveLibraryBtn');
     if (saveLibBtn) {
       saveLibBtn.addEventListener('click', () => {
@@ -1232,6 +1325,832 @@
     }
     renderFaultBanner();
     renderBackButton();
+  }
+
+  // ---- NCR (Nonconformance Reports) ----
+
+  const NCR_VERSION = 1;
+  const NCR_STORAGE_KEY = 'rcaNavigatorNcrState';
+  const NCR_LIBRARY_KEY = 'rcaNavigatorNcrLibrary';
+
+  const NCR_SOURCE_OPTIONS = [
+    'Inspection & Testing Activities', 'Reviewing Documents and/or Reports', 'Site Observation / Walkdown',
+    'Internal Audit', 'Client / Third-Party Audit', 'Client Complaint', 'Incident / Near-Miss Investigation', 'Other'
+  ];
+  const NCR_REASON_OPTIONS = [
+    'Process Deviation', 'Product / Workmanship Nonconformity', 'Documentation Deficiency',
+    'Material Nonconformity', 'Procedure Not Followed', 'Approval / Hold Point Bypassed', 'Other'
+  ];
+  const NCR_DISPOSITION_OPTIONS = ['Use As Is', 'Rework', 'Repair', 'Reject / Remove & Replace', 'Concession', 'Regrade'];
+  const NCR_ACCEPTANCE_OPTIONS = ['Accepted as proposed', 'Accepted with comments', 'Rejected — resubmit'];
+
+  function newNcrId(){ return 'ncr_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+  function suggestNcrNumber(){
+    const lib = loadNcrLibrary();
+    return 'NCR-' + new Date().getFullYear() + '-' + String(lib.length + 1).padStart(3, '0');
+  }
+
+  function defaultNcr(){
+    const now = new Date().toISOString();
+    return {
+      id: newNcrId(),
+      schemaVersion: NCR_VERSION,
+      ncrNumber: suggestNcrNumber(),
+      dateRaised: now.slice(0, 10),
+      respondent: '',
+      ncrReason: '',
+      source: '',
+      location: '',
+      description: '',
+      referenceDocs: '',
+      supportingEvidence: '',
+      attachments: [],
+      raisedBy: '', raisedByDate: '',
+      approvedByQm: '', approvedByQmDate: '',
+      dispositionType: '',
+      proposedCorrection: '',
+      closureDateAgreed: '',
+      proposedBy: '', proposedByDate: '',
+      correctionAcceptance: '',
+      acceptanceNotes: '',
+      acceptedByQm: '', acceptedByQmDate: '',
+      caRequired: null,
+      caNumber: '',
+      linkedInvestigationId: null,
+      rootCauseText: '',
+      ncrOwnerRemarks: '',
+      qmRemarks: '',
+      confirmedBy: '', confirmedByDate: '',
+      caVerifiedBy: '', caVerifiedByDate: '',
+      createdAt: now,
+      updatedAt: now
+    };
+  }
+
+  function loadNcrState(){
+    try {
+      const raw = localStorage.getItem(NCR_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.schemaVersion === NCR_VERSION) return parsed;
+      }
+    } catch (e) {}
+    return defaultNcr();
+  }
+  function saveNcrState(){
+    try { localStorage.setItem(NCR_STORAGE_KEY, JSON.stringify(ncrState)); } catch (e) {}
+  }
+  let ncrState = loadNcrState();
+
+  function loadNcrLibrary(){
+    try {
+      const raw = localStorage.getItem(NCR_LIBRARY_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return [];
+  }
+  function saveNcrLibrary(lib){
+    try { localStorage.setItem(NCR_LIBRARY_KEY, JSON.stringify(lib)); } catch (e) {}
+  }
+  function saveNcrToLibrary(){
+    ncrState.updatedAt = new Date().toISOString();
+    const lib = loadNcrLibrary();
+    const idx = lib.findIndex(r => r.id === ncrState.id);
+    if (idx !== -1) lib[idx] = ncrState; else lib.unshift(ncrState);
+    saveNcrLibrary(lib);
+    saveNcrState();
+  }
+  function deleteNcrFromLibrary(id){
+    saveNcrLibrary(loadNcrLibrary().filter(r => r.id !== id));
+  }
+
+  function ncrLinkedInvestigation(r){
+    if (!r.linkedInvestigationId) return null;
+    return loadLibrary().find(x => x.id === r.linkedInvestigationId) || null;
+  }
+  function ncrRootCauseDisplay(r){
+    if (r.caRequired === false) return r.rootCauseText || 'N/A';
+    const inv = ncrLinkedInvestigation(r);
+    if (inv && inv.concludedNodeId && byId[inv.concludedNodeId]) return byId[inv.concludedNodeId].name;
+    return '';
+  }
+  function ncrCorrectiveActionDisplay(r){
+    const inv = ncrLinkedInvestigation(r);
+    return inv && inv.capa ? (inv.capa.correctiveAction || '') : '';
+  }
+  function ncrPreventiveActionDisplay(r){
+    const inv = ncrLinkedInvestigation(r);
+    return inv && inv.capa ? (inv.capa.preventiveAction || '') : '';
+  }
+
+  function ncrStage(r){
+    if (r.confirmedBy && r.caVerifiedBy) return { label: 'Closed', tone: 'closed' };
+    const accepted = r.correctionAcceptance === 'Accepted as proposed' || r.correctionAcceptance === 'Accepted with comments';
+    if (accepted) {
+      if (r.caRequired === true) {
+        const inv = ncrLinkedInvestigation(r);
+        const concluded = inv && inv.concludedNodeId && inv.capa && inv.capa.approved;
+        if (!concluded) return { label: 'Root Cause Investigation', tone: 'progress' };
+      }
+      return { label: 'Pending Closure', tone: 'pending' };
+    }
+    if (r.proposedCorrection && r.proposedCorrection.trim()) return { label: 'Correction Proposed', tone: 'progress' };
+    if (r.approvedByQm && r.approvedByQm.trim()) return { label: 'NCR Approved', tone: 'open' };
+    return { label: 'Open — Raised', tone: 'open' };
+  }
+  function ncrOverdueDays(r){
+    if (!r.closureDateAgreed) return null;
+    if (ncrStage(r).tone === 'closed') return null;
+    const due = new Date(r.closureDateAgreed + 'T00:00:00');
+    if (isNaN(due.getTime())) return null;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const diffDays = Math.round((today - due) / 86400000);
+    return diffDays > 0 ? diffDays : null;
+  }
+  function truncateText(s, n){
+    s = s || '';
+    return s.length > n ? s.slice(0, n - 1) + '…' : s;
+  }
+
+  function resizeImageToDataUrl(file, maxWidth, quality){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(1, maxWidth / img.width);
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = reject;
+        img.src = reader.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+  async function addNcrAttachmentFiles(fileList){
+    const remaining = 6 - ncrState.attachments.length;
+    if (remaining <= 0) { alert('Up to 6 attachments per NCR for now — remove one before adding another.'); return; }
+    const files = Array.from(fileList).slice(0, remaining);
+    for (const file of files) {
+      let dataUrl = null;
+      if (file.type.startsWith('image/')) {
+        try { dataUrl = await resizeImageToDataUrl(file, 900, 0.72); } catch (e) {}
+      }
+      ncrState.attachments.push({ name: file.name, type: file.type.startsWith('image/') ? 'Photo' : 'Document', dataUrl });
+    }
+    saveNcrState();
+    showNcrForm();
+  }
+  function importNcrFiles(fileList){
+    Array.from(fileList).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(reader.result);
+          const records = Array.isArray(parsed) ? parsed : [parsed];
+          const lib = loadNcrLibrary();
+          let added = 0, updated = 0;
+          records.forEach(rec => {
+            if (!rec || typeof rec !== 'object' || !rec.id) return;
+            const idx = lib.findIndex(r => r.id === rec.id);
+            if (idx !== -1) { lib[idx] = rec; updated++; } else { lib.unshift(rec); added++; }
+          });
+          saveNcrLibrary(lib);
+          if (currentView === 'ncrRegister') showNcrRegister();
+          if (added || updated) alert(`Imported ${added} new and updated ${updated} existing NCR${(added+updated)===1?'':'s'}.`);
+          else alert("That file didn't contain any recognisable NCR records.");
+        } catch (e) {
+          alert('Could not read that file — is it a valid exported NCR file?');
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  function goNewNcr(){
+    pushHistory();
+    ncrState = defaultNcr();
+    saveNcrState();
+    showNcrForm();
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  function goOpenNcr(record){
+    pushHistory();
+    ncrState = record;
+    saveNcrState();
+    showNcrForm();
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  function goNcrRegister(){
+    pushHistory();
+    showNcrRegister();
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  function launchRcaFromNcr(){
+    saveNcrToLibrary();
+    pushHistory();
+    state.faultTitle = (ncrState.ncrNumber ? ncrState.ncrNumber + ' — ' : '') + (ncrState.description || '');
+    state.evidence = {};
+    state.navPath = [1];
+    state.concludedNodeId = null;
+    state.concludedPath = null;
+    state.recordId = null;
+    state.capa = { correctiveAction: '', preventiveAction: '', owner: '', targetDate: '', approvedBy: '', approvedDate: '', approved: false };
+    state.linkedNcrId = ncrState.id;
+    saveState();
+    render(1);
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  function resumeRcaFromNcr(){
+    const inv = ncrLinkedInvestigation(ncrState);
+    if (!inv) return;
+    pushHistory();
+    openLibraryRecord(inv);
+    state.linkedNcrId = ncrState.id;
+    saveState();
+    if (inv.concludedNodeId) showConclusion(); else render(state.navPath[state.navPath.length-1] || 1);
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  function viewLinkedRca(){
+    const inv = ncrLinkedInvestigation(ncrState);
+    if (!inv) return;
+    pushHistory();
+    openLibraryRecord(inv);
+    state.linkedNcrId = ncrState.id;
+    saveState();
+    showConclusion();
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  function ncrTextField(id, label, value, opts){
+    opts = opts || {};
+    return `<label class="capa-label">${label}${opts.hint?` <span class="capa-hint">(${escapeHtml(opts.hint)})</span>`:''}
+      <input type="${opts.type||'text'}" id="${id}" class="capa-input" spellcheck="${opts.type?'false':'true'}" value="${escapeHtml(value||'')}" placeholder="${escapeHtml(opts.placeholder||'')}" />
+    </label>`;
+  }
+  function ncrSelect(id, label, value, options){
+    return `<label class="capa-label">${label}
+      <select id="${id}" class="capa-input">
+        <option value=""${!value?' selected':''}>Select…</option>
+        ${options.map(o => `<option value="${escapeHtml(o)}"${value===o?' selected':''}>${escapeHtml(o)}</option>`).join('')}
+      </select>
+    </label>`;
+  }
+  function attachmentHtml(a, i){
+    return `<div class="ncr-attachment">
+      ${a.dataUrl ? `<img src="${a.dataUrl}" alt="${escapeHtml(a.name)}" class="ncr-attach-thumb" />` : `<div class="ncr-attach-icon">📄</div>`}
+      <div class="ncr-attach-meta">
+        <div class="ncr-attach-name">${escapeHtml(a.name)}</div>
+        <div class="ncr-attach-type">${escapeHtml(a.type)}</div>
+      </div>
+      <button type="button" class="ncr-attach-remove" data-i="${i}" title="Remove">&times;</button>
+    </div>`;
+  }
+
+  function rcaLinkHtml(r){
+    const caReqVal = r.caRequired === true ? 'yes' : (r.caRequired === false ? 'no' : '');
+    const selectRow = `
+      <label class="capa-label">Is a root cause investigation required?
+        <select id="ncrCaRequired" class="capa-input">
+          <option value=""${caReqVal===''?' selected':''}>Not yet decided</option>
+          <option value="no"${caReqVal==='no'?' selected':''}>No — correction alone resolves it</option>
+          <option value="yes"${caReqVal==='yes'?' selected':''}>Yes — root cause investigation required</option>
+        </select>
+      </label>`;
+
+    if (r.caRequired === false) {
+      return `<div class="capa-form" style="padding-top:.6rem;border-top:none;">
+        ${selectRow}
+        <label class="capa-label">Root Cause(s)
+          <textarea id="ncrRootCauseText" class="capa-input" rows="2" spellcheck="true" placeholder="N/A">${escapeHtml(r.rootCauseText || 'N/A')}</textarea>
+        </label>
+      </div>`;
+    }
+
+    if (r.caRequired === true) {
+      const inv = ncrLinkedInvestigation(r);
+      const concluded = inv && inv.concludedNodeId && inv.capa && inv.capa.approved;
+      let linkArea;
+      if (!r.linkedInvestigationId) {
+        linkArea = `<button type="button" class="capa-launch-btn" id="ncrStartRcaBtn">Start Root Cause Investigation →</button>`;
+      } else if (!concluded) {
+        linkArea = `<p class="fault-hint">A root cause investigation is linked but not yet concluded and approved.</p>
+          <button type="button" class="capa-launch-btn" id="ncrContinueRcaBtn">Continue Root Cause Investigation →</button>`;
+      } else {
+        linkArea = `<div class="ncr-rca-summary">
+          <div class="report-label">Linked investigation — root cause</div>
+          <p class="report-value">${escapeHtml(byId[inv.concludedNodeId].name)}</p>
+          ${inv.capa.correctiveAction ? `<div class="report-sublabel" style="margin-top:.6rem;">Corrective action</div><p class="report-value">${escapeHtml(inv.capa.correctiveAction)}</p>` : ''}
+          ${inv.capa.preventiveAction ? `<div class="report-sublabel" style="margin-top:.6rem;">Preventive action</div><p class="report-value">${escapeHtml(inv.capa.preventiveAction)}</p>` : ''}
+          <div class="ncr-rca-actions">
+            <button type="button" class="map-btn-inline" id="ncrViewRcaBtn">View full RCA / CAPA report →</button>
+            <button type="button" class="map-btn-inline" id="ncrRedoRcaBtn">Start a different investigation</button>
+          </div>
+        </div>`;
+      }
+      return `<div class="capa-form" style="padding-top:.6rem;border-top:none;">
+        ${selectRow}
+        ${linkArea}
+        <div class="capa-row">${ncrTextField('ncrCaNumber', 'CA No.', r.caNumber)}</div>
+      </div>`;
+    }
+
+    return `<div class="capa-form" style="padding-top:.6rem;border-top:none;">${selectRow}</div>`;
+  }
+
+  function bindNcrField(elId, field){
+    const elx = document.getElementById(elId);
+    if (!elx) return;
+    const evt = elx.tagName === 'SELECT' ? 'change' : 'input';
+    elx.addEventListener(evt, () => { ncrState[field] = elx.value; saveNcrState(); });
+  }
+
+  function wireRcaLinkControls(){
+    const caReq = document.getElementById('ncrCaRequired');
+    if (caReq) {
+      caReq.addEventListener('change', () => {
+        ncrState.caRequired = caReq.value === '' ? null : (caReq.value === 'yes');
+        if (ncrState.caRequired === false && !ncrState.rootCauseText) ncrState.rootCauseText = 'N/A';
+        saveNcrState();
+        showNcrForm();
+      });
+    }
+    const rootCauseTa = document.getElementById('ncrRootCauseText');
+    if (rootCauseTa) rootCauseTa.addEventListener('input', () => { ncrState.rootCauseText = rootCauseTa.value; saveNcrState(); });
+    bindNcrField('ncrCaNumber', 'caNumber');
+
+    const startBtn = document.getElementById('ncrStartRcaBtn');
+    if (startBtn) startBtn.addEventListener('click', () => launchRcaFromNcr());
+    const continueBtn = document.getElementById('ncrContinueRcaBtn');
+    if (continueBtn) continueBtn.addEventListener('click', () => resumeRcaFromNcr());
+    const viewBtn = document.getElementById('ncrViewRcaBtn');
+    if (viewBtn) viewBtn.addEventListener('click', () => viewLinkedRca());
+    const redoBtn = document.getElementById('ncrRedoRcaBtn');
+    if (redoBtn) redoBtn.addEventListener('click', () => {
+      if (!confirm("Start a new root cause investigation for this NCR? The previous linked investigation stays saved in Saved Investigations, it just won't be linked here any more.")) return;
+      ncrState.linkedInvestigationId = null;
+      saveNcrState();
+      launchRcaFromNcr();
+    });
+  }
+
+  function showNcrForm(){
+    currentView = 'ncrForm';
+    const r = ncrState;
+    const bc = document.getElementById('breadcrumb');
+    bc.innerHTML = `<button id="bcToRegister">NCR Register</button><span class="sep">›</span><span class="current">${escapeHtml(r.ncrNumber || '(new NCR)')}</span>`;
+    document.getElementById('bcToRegister').addEventListener('click', () => goNcrRegister());
+
+    const stage = ncrStage(r);
+    const overdue = ncrOverdueDays(r);
+
+    const el = document.getElementById('content');
+    el.innerHTML = `
+      <div class="report-card ncr-form">
+        <div class="ncr-form-head">
+          <div>
+            <div class="report-title">Nonconformance Report</div>
+            <div class="ncr-stage-row">
+              <span class="stage-chip stage-${stage.tone}">${escapeHtml(stage.label)}</span>
+              ${overdue ? `<span class="stage-chip stage-overdue">${overdue} day${overdue===1?'':'s'} overdue</span>` : ''}
+            </div>
+          </div>
+        </div>
+
+        <div class="capa-form">
+          <div class="capa-row">
+            ${ncrTextField('ncrNumber', 'NCR #', r.ncrNumber)}
+            ${ncrTextField('ncrDateRaised', 'Date NCR Raised', r.dateRaised, {type:'date'})}
+          </div>
+          <div class="capa-row">
+            ${ncrTextField('ncrRespondent', 'Respondent Company / Person', r.respondent, {placeholder:'Who the nonconformance is raised against'})}
+            ${ncrSelect('ncrReason', 'NCR Reason', r.ncrReason, NCR_REASON_OPTIONS)}
+          </div>
+          <div class="capa-row">
+            ${ncrSelect('ncrSource', 'Source of NCR', r.source, NCR_SOURCE_OPTIONS)}
+            ${ncrTextField('ncrLocation', 'Location', r.location, {placeholder:'Project / site / area'})}
+          </div>
+        </div>
+
+        <div class="report-block">
+          <div class="report-label">Description of Nonconformance</div>
+          <textarea id="ncrDescription" class="capa-input" rows="3" spellcheck="true" placeholder="What is nonconforming, and against what requirement?">${escapeHtml(r.description)}</textarea>
+        </div>
+
+        <div class="report-block">
+          <div class="report-label">Reference Documents</div>
+          <textarea id="ncrReferenceDocs" class="capa-input" rows="2" spellcheck="true" placeholder="Standard, specification, method statement, ITP clause…">${escapeHtml(r.referenceDocs)}</textarea>
+          <div class="report-label" style="margin-top:.9rem;">Supporting Evidence</div>
+          <textarea id="ncrSupportingEvidence" class="capa-input" rows="2" spellcheck="true" placeholder="Photos, transmittals, inspection records referenced…">${escapeHtml(r.supportingEvidence)}</textarea>
+        </div>
+
+        <div class="report-block">
+          <div class="report-label">Attachments</div>
+          <div class="ncr-attachments">
+            ${r.attachments.length ? r.attachments.map((a, i) => attachmentHtml(a, i)).join('') : '<p class="fault-hint">No attachments yet.</p>'}
+          </div>
+          <button type="button" class="map-btn-inline" id="ncrAddAttachmentBtn" style="margin-top:.6rem;">+ Add photo / document</button>
+        </div>
+
+        <div class="capa-form">
+          <div class="capa-row">
+            ${ncrTextField('ncrRaisedBy', 'Raised By', r.raisedBy)}
+            ${ncrTextField('ncrRaisedByDate', 'Date', r.raisedByDate, {type:'date'})}
+          </div>
+          <div class="capa-row">
+            ${ncrTextField('ncrApprovedByQm', 'Approved By QM', r.approvedByQm)}
+            ${ncrTextField('ncrApprovedByQmDate', 'Date', r.approvedByQmDate, {type:'date'})}
+          </div>
+        </div>
+
+        <div class="report-block">
+          <div class="report-label">Proposed Correction <span class="capa-hint">(containment / rectification of the nonconformity)</span></div>
+          <div class="capa-form" style="padding-top:.6rem;border-top:none;">
+            ${ncrSelect('ncrDisposition', 'Disposition', r.dispositionType, NCR_DISPOSITION_OPTIONS)}
+            <label class="capa-label">Proposed Correction
+              <textarea id="ncrProposedCorrection" class="capa-input" rows="3" spellcheck="true" placeholder="What will be done to correct this specific occurrence?">${escapeHtml(r.proposedCorrection)}</textarea>
+            </label>
+            <div class="capa-row">
+              ${ncrTextField('ncrClosureDateAgreed', 'Agreed NCR Closure Date', r.closureDateAgreed, {type:'date'})}
+              ${ncrTextField('ncrProposedBy', 'Proposed By', r.proposedBy)}
+            </div>
+            ${ncrTextField('ncrProposedByDate', 'Date Proposed', r.proposedByDate, {type:'date'})}
+          </div>
+        </div>
+
+        <div class="report-block">
+          <div class="report-label">Correction Acceptance</div>
+          <div class="capa-form" style="padding-top:.6rem;border-top:none;">
+            ${ncrSelect('ncrCorrectionAcceptance', 'Acceptance', r.correctionAcceptance, NCR_ACCEPTANCE_OPTIONS)}
+            <label class="capa-label">Notes
+              <textarea id="ncrAcceptanceNotes" class="capa-input" rows="2" spellcheck="true" placeholder="Any conditions or comments on acceptance">${escapeHtml(r.acceptanceNotes)}</textarea>
+            </label>
+            <div class="capa-row">
+              ${ncrTextField('ncrAcceptedByQm', 'Accepted By QM', r.acceptedByQm)}
+              ${ncrTextField('ncrAcceptedByQmDate', 'Date', r.acceptedByQmDate, {type:'date'})}
+            </div>
+          </div>
+        </div>
+
+        <div class="report-block ncr-rca-block">
+          <div class="report-label">Root Cause &amp; Corrective Action</div>
+          ${rcaLinkHtml(r)}
+        </div>
+
+        <div class="report-block">
+          <div class="report-label">Correction Implementation</div>
+          <div class="capa-form" style="padding-top:.6rem;border-top:none;">
+            <label class="capa-label">NCR Owner Remarks
+              <textarea id="ncrOwnerRemarks" class="capa-input" rows="2" spellcheck="true">${escapeHtml(r.ncrOwnerRemarks)}</textarea>
+            </label>
+            <label class="capa-label">QM Remarks
+              <textarea id="ncrQmRemarks" class="capa-input" rows="2" spellcheck="true">${escapeHtml(r.qmRemarks)}</textarea>
+            </label>
+            <div class="capa-row">
+              ${ncrTextField('ncrConfirmedBy', 'Confirmed By', r.confirmedBy)}
+              ${ncrTextField('ncrConfirmedByDate', 'Date', r.confirmedByDate, {type:'date'})}
+            </div>
+            <div class="capa-row">
+              ${ncrTextField('ncrCaVerifiedBy', 'Verified By QM (Closure)', r.caVerifiedBy)}
+              ${ncrTextField('ncrCaVerifiedByDate', 'Date', r.caVerifiedByDate, {type:'date'})}
+            </div>
+          </div>
+        </div>
+
+        <div class="summary-actions">
+          <button class="save-lib-btn" id="ncrSaveBtn">Save to NCR Register</button>
+          <button class="print-btn" id="ncrPrintBtn">Print NCR Report (PDF) →</button>
+          <button class="map-btn-inline" id="ncrDeleteBtn" style="border-color:#c23a3a;color:#c23a3a;">Delete NCR</button>
+        </div>
+      </div>
+    `;
+
+    ['ncrRespondent','ncrLocation','ncrDescription','ncrReferenceDocs','ncrSupportingEvidence',
+     'ncrRaisedBy','ncrApprovedByQm','ncrProposedCorrection','ncrProposedBy','ncrAcceptanceNotes','ncrAcceptedByQm',
+     'ncrQmRemarks','ncrConfirmedBy','ncrCaVerifiedBy'].forEach(id => {
+      const field = id.charAt(3).toLowerCase() + id.slice(4);
+      bindNcrField(id, field);
+    });
+    bindNcrField('ncrNumber', 'ncrNumber');
+    bindNcrField('ncrOwnerRemarks', 'ncrOwnerRemarks');
+    bindNcrField('ncrDateRaised', 'dateRaised');
+    bindNcrField('ncrRaisedByDate', 'raisedByDate');
+    bindNcrField('ncrApprovedByQmDate', 'approvedByQmDate');
+    bindNcrField('ncrClosureDateAgreed', 'closureDateAgreed');
+    bindNcrField('ncrProposedByDate', 'proposedByDate');
+    bindNcrField('ncrAcceptedByQmDate', 'acceptedByQmDate');
+    bindNcrField('ncrConfirmedByDate', 'confirmedByDate');
+    bindNcrField('ncrCaVerifiedByDate', 'caVerifiedByDate');
+    bindNcrField('ncrReason', 'ncrReason');
+    bindNcrField('ncrSource', 'source');
+    bindNcrField('ncrDisposition', 'dispositionType');
+    bindNcrField('ncrCorrectionAcceptance', 'correctionAcceptance');
+
+    wireRcaLinkControls();
+
+    document.getElementById('ncrAddAttachmentBtn').addEventListener('click', () => document.getElementById('ncrAttachInput').click());
+    el.querySelectorAll('.ncr-attach-remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = parseInt(btn.dataset.i);
+        ncrState.attachments.splice(i, 1);
+        saveNcrState();
+        showNcrForm();
+      });
+    });
+
+    document.getElementById('ncrSaveBtn').addEventListener('click', () => {
+      saveNcrToLibrary();
+      showNcrForm();
+    });
+    document.getElementById('ncrPrintBtn').addEventListener('click', () => {
+      saveNcrToLibrary();
+      buildNcrPrintReport();
+      window.print();
+    });
+    document.getElementById('ncrDeleteBtn').addEventListener('click', () => {
+      if (!confirm(`Delete NCR "${r.ncrNumber || '(untitled)'}"? This can't be undone.`)) return;
+      deleteNcrFromLibrary(r.id);
+      goNcrRegister();
+    });
+
+    renderFaultBanner();
+    renderBackButton();
+  }
+
+  function ncrRowHtml(r){
+    const stage = ncrStage(r);
+    const overdue = ncrOverdueDays(r);
+    const searchBlob = [r.ncrNumber, r.description, r.respondent, r.raisedBy, r.location].join(' ').toLowerCase();
+    const rootCause = ncrRootCauseDisplay(r);
+    const corrective = ncrCorrectiveActionDisplay(r);
+    const preventive = ncrPreventiveActionDisplay(r);
+    const cell = (text) => `<td title="${escapeHtml(text||'')}">${escapeHtml(truncateText(text, 60))}</td>`;
+    return `<tr data-search="${escapeHtml(searchBlob)}" data-tone="${stage.tone}" data-overdue="${overdue ? '1' : '0'}">
+      <td class="ncr-id-cell"><a href="#" class="ncr-row-open" data-id="${r.id}">${escapeHtml(r.ncrNumber || '(untitled)')}</a></td>
+      <td><span class="stage-chip stage-${stage.tone}">${escapeHtml(stage.label)}</span></td>
+      <td class="num-cell">${overdue ? `<span class="overdue-cell">${overdue}</span>` : '—'}</td>
+      <td class="num-cell">${escapeHtml(r.dateRaised || '')}</td>
+      ${cell(r.respondent)}
+      ${cell(r.ncrReason)}
+      ${cell(r.source)}
+      ${cell(r.location)}
+      ${cell(r.description)}
+      ${cell(r.referenceDocs)}
+      ${cell(r.supportingEvidence)}
+      <td class="num-cell">${(r.attachments||[]).length}</td>
+      ${cell(r.raisedBy)}
+      <td class="num-cell">${escapeHtml(r.raisedByDate || '')}</td>
+      ${cell(r.approvedByQm)}
+      <td class="num-cell">${escapeHtml(r.approvedByQmDate || '')}</td>
+      ${cell(r.dispositionType)}
+      ${cell(r.proposedCorrection)}
+      <td class="num-cell">${escapeHtml(r.closureDateAgreed || '')}</td>
+      ${cell(r.proposedBy)}
+      <td class="num-cell">${escapeHtml(r.proposedByDate || '')}</td>
+      ${cell(r.correctionAcceptance)}
+      ${cell(r.acceptanceNotes)}
+      ${cell(r.acceptedByQm)}
+      <td class="num-cell">${escapeHtml(r.acceptedByQmDate || '')}</td>
+      <td>${r.caRequired === true ? 'Yes' : r.caRequired === false ? 'No' : '—'}</td>
+      ${cell(r.caNumber)}
+      ${cell(rootCause)}
+      ${cell(corrective)}
+      ${cell(preventive)}
+      ${cell(r.ncrOwnerRemarks)}
+      ${cell(r.qmRemarks)}
+      ${cell(r.confirmedBy)}
+      <td class="num-cell">${escapeHtml(r.confirmedByDate || '')}</td>
+      ${cell(r.caVerifiedBy)}
+      <td class="num-cell">${escapeHtml(r.caVerifiedByDate || '')}</td>
+      <td class="num-cell">${escapeHtml((r.createdAt||'').slice(0,10))}</td>
+      <td class="num-cell">${escapeHtml((r.updatedAt||'').slice(0,10))}</td>
+    </tr>`;
+  }
+
+  function sortNcrRecords(lib, key, asc){
+    const arr = lib.slice();
+    arr.sort((a,b) => {
+      let va, vb;
+      if (key === 'stage') { va = ncrStage(a).label; vb = ncrStage(b).label; }
+      else if (key === 'overdue') { va = ncrOverdueDays(a) || 0; vb = ncrOverdueDays(b) || 0; }
+      else { va = a[key] || ''; vb = b[key] || ''; }
+      if (va < vb) return asc ? -1 : 1;
+      if (va > vb) return asc ? 1 : -1;
+      return 0;
+    });
+    return arr;
+  }
+
+  function wireNcrTableRows(el, records){
+    el.querySelectorAll('.ncr-row-open').forEach(a => {
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        const rec = records.find(x => x.id === a.dataset.id);
+        if (rec) goOpenNcr(rec);
+      });
+    });
+  }
+
+  function showNcrRegister(){
+    currentView = 'ncrRegister';
+    const bc = document.getElementById('breadcrumb');
+    bc.innerHTML = `<span class="current">NCR Register</span>`;
+    let lib = loadNcrLibrary();
+    const el = document.getElementById('content');
+    el.innerHTML = `
+      <div class="report-card ncr-register">
+        <div class="ncr-register-head">
+          <div class="report-title">NCR Register</div>
+          <div class="library-toolbar">
+            <button class="map-btn-inline" id="ncrNewBtn">+ Raise New NCR</button>
+            <button class="map-btn-inline" id="ncrImportBtn">Import…</button>
+            <button class="map-btn-inline" id="ncrExportAllBtn" ${lib.length ? '' : 'disabled'}>Export All</button>
+          </div>
+        </div>
+        ${lib.length ? `
+          <div class="ncr-search-row">
+            <input type="text" id="ncrSearchBox" class="fault-input" placeholder="Search NCR #, description, respondent, raised by, location…" />
+            <div class="ncr-stage-filters" id="ncrStageFilters">
+              <button type="button" class="stage-chip stage-filter is-active" data-tone="all">All</button>
+              <button type="button" class="stage-chip stage-filter stage-open" data-tone="open">Open</button>
+              <button type="button" class="stage-chip stage-filter stage-progress" data-tone="progress">In Progress</button>
+              <button type="button" class="stage-chip stage-filter stage-pending" data-tone="pending">Pending Closure</button>
+              <button type="button" class="stage-chip stage-filter stage-closed" data-tone="closed">Closed</button>
+              <button type="button" class="stage-chip stage-filter stage-overdue" data-tone="overdue">Overdue</button>
+            </div>
+          </div>
+          <div class="ncr-table-wrap">
+            <table class="ncr-table" id="ncrTable">
+              <thead>
+                <tr>
+                  <th data-sort="ncrNumber">NCR #</th>
+                  <th data-sort="stage">Stage</th>
+                  <th data-sort="overdue">Overdue (Days)</th>
+                  <th data-sort="dateRaised">Date Raised</th>
+                  <th>Respondent</th>
+                  <th>NCR Reason</th>
+                  <th>Source of NCR</th>
+                  <th>Location</th>
+                  <th>Description</th>
+                  <th>Reference Documents</th>
+                  <th>Supporting Evidence</th>
+                  <th>Attachments</th>
+                  <th>Raised By</th>
+                  <th>Raised Date</th>
+                  <th>Approved By QM</th>
+                  <th>Approved Date</th>
+                  <th>Disposition</th>
+                  <th>Proposed Correction</th>
+                  <th data-sort="closureDateAgreed">Agreed Closure Date</th>
+                  <th>Proposed By</th>
+                  <th>Proposed Date</th>
+                  <th>Correction Acceptance</th>
+                  <th>Acceptance Notes</th>
+                  <th>Accepted By QM</th>
+                  <th>Accepted Date</th>
+                  <th>CA Required</th>
+                  <th>CA No.</th>
+                  <th>Root Cause(s)</th>
+                  <th>Corrective Action</th>
+                  <th>Preventive Action</th>
+                  <th>NCR Owner Remarks</th>
+                  <th>QM Remarks</th>
+                  <th>Confirmed By</th>
+                  <th>Confirmed Date</th>
+                  <th>Verified By QM</th>
+                  <th>Verified Date</th>
+                  <th data-sort="createdAt">Created On</th>
+                  <th data-sort="updatedAt">Updated On</th>
+                </tr>
+              </thead>
+              <tbody id="ncrTableBody">${lib.map(r => ncrRowHtml(r)).join('')}</tbody>
+            </table>
+          </div>
+        ` : `<p class="fault-hint">No NCRs raised yet. Click "+ Raise New NCR" to start one — it's the front door into an investigation when a root cause needs to be found.</p>`}
+      </div>
+    `;
+
+    document.getElementById('ncrNewBtn').addEventListener('click', () => goNewNcr());
+    document.getElementById('ncrImportBtn').addEventListener('click', () => document.getElementById('ncrImportFileInput').click());
+    const exportAllBtn = document.getElementById('ncrExportAllBtn');
+    if (exportAllBtn && !exportAllBtn.disabled) {
+      exportAllBtn.addEventListener('click', () => downloadJson(lib, `ncr-register-export-${new Date().toISOString().slice(0,10)}.json`));
+    }
+
+    if (!lib.length) { renderFaultBanner(); renderBackButton(); return; }
+
+    wireNcrTableRows(el, lib);
+
+    const searchBox = document.getElementById('ncrSearchBox');
+    const filterBtns = el.querySelectorAll('.stage-filter');
+    let activeTone = 'all';
+    function applyFilter(){
+      const q = (searchBox && searchBox.value || '').trim().toLowerCase();
+      el.querySelectorAll('#ncrTableBody tr').forEach(tr => {
+        const matchesText = !q || tr.dataset.search.includes(q);
+        const matchesTone = activeTone === 'all' || tr.dataset.tone === activeTone || (activeTone === 'overdue' && tr.dataset.overdue === '1');
+        tr.style.display = (matchesText && matchesTone) ? '' : 'none';
+      });
+    }
+    if (searchBox) searchBox.addEventListener('input', applyFilter);
+    filterBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        filterBtns.forEach(b => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        activeTone = btn.dataset.tone;
+        applyFilter();
+      });
+    });
+
+    const sortDir = {};
+    el.querySelectorAll('#ncrTable thead th[data-sort]').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.sort;
+        sortDir[key] = !sortDir[key];
+        lib = sortNcrRecords(lib, key, sortDir[key]);
+        document.getElementById('ncrTableBody').innerHTML = lib.map(r => ncrRowHtml(r)).join('');
+        wireNcrTableRows(el, lib);
+        applyFilter();
+      });
+    });
+
+    renderBackButton();
+  }
+
+  function buildNcrPrintReport(){
+    const r = ncrState;
+    const stage = ncrStage(r);
+    const generatedOn = new Date().toLocaleString(undefined, { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+    const rootCause = ncrRootCauseDisplay(r);
+    const corrective = ncrCorrectiveActionDisplay(r);
+    const preventive = ncrPreventiveActionDisplay(r);
+
+    const html = `
+      <div class="pr-header">
+        <div class="pr-brand">Root Cause Navigator</div>
+        <h1>Nonconformance Report</h1>
+        <h2>${escapeHtml(r.ncrNumber || '(NCR number not entered)')}</h2>
+        <div class="pr-meta"><span>Stage: ${escapeHtml(stage.label)}</span><span>Generated: ${escapeHtml(generatedOn)}</span></div>
+      </div>
+
+      <div class="pr-capa-grid" style="margin-bottom:1.1rem;">
+        <div class="pr-block"><div class="pr-label">Date NCR Raised</div><p>${escapeHtml(r.dateRaised || '—')}</p></div>
+        <div class="pr-block"><div class="pr-label">Respondent Company / Person</div><p>${escapeHtml(r.respondent || '—')}</p></div>
+        <div class="pr-block"><div class="pr-label">NCR Reason</div><p>${escapeHtml(r.ncrReason || '—')}</p></div>
+        <div class="pr-block"><div class="pr-label">Source of NCR</div><p>${escapeHtml(r.source || '—')}</p></div>
+        <div class="pr-block"><div class="pr-label">Location</div><p>${escapeHtml(r.location || '—')}</p></div>
+      </div>
+
+      <h3>Description of Nonconformance</h3>
+      <p>${escapeHtml(r.description || '(not entered)')}</p>
+
+      ${r.referenceDocs ? `<h3>Reference Documents</h3><p>${escapeHtml(r.referenceDocs)}</p>` : ''}
+      ${r.supportingEvidence ? `<h3>Supporting Evidence</h3><p>${escapeHtml(r.supportingEvidence)}</p>` : ''}
+
+      <div class="pr-capa-grid">
+        <div class="pr-block"><div class="pr-label">Raised By</div><p>${escapeHtml(r.raisedBy || '—')}${r.raisedByDate ? ' · ' + escapeHtml(r.raisedByDate) : ''}</p></div>
+        <div class="pr-block"><div class="pr-label">Approved By QM</div><p>${escapeHtml(r.approvedByQm || '—')}${r.approvedByQmDate ? ' · ' + escapeHtml(r.approvedByQmDate) : ''}</p></div>
+      </div>
+
+      <h3>Proposed Correction</h3>
+      <p>${r.dispositionType ? `<strong>${escapeHtml(r.dispositionType)}</strong> — ` : ''}${escapeHtml(r.proposedCorrection || '(not entered)')}</p>
+      <div class="pr-capa-grid">
+        <div class="pr-block"><div class="pr-label">Agreed NCR Closure Date</div><p>${escapeHtml(r.closureDateAgreed || '—')}</p></div>
+        <div class="pr-block"><div class="pr-label">Proposed By</div><p>${escapeHtml(r.proposedBy || '—')}${r.proposedByDate ? ' · ' + escapeHtml(r.proposedByDate) : ''}</p></div>
+      </div>
+
+      <h3>Correction Acceptance</h3>
+      <p>${escapeHtml(r.correctionAcceptance || '(not entered)')}${r.acceptanceNotes ? ' — ' + escapeHtml(r.acceptanceNotes) : ''}</p>
+      <div class="pr-capa-grid">
+        <div class="pr-block"><div class="pr-label">Accepted By QM</div><p>${escapeHtml(r.acceptedByQm || '—')}${r.acceptedByQmDate ? ' · ' + escapeHtml(r.acceptedByQmDate) : ''}</p></div>
+        <div class="pr-block"><div class="pr-label">CA Required</div><p>${r.caRequired === true ? 'Yes' + (r.caNumber ? ' — ' + escapeHtml(r.caNumber) : '') : r.caRequired === false ? 'No' : '—'}</p></div>
+      </div>
+
+      <h3>Root Cause &amp; Corrective Action</h3>
+      <div class="pr-capa-grid">
+        <div class="pr-block"><div class="pr-label">Root Cause(s)</div><p>${escapeHtml(rootCause || 'N/A')}</p></div>
+        <div class="pr-block"><div class="pr-label">Corrective Action</div><p>${escapeHtml(corrective || '—')}</p></div>
+      </div>
+      ${preventive ? `<div class="pr-block"><div class="pr-label">Preventive Action</div><p>${escapeHtml(preventive)}</p></div>` : ''}
+
+      <h3>Correction Implementation</h3>
+      ${r.ncrOwnerRemarks ? `<div class="pr-block"><div class="pr-label">NCR Owner Remarks</div><p>${escapeHtml(r.ncrOwnerRemarks)}</p></div>` : ''}
+      ${r.qmRemarks ? `<div class="pr-block"><div class="pr-label">QM Remarks</div><p>${escapeHtml(r.qmRemarks)}</p></div>` : ''}
+      <div class="pr-capa-grid">
+        <div class="pr-block"><div class="pr-label">Confirmed By</div><p>${escapeHtml(r.confirmedBy || '—')}${r.confirmedByDate ? ' · ' + escapeHtml(r.confirmedByDate) : ''}</p></div>
+        <div class="pr-block"><div class="pr-label">Verified By QM</div><p>${escapeHtml(r.caVerifiedBy || '—')}${r.caVerifiedByDate ? ' · ' + escapeHtml(r.caVerifiedByDate) : ''}</p></div>
+      </div>
+
+      <div class="pr-footer">Generated by Root Cause Navigator · NCR ${escapeHtml(r.ncrNumber || '')} · ${escapeHtml(generatedOn)}</div>
+    `;
+    document.getElementById('printReport').innerHTML = html;
   }
 
   // ---- Library screen ----
@@ -1407,12 +2326,23 @@
     state.concludedNodeId = null;
     state.concludedPath = null;
     state.recordId = null;
+    state.linkedNcrId = null;
     state.capa = { correctiveAction: '', preventiveAction: '', owner: '', targetDate: '', approvedBy: '', approvedDate: '', approved: false };
     saveState();
     render(1);
     window.scrollTo({top:0, behavior:'smooth'});
   });
   document.getElementById('backBtn').addEventListener('click', goBack);
+  document.getElementById('newNcrBtn').addEventListener('click', () => { goNewNcr(); });
+  document.getElementById('ncrRegisterBtn').addEventListener('click', () => { goNcrRegister(); });
+  document.getElementById('ncrAttachInput').addEventListener('change', (e) => {
+    if (e.target.files.length) addNcrAttachmentFiles(e.target.files);
+    e.target.value = '';
+  });
+  document.getElementById('ncrImportFileInput').addEventListener('change', (e) => {
+    if (e.target.files.length) importNcrFiles(e.target.files);
+    e.target.value = '';
+  });
   document.getElementById('libraryBtn').addEventListener('click', () => { goLibrary(); });
   document.getElementById('importFileInput').addEventListener('change', (e) => {
     if (e.target.files.length) importLibraryFiles(e.target.files);
