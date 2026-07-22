@@ -643,6 +643,12 @@
     #printReport .pr-table td { font-size: .85rem; }
     #printReport .pr-table td:last-child, #printReport .pr-table th:last-child { text-align: right; font-variant-numeric: tabular-nums; }
 
+    #printReport .pr-attachments { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1rem; }
+    #printReport .pr-attachment-photo { border: 1px solid #ddd; padding: 6px; page-break-inside: avoid; break-inside: avoid; }
+    #printReport .pr-attachment-photo img { width: 100%; height: 220px; object-fit: cover; display: block; }
+    #printReport .pr-attachment-caption { font-family: Arial, sans-serif; font-size: .68rem; color: #666; margin-top: 4px; text-align: center; word-break: break-word; }
+    #printReport .pr-attachment-list-label { font-size: .82rem; color: #666; font-style: italic; margin-bottom: 1rem; }
+
     #printReport .pr-approval { border: 1.5px solid #ccc; padding: .9rem 1.1rem; page-break-inside: avoid; break-inside: avoid; }
     #printReport .pr-approval.is-approved { border-color: #2e6b47; }
     #printReport .pr-approval-stamp { font-family: Arial, sans-serif; font-weight: bold; font-size: .8rem; letter-spacing: .06em; margin-bottom: .5rem; }
@@ -2422,6 +2428,21 @@
     const corrective = ncrCorrectiveActionDisplay(r);
     const preventive = ncrPreventiveActionDisplay(r);
 
+    const photoAttachments = (r.attachments || []).filter(a => a.dataUrl);
+    const otherAttachments = (r.attachments || []).filter(a => !a.dataUrl);
+    const attachmentsHtml = (r.attachments && r.attachments.length) ? `
+      <h3>Attachments</h3>
+      ${photoAttachments.length ? `<div class="pr-attachments">
+        ${photoAttachments.map(a => `
+          <div class="pr-attachment-photo">
+            <img src="${a.dataUrl}" alt="${escapeHtml(a.name)}" />
+            <div class="pr-attachment-caption">${escapeHtml(a.name)}</div>
+          </div>
+        `).join('')}
+      </div>` : ''}
+      ${otherAttachments.length ? `<p class="pr-attachment-list-label">Also referenced (file not embedded — see original): ${otherAttachments.map(a => escapeHtml(a.name)).join(', ')}</p>` : ''}
+    ` : '';
+
     const html = `
       <div class="pr-header">
         <div class="pr-brand">Root Cause Navigator</div>
@@ -2444,6 +2465,7 @@
 
       ${r.referenceDocs ? `<h3>Reference Documents</h3><p>${escapeHtml(r.referenceDocs)}</p>` : ''}
       ${r.supportingEvidence ? `<h3>Supporting Evidence</h3><p>${escapeHtml(r.supportingEvidence)}</p>` : ''}
+      ${attachmentsHtml}
 
       <div class="pr-capa-grid">
         <div class="pr-block"><div class="pr-label">Raised By</div><p>${escapeHtml(r.raisedBy || '—')}${r.raisedByDate ? ' · ' + escapeHtml(r.raisedByDate) : ''}</p></div>
