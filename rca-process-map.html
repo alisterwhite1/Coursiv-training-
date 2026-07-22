@@ -1770,6 +1770,24 @@
     showConclusion();
     window.scrollTo({top:0, behavior:'smooth'});
   }
+  function backfillNcrFromInvestigation(){
+    const inv = ncrLinkedInvestigation(ncrState);
+    if (!inv || !inv.capa) return;
+    const cap = inv.capa;
+    let filled = 0;
+    const fill = (field, value) => {
+      if (value && !(ncrState[field] && String(ncrState[field]).trim())) { ncrState[field] = value; filled++; }
+    };
+    fill('proposedCorrection', cap.correctiveAction);
+    fill('closureDateAgreed', cap.targetDate);
+    fill('confirmedBy', cap.owner);
+    fill('caVerifiedBy', cap.approvedBy);
+    fill('caVerifiedByDate', cap.approvedDate);
+    if (cap.approved && !ncrState.correctionAcceptance) { ncrState.correctionAcceptance = 'Accepted as proposed'; filled++; }
+    saveNcrState();
+    showNcrForm();
+    alert(filled ? `Backfilled ${filled} field${filled===1?'':'s'} from the linked investigation. Fields that already had a value were left untouched.` : 'Nothing to backfill — those fields already have values, or the investigation has nothing new to offer.');
+  }
 
   function ncrTextField(id, label, value, opts){
     opts = opts || {};
@@ -1832,6 +1850,7 @@
           ${inv.capa.correctiveAction ? `<div class="report-sublabel" style="margin-top:.6rem;">Corrective action</div><p class="report-value">${escapeHtml(inv.capa.correctiveAction)}</p>` : ''}
           ${inv.capa.preventiveAction ? `<div class="report-sublabel" style="margin-top:.6rem;">Preventive action</div><p class="report-value">${escapeHtml(inv.capa.preventiveAction)}</p>` : ''}
           <div class="ncr-rca-actions">
+            <button type="button" class="map-btn-inline" id="ncrBackfillBtn">⇩ Backfill NCR fields from this investigation</button>
             <button type="button" class="map-btn-inline" id="ncrViewRcaBtn">View full RCA / CAPA report →</button>
             <button type="button" class="map-btn-inline" id="ncrRedoRcaBtn">Start a different investigation</button>
           </div>
@@ -1872,6 +1891,8 @@
     if (startBtn) startBtn.addEventListener('click', () => launchRcaFromNcr());
     const continueBtn = document.getElementById('ncrContinueRcaBtn');
     if (continueBtn) continueBtn.addEventListener('click', () => resumeRcaFromNcr());
+    const backfillBtn = document.getElementById('ncrBackfillBtn');
+    if (backfillBtn) backfillBtn.addEventListener('click', () => backfillNcrFromInvestigation());
     const viewBtn = document.getElementById('ncrViewRcaBtn');
     if (viewBtn) viewBtn.addEventListener('click', () => viewLinkedRca());
     const redoBtn = document.getElementById('ncrRedoRcaBtn');
