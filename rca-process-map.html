@@ -1013,7 +1013,7 @@
     return `<div class="fault-card">
       <div class="field-label">Fault / Defect Title</div>
       <p class="fault-hint">Describe the issue being analysed — this stays visible while you investigate.</p>
-      <input type="text" id="faultTitleInput" class="fault-input" placeholder="e.g. Level 3 slab honeycombing, Block C, 14 March" value="${val}" />
+      <input type="text" id="faultTitleInput" class="fault-input" spellcheck="true" placeholder="e.g. Level 3 slab honeycombing, Block C, 14 March" value="${val}" />
     </div>`;
   }
 
@@ -1077,7 +1077,7 @@
     return `<div class="evidence-block">
       <div class="field-label">${evidenceLabel(n)} <span class="required-mark">*required</span></div>
       ${selectHtml}
-      <textarea id="evidenceInput" class="evidence-input" rows="3" placeholder="${escapeHtml(evidencePrompt(n))}">${val}</textarea>
+      <textarea id="evidenceInput" class="evidence-input" rows="3" spellcheck="true" placeholder="${escapeHtml(evidencePrompt(n))}">${val}</textarea>
       <div id="evidenceRequiredMsg" class="evidence-required-msg" style="display:none;">Enter your evidence before moving on — every step needs a documented reason.</div>
     </div>`;
   }
@@ -1168,10 +1168,10 @@
         </div>
         <div class="capa-form">
           <label class="capa-label">Corrective Action <span class="capa-hint">(fixes this occurrence)</span>
-            <textarea id="capaCorrective" class="capa-input" rows="3" ${locked?'disabled':''} placeholder="What will be done to correct this specific issue?">${escapeHtml(c.correctiveAction)}</textarea>
+            <textarea id="capaCorrective" class="capa-input" rows="3" spellcheck="true" ${locked?'disabled':''} placeholder="What will be done to correct this specific issue?">${escapeHtml(c.correctiveAction)}</textarea>
           </label>
           <label class="capa-label">Preventive Action <span class="capa-hint">(stops recurrence)</span>
-            <textarea id="capaPreventive" class="capa-input" rows="3" ${locked?'disabled':''} placeholder="What will be done to prevent this happening again?">${escapeHtml(c.preventiveAction)}</textarea>
+            <textarea id="capaPreventive" class="capa-input" rows="3" spellcheck="true" ${locked?'disabled':''} placeholder="What will be done to prevent this happening again?">${escapeHtml(c.preventiveAction)}</textarea>
           </label>
           <div class="capa-row">
             <label class="capa-label">Responsible Owner
