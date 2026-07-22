@@ -1483,7 +1483,7 @@
     'Internal Audit', 'Client / Third-Party Audit', 'Client Complaint', 'Incident / Near-Miss Investigation', 'Other'
   ];
   const NCR_REASON_OPTIONS = [
-    'Process Deviation', 'Product / Workmanship Nonconformity', 'Documentation Deficiency',
+    'Process Deviation', 'Defect', 'Product / Workmanship Nonconformity', 'Documentation Deficiency',
     'Material Nonconformity', 'Procedure Not Followed', 'Approval / Hold Point Bypassed', 'Other'
   ];
   const NCR_DISPOSITION_OPTIONS = ['Use As Is', 'Rework', 'Repair', 'Reject / Remove & Replace', 'Concession', 'Regrade'];
@@ -1896,6 +1896,19 @@
     sel.scrollIntoView({ behavior: 'smooth', block: 'center' });
     setTimeout(() => sel.classList.remove('field-required-flash'), 1200);
   }
+  function referenceDocsMissing(){
+    return !ncrState.referenceDocs || !ncrState.referenceDocs.trim();
+  }
+  function flagMissingReferenceDocs(){
+    const ta = document.getElementById('ncrReferenceDocs');
+    if (!ta) return;
+    ta.classList.add('field-required-flash');
+    const warn = document.getElementById('referenceDocsRequiredMsg');
+    if (warn) warn.style.display = 'block';
+    ta.focus();
+    ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => ta.classList.remove('field-required-flash'), 1200);
+  }
 
   function showNcrForm(){
     currentView = 'ncrForm';
@@ -1960,8 +1973,9 @@
         </div>
 
         <div class="report-block">
-          <div class="report-label">Reference Documents</div>
+          <div class="report-label">Reference Documents (that contains the requirement and clause) <span class="required-mark">*required</span></div>
           <textarea id="ncrReferenceDocs" class="capa-input" rows="2" spellcheck="true" placeholder="Standard, specification, method statement, ITP clause…">${escapeHtml(r.referenceDocs)}</textarea>
+          <div id="referenceDocsRequiredMsg" class="evidence-required-msg" style="display:none;">Enter the document and clause this breaches before saving — this is a required hold point.</div>
           <div class="report-label" style="margin-top:.9rem;">Supporting Evidence</div>
           <textarea id="ncrSupportingEvidence" class="capa-input" rows="2" spellcheck="true" placeholder="Photos, transmittals, inspection records referenced…">${escapeHtml(r.supportingEvidence)}</textarea>
         </div>
@@ -2079,6 +2093,15 @@
         }
       });
     }
+    const refDocsTa = document.getElementById('ncrReferenceDocs');
+    if (refDocsTa) {
+      refDocsTa.addEventListener('input', () => {
+        if (refDocsTa.value.trim()) {
+          const warn = document.getElementById('referenceDocsRequiredMsg');
+          if (warn) warn.style.display = 'none';
+        }
+      });
+    }
     const geoBtn = document.getElementById('ncrGeoBtn');
     if (geoBtn) {
       geoBtn.addEventListener('click', () => {
@@ -2095,7 +2118,17 @@
           (err) => {
             geoBtn.disabled = false;
             geoBtn.textContent = '📍 Tag current location';
-            alert('Could not get your location: ' + (err && err.message ? err.message : 'permission denied or unavailable.'));
+            let msg;
+            if (err && err.code === 1) {
+              msg = "This site doesn't have permission to use your location. Click the padlock (or site info icon) next to the address bar, allow Location, then try the button again.";
+            } else if (err && err.code === 2) {
+              msg = 'Your device could not determine a location right now — check GPS / location services are turned on, then try again.';
+            } else if (err && err.code === 3) {
+              msg = 'Getting your location timed out. Try again.';
+            } else {
+              msg = (err && err.message) ? err.message : 'Location is unavailable.';
+            }
+            alert('Could not tag location: ' + msg);
           },
           { enableHighAccuracy: true, timeout: 10000 }
         );
@@ -2116,11 +2149,13 @@
 
     document.getElementById('ncrSaveBtn').addEventListener('click', () => {
       if (requirementRefMissing()) { flagMissingRequirementRef(); return; }
+      if (referenceDocsMissing()) { flagMissingReferenceDocs(); return; }
       saveNcrToLibrary();
       showNcrForm();
     });
     document.getElementById('ncrPrintBtn').addEventListener('click', () => {
       if (requirementRefMissing()) { flagMissingRequirementRef(); return; }
+      if (referenceDocsMissing()) { flagMissingReferenceDocs(); return; }
       saveNcrToLibrary();
       buildNcrPrintReport();
       window.print();
