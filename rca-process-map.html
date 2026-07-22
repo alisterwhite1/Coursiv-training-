@@ -544,6 +544,7 @@
   .overdue-cell { color: #a72d2d; font-weight: 700; }
 
   /* ── Reports & Statistics ── */
+  .reports-toolbar { display: flex; gap: .6rem; margin-bottom: 1rem; }
   .reports-kpi-grid {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .85rem;
     margin-bottom: 1.4rem;
@@ -635,6 +636,12 @@
     #printReport .pr-label { font-family: Arial, sans-serif; font-weight: bold; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: #444; }
 
     #printReport .pr-capa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1.5rem; }
+
+    #printReport .pr-table { width: 100%; border-collapse: collapse; margin-bottom: 1.2rem; page-break-inside: avoid; break-inside: avoid; }
+    #printReport .pr-table th, #printReport .pr-table td { text-align: left; padding: .35rem .6rem; border-bottom: 1px solid #ddd; }
+    #printReport .pr-table th { font-family: Arial, sans-serif; font-weight: bold; font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; color: #666; }
+    #printReport .pr-table td { font-size: .85rem; }
+    #printReport .pr-table td:last-child, #printReport .pr-table th:last-child { text-align: right; font-variant-numeric: tabular-nums; }
 
     #printReport .pr-approval { border: 1.5px solid #ccc; padding: .9rem 1.1rem; page-break-inside: avoid; break-inside: avoid; }
     #printReport .pr-approval.is-approved { border-color: #2e6b47; }
@@ -942,6 +949,19 @@
   }
   function downloadJson(obj, filename){
     const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  function csvEscape(v){
+    const s = v == null ? '' : String(v);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function downloadCsv(rows, filename){
+    const csv = '﻿' + rows.map(row => row.map(csvEscape).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = filename;
@@ -2455,6 +2475,103 @@
     return { totalNcrs: ncrs.length, stageCounts, overdueCount, caRequiredCount, reasonCounts, avgCloseDays, months, branchCounts, rootTypeCounts, concludedCount, repeatCauses };
   }
 
+  const REPORT_STAGE_LABELS = { open: 'Open', progress: 'In Progress', pending: 'Pending Closure', closed: 'Closed' };
+
+  function buildReportsCsvRows(s){
+    const rows = [];
+    rows.push(['Root Cause Navigator — Reports & Statistics']);
+    rows.push(['Generated', new Date().toLocaleString()]);
+    rows.push([]);
+    rows.push(['Section', 'KPI Summary']);
+    rows.push(['Metric', 'Value']);
+    rows.push(['Total NCRs Raised', s.totalNcrs]);
+    rows.push(['Open + In Progress', s.stageCounts.open + s.stageCounts.progress + s.stageCounts.pending]);
+    rows.push(['Overdue', s.overdueCount]);
+    rows.push(['Closed', s.stageCounts.closed]);
+    rows.push(['Avg. Days to Close', s.avgCloseDays == null ? '' : s.avgCloseDays]);
+    rows.push(['Needed a Root Cause Investigation (%)', s.totalNcrs ? Math.round((s.caRequiredCount / s.totalNcrs) * 100) : '']);
+    rows.push([]);
+    rows.push(['Section', 'NCRs by Stage']);
+    rows.push(['Stage', 'Count']);
+    ['open','progress','pending','closed'].forEach(k => rows.push([REPORT_STAGE_LABELS[k], s.stageCounts[k] || 0]));
+    rows.push([]);
+    rows.push(['Section', 'NCRs Raised — Last 6 Months']);
+    rows.push(['Month', 'Count']);
+    s.months.forEach(m => rows.push([m.label, m.count]));
+    rows.push([]);
+    rows.push(['Section', 'NCRs by Reason']);
+    rows.push(['Reason', 'Count']);
+    Object.entries(s.reasonCounts).sort((a,b) => b[1]-a[1]).forEach(([label,count]) => rows.push([label, count]));
+    rows.push([]);
+    rows.push(['Section', 'Root Causes by Branch']);
+    rows.push(['Branch', 'Count']);
+    Object.entries(s.branchCounts).sort((a,b) => b[1]-a[1]).forEach(([label,count]) => rows.push([label, count]));
+    rows.push([]);
+    rows.push(['Section', 'Root Cause Type']);
+    rows.push(['Type', 'Count']);
+    rows.push(['Standards, Policies & Procedures', s.rootTypeCounts[196] || 0]);
+    rows.push(['Schedule & Production Pressure', s.rootTypeCounts[205] || 0]);
+    rows.push([]);
+    rows.push(['Section', 'Repeat Root Causes (2+ occurrences)']);
+    rows.push(['Root Cause', 'Count']);
+    s.repeatCauses.forEach(r => rows.push([r.name, r.count]));
+    return rows;
+  }
+
+  function buildReportsPrintReport(s){
+    const generatedOn = new Date().toLocaleString(undefined, { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+
+    function table(headers, rows){
+      if (!rows.length) return '<p>No data yet.</p>';
+      return `<table class="pr-table">
+        <thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
+        <tbody>${rows.map(r => `<tr>${r.map(c => `<td>${escapeHtml(String(c))}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table>`;
+    }
+
+    const html = `
+      <div class="pr-header">
+        <div class="pr-brand">Root Cause Navigator</div>
+        <h1>Reports &amp; Statistics</h1>
+        <div class="pr-meta"><span>Generated: ${escapeHtml(generatedOn)}</span></div>
+      </div>
+
+      <h3>KPI Summary</h3>
+      <div class="pr-capa-grid">
+        <div class="pr-block"><div class="pr-label">Total NCRs Raised</div><p>${s.totalNcrs}</p></div>
+        <div class="pr-block"><div class="pr-label">Open + In Progress</div><p>${s.stageCounts.open + s.stageCounts.progress + s.stageCounts.pending}</p></div>
+        <div class="pr-block"><div class="pr-label">Overdue</div><p>${s.overdueCount}</p></div>
+        <div class="pr-block"><div class="pr-label">Closed</div><p>${s.stageCounts.closed}</p></div>
+        <div class="pr-block"><div class="pr-label">Avg. Days to Close</div><p>${s.avgCloseDays == null ? '—' : s.avgCloseDays}</p></div>
+        <div class="pr-block"><div class="pr-label">Needed a Root Cause Investigation</div><p>${s.totalNcrs ? Math.round((s.caRequiredCount / s.totalNcrs) * 100) + '%' : '—'}</p></div>
+      </div>
+
+      <h3>NCRs by Stage</h3>
+      ${table(['Stage','Count'], ['open','progress','pending','closed'].map(k => [REPORT_STAGE_LABELS[k], s.stageCounts[k] || 0]))}
+
+      <h3>NCRs Raised — Last 6 Months</h3>
+      ${table(['Month','Count'], s.months.map(m => [m.label, m.count]))}
+
+      <h3>NCRs by Reason</h3>
+      ${table(['Reason','Count'], Object.entries(s.reasonCounts).sort((a,b) => b[1]-a[1]))}
+
+      <h3>Root Causes by Branch</h3>
+      ${table(['Branch','Count'], Object.entries(s.branchCounts).sort((a,b) => b[1]-a[1]))}
+
+      <h3>Root Cause Type</h3>
+      ${table(['Type','Count'], [
+        ['Standards, Policies & Procedures', s.rootTypeCounts[196] || 0],
+        ['Schedule & Production Pressure', s.rootTypeCounts[205] || 0]
+      ])}
+
+      <h3>Repeat Root Causes (2+ occurrences)</h3>
+      ${table(['Root Cause','Count'], s.repeatCauses.map(r => [r.name, r.count]))}
+
+      <div class="pr-footer">Generated by Root Cause Navigator · ${escapeHtml(generatedOn)}</div>
+    `;
+    document.getElementById('printReport').innerHTML = html;
+  }
+
   function statTileHtml(label, value, tone){
     return `<div class="stat-tile${tone ? ' stat-' + tone : ''}"><div class="stat-value">${escapeHtml(String(value))}</div><div class="stat-label">${escapeHtml(label)}</div></div>`;
   }
@@ -2514,11 +2631,14 @@
     bc.innerHTML = `<span class="current">Reports &amp; Statistics</span>`;
 
     const s = computeReportStats();
-    const stageLabels = { open: 'Open', progress: 'In Progress', pending: 'Pending Closure', closed: 'Closed' };
     const stageColors = { open: '#3d5166', progress: '#c9821d', pending: '#0f2438', closed: '#1e6b3f' };
 
     const el = document.getElementById('content');
     el.innerHTML = `
+      <div class="reports-toolbar">
+        <button class="map-btn-inline" id="reportsPrintBtn">🖨 Print / Save as PDF</button>
+        <button class="map-btn-inline" id="reportsCsvBtn">📊 Export to Excel (CSV)</button>
+      </div>
       <div class="reports-kpi-grid">
         ${statTileHtml('Total NCRs raised', s.totalNcrs)}
         ${statTileHtml('Open + in progress', s.stageCounts.open + s.stageCounts.progress + s.stageCounts.pending)}
@@ -2528,7 +2648,7 @@
         ${statTileHtml('Needed a root cause investigation', s.totalNcrs ? Math.round((s.caRequiredCount / s.totalNcrs) * 100) + '%' : '—')}
       </div>
       <div class="reports-charts-grid">
-        ${stackBarChartHtml('NCRs by Stage', ['open','progress','pending','closed'].map(k => ({ label: stageLabels[k], count: s.stageCounts[k] || 0, color: stageColors[k] })), { emptyText: 'No NCRs raised yet.' })}
+        ${stackBarChartHtml('NCRs by Stage', ['open','progress','pending','closed'].map(k => ({ label: REPORT_STAGE_LABELS[k], count: s.stageCounts[k] || 0, color: stageColors[k] })), { emptyText: 'No NCRs raised yet.' })}
         ${monthChartHtml('NCRs Raised — Last 6 Months', s.months)}
         ${hbarChartHtml('NCRs by Reason', Object.entries(s.reasonCounts).sort((a,b) => b[1]-a[1]).map(([label,count]) => ({ label, count })), { emptyText: 'No NCR reasons recorded yet.' })}
         ${hbarChartHtml('Root Causes by Branch', Object.entries(s.branchCounts).sort((a,b) => b[1]-a[1]).map(([label,count]) => ({ label, count })), { color: 'var(--navy)', emptyText: 'No concluded investigations yet.' })}
@@ -2539,6 +2659,14 @@
         ${hbarChartHtml('Repeat Root Causes (2+ occurrences)', s.repeatCauses.map(r => ({ label: r.name, count: r.count })), { color: '#a72d2d', emptyText: 'No repeat root causes yet — nothing has recurred.' })}
       </div>
     `;
+
+    document.getElementById('reportsPrintBtn').addEventListener('click', () => {
+      buildReportsPrintReport(s);
+      window.print();
+    });
+    document.getElementById('reportsCsvBtn').addEventListener('click', () => {
+      downloadCsv(buildReportsCsvRows(s), `reports-statistics-${new Date().toISOString().slice(0,10)}.csv`);
+    });
 
     renderBackButton();
   }
