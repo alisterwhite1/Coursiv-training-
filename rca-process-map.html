@@ -1264,13 +1264,19 @@
     const evidenceSuggest = document.getElementById('evidenceSuggest');
     if (evidenceSuggest) {
       let opts = suggestionOptions(node).slice();
+      let lastInsertedSuggestion = null;
       evidenceSuggest.addEventListener('change', () => {
         if (evidenceSuggest.value === '') return;
         const text = opts[parseInt(evidenceSuggest.value)];
         const ta = document.getElementById('evidenceInput');
-        const lead = (!ta.value.trim() && state.faultTitle && state.faultTitle.trim()) ? `Re: ${state.faultTitle.trim()} — ` : '';
+        let base = ta.value;
+        if (lastInsertedSuggestion && base.endsWith(lastInsertedSuggestion)) {
+          base = base.slice(0, base.length - lastInsertedSuggestion.length).replace(/\n$/, '');
+        }
+        const lead = (!base.trim() && state.faultTitle && state.faultTitle.trim()) ? `Re: ${state.faultTitle.trim()} — ` : '';
         const insertion = lead + text;
-        ta.value = ta.value.trim() ? ta.value.trim() + '\n' + insertion : insertion;
+        ta.value = base.trim() ? base.trim() + '\n' + insertion : insertion;
+        lastInsertedSuggestion = insertion;
         state.evidence[node.id] = ta.value;
         saveState();
         const cb = document.getElementById('concludeBtn');
@@ -1463,6 +1469,12 @@
 
     const c = state.capa;
     const locked = c.approved;
+    const capaSuggestOpts = suggestionOptions(node);
+    const capaSuggestSelectHtml = (id, label) => (!locked && capaSuggestOpts.length) ? `
+      <select id="${id}" class="evidence-suggest">
+        <option value="">${label}</option>
+        ${capaSuggestOpts.map((o,i) => `<option value="${i}">${escapeHtml(o.length > 90 ? o.slice(0,87) + '…' : o)}</option>`).join('')}
+      </select>` : '';
     const el = document.getElementById('content');
     el.innerHTML = `
       <div class="report-card">
@@ -1473,9 +1485,11 @@
         </div>
         <div class="capa-form">
           <label class="capa-label">Corrective Action <span class="capa-hint">(fixes this occurrence)</span>
+            ${capaSuggestSelectHtml('capaCorrectiveSuggest', 'Suggested corrective actions…')}
             <textarea id="capaCorrective" class="capa-input" rows="3" spellcheck="true" ${locked?'disabled':''} placeholder="What will be done to correct this specific issue?">${escapeHtml(c.correctiveAction)}</textarea>
           </label>
           <label class="capa-label">Preventive Action <span class="capa-hint">(stops recurrence)</span>
+            ${capaSuggestSelectHtml('capaPreventiveSuggest', 'Suggested preventive actions…')}
             <textarea id="capaPreventive" class="capa-input" rows="3" spellcheck="true" ${locked?'disabled':''} placeholder="What will be done to prevent this happening again?">${escapeHtml(c.preventiveAction)}</textarea>
           </label>
           <div class="capa-row">
@@ -1518,6 +1532,28 @@
           saveState();
         });
       });
+      const wireCapaSuggest = (selectId, textareaId, stateKey) => {
+        const sel = document.getElementById(selectId);
+        if (!sel) return;
+        let lastInserted = null;
+        sel.addEventListener('change', () => {
+          if (sel.value === '') return;
+          const text = capaSuggestOpts[parseInt(sel.value)];
+          const ta = document.getElementById(textareaId);
+          let base = ta.value;
+          if (lastInserted && base.endsWith(lastInserted)) {
+            base = base.slice(0, base.length - lastInserted.length).replace(/\n$/, '');
+          }
+          ta.value = base.trim() ? base.trim() + '\n' + text : text;
+          lastInserted = text;
+          state.capa[stateKey] = ta.value;
+          saveState();
+          sel.value = '';
+          ta.focus();
+        });
+      };
+      wireCapaSuggest('capaCorrectiveSuggest', 'capaCorrective', 'correctiveAction');
+      wireCapaSuggest('capaPreventiveSuggest', 'capaPreventive', 'preventiveAction');
       document.getElementById('approveBtn').addEventListener('click', () => {
         if (!state.capa.approvedBy.trim()) { document.getElementById('capaApprovedBy').focus(); return; }
         if (!state.capa.approvedDate) { state.capa.approvedDate = new Date().toISOString().slice(0,10); }
