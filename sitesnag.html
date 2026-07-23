@@ -1630,31 +1630,8 @@ function viewContractorRespond() {
 }
 
 // ── COMPANIES ──────────────────────────────────────────────────────────────────
-function viewCompanies() {
-  const items = db.companies.length
-    ? db.companies.map(c => `
-        <div class="list-item">
-          <div class="co-avatar">${c.name.charAt(0).toUpperCase()}</div>
-          <span class="co-name">${esc(c.name)}</span>
-          <button class="del-btn" data-fn="deleteCo" data-a1="${c.id}">×</button>
-        </div>`).join('')
-    : `<div class="empty"><div class="eico">🏢</div><p>No companies yet.</p></div>`;
-
-  return appBar('Contractor Companies', 'projects') + `
-    <div class="main">
-      <div class="card">${items}</div>
-      <div class="sec-label">Add Company</div>
-      <div class="card card-body">
-        <div class="form-group">
-          <label class="form-label">Company Name</label>
-          <input type="text" id="newCoName" placeholder="e.g. Smith Plastering Ltd" />
-        </div>
-        <div style="margin-top:.75rem">
-          <button class="btn btn-primary btn-block" data-fn="addCo">+ Add Company</button>
-        </div>
-      </div>
-    </div>` + navBar('companies');
-}
+function viewCompanies() { S.configTab = 'companies'; return viewLocations(); }
+function viewUsers()     { S.configTab = 'users';     return viewLocations(); }
 
 // ── REPORTS & ANALYTICS ───────────────────────────────────────────────────────
 function viewReports() {
@@ -2029,6 +2006,7 @@ function navBar(active) {
     companies:`<svg width="24" height="24" viewBox="0 0 24 24"><rect class="ico-bg" x="2" y="7" width="20" height="15" rx="2"/><rect class="ico-fg" x="6" y="11" width="3" height="3" rx=".5"/><rect class="ico-fg" x="10.5" y="11" width="3" height="3" rx=".5"/><rect class="ico-fg" x="15" y="11" width="3" height="3" rx=".5"/><rect class="ico-fg" x="8" y="17" width="8" height="5" rx=".5"/><rect class="ico-bg" x="7" y="2" width="10" height="7" rx="1.5"/></svg>`,
     users:    `<svg width="24" height="24" viewBox="0 0 24 24"><circle class="ico-bg" cx="12" cy="8" r="5"/><path class="ico-fg" d="M12 3a5 5 0 100 10A5 5 0 0012 3z"/><rect class="ico-bg" x="2" y="17" width="20" height="7" rx="3.5"/><path class="ico-fg" d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="none"/></svg>`,
   };
+  const configActive = active==='locations'||active==='companies'||active==='users';
   return `<nav class="bottom-nav">
     <button class="nav-btn ${active==='projects'?'active':''}" data-fn="goView" data-a1="projects">
       ${navIco.projects}Projects
@@ -2039,21 +2017,15 @@ function navBar(active) {
     ${isInspector||isAdmin ? `<button class="nav-btn ${active==='reports'?'active':''}" data-fn="goView" data-a1="reports">
       ${navIco.reports}Reports
     </button>` : ''}
-    ${isAdmin ? `<button class="nav-btn ${active==='locations'?'active':''}" data-fn="goView" data-a1="locations">
+    ${isAdmin ? `<button class="nav-btn ${configActive?'active':''}" data-fn="goView" data-a1="locations">
       ${navIco.config}Config
     </button>` : ''}
-    <button class="nav-btn ${active==='companies'?'active':''}" data-fn="goView" data-a1="companies">
-      ${navIco.companies}Companies
-    </button>
-    <button class="nav-btn ${active==='users'?'active':''}" data-fn="goView" data-a1="users">
-      ${navIco.users}Users
-    </button>
   </nav>`;
 }
 
 // ── MODALS ─────────────────────────────────────────────────────────────────────
 function openAssignModal(snagId) {
-  if (!db.companies.length) { alert('Add companies first (Companies tab).'); return; }
+  if (!db.companies.length) { alert('Add companies first (Config → Companies).'); return; }
   const snag = db.snags.find(s => s.id === snagId);
   const opts = db.companies.map(c =>
     `<option value="${c.id}" ${c.id===snag.assignedTo?'selected':''}>${esc(c.name)}</option>`).join('');
@@ -2739,17 +2711,19 @@ function createProject() {
 }
 
 function addCo() {
-  const n = document.getElementById('newCoName').value.trim();
+  const n = document.getElementById('newCoName')?.value.trim() || document.getElementById('new_co')?.value.trim();
   if (!n) { alert('Enter a company name.'); return; }
   if (db.companies.some(c => c.name.toLowerCase() === n.toLowerCase())) { alert('Company already exists.'); return; }
   db.companies.push({ id: uid(), name: n });
   saveDB(); render();
 }
+function addCompany() { addCo(); }
 function deleteCo(id) {
   if (!confirm('Remove this company?')) return;
   db.companies = db.companies.filter(c => c.id !== id);
   saveDB(); render();
 }
+function deleteCompany(id) { deleteCo(id); }
 
 async function handlePhoto(input) {
   const f = input.files[0]; if (!f) return;
@@ -2959,10 +2933,24 @@ function onFloorChange(val) {
 function viewLocations() {
   const isAdmin = S.currentUser?.role === 'administrator';
   if (!isAdmin) return viewProjects();
+
+  // Sub-tab routing inside Config
+  const cfgTab = S.configTab || 'locations';
+  if (cfgTab === 'companies') return _viewConfigCompanies();
+  if (cfgTab === 'users')     return _viewConfigUsers();
+
+  // ── LOCATIONS TAB ──
   const locs = db.locations || [];
   const el = S.editingLoc || {};
+  const subTabs = `
+    <div class="filter-row" style="margin-bottom:.85rem">
+      <button class="filter-chip ${cfgTab==='locations'?'active':''}" data-fn="setConfigTab" data-a1="locations">Locations</button>
+      <button class="filter-chip ${cfgTab==='companies'?'active':''}" data-fn="setConfigTab" data-a1="companies">Companies</button>
+      <button class="filter-chip ${cfgTab==='users'?'active':''}" data-fn="setConfigTab" data-a1="users">Users</button>
+    </div>`;
   return appBar('Configuration', null) + `
     <div class="main">
+      ${subTabs}
       <div class="card card-body" style="margin-bottom:.75rem">
         <div style="display:flex;gap:.5rem;align-items:center">
           <input type="text" id="new_building" placeholder="New building name…" style="flex:1;padding:.55rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.95rem;font-family:inherit" />
@@ -3116,6 +3104,113 @@ function viewLocations() {
         </div>
       </div>
     </div>
+    </div>` + navBar('locations');
+}
+
+function setConfigTab(tab) { S.configTab = tab; go('locations'); }
+
+// ── CONFIG SUB-VIEW: COMPANIES ──────────────────────────────────────────────────
+function _viewConfigCompanies() {
+  const cfgTab = S.configTab || 'locations';
+  const subTabs = `
+    <div class="filter-row" style="margin-bottom:.85rem">
+      <button class="filter-chip ${cfgTab==='locations'?'active':''}" data-fn="setConfigTab" data-a1="locations">Locations</button>
+      <button class="filter-chip ${cfgTab==='companies'?'active':''}" data-fn="setConfigTab" data-a1="companies">Companies</button>
+      <button class="filter-chip ${cfgTab==='users'?'active':''}" data-fn="setConfigTab" data-a1="users">Users</button>
+    </div>`;
+  const items = db.companies.length
+    ? db.companies.map(c => `
+        <div class="list-item" style="cursor:default">
+          <div class="co-avatar">${c.name.charAt(0).toUpperCase()}</div>
+          <div class="co-name">${esc(c.name)}</div>
+          <button class="del-btn" data-fn="deleteCompany" data-a1="${c.id}">×</button>
+        </div>`).join('')
+    : `<div class="empty"><div class="eico">🏢</div><p>No companies yet.</p></div>`;
+  return appBar('Configuration', null) + `
+    <div class="main">
+      ${subTabs}
+      <div class="card">${items}</div>
+      <div class="sec-label">Add Company</div>
+      <div class="card card-body">
+        <div style="display:flex;gap:.5rem">
+          <input type="text" id="new_co" placeholder="Company name…" style="flex:1" />
+          <button class="btn btn-primary" data-fn="addCompany">Add</button>
+        </div>
+      </div>
+    </div>` + navBar('locations');
+}
+
+// ── CONFIG SUB-VIEW: USERS ──────────────────────────────────────────────────────
+function _viewConfigUsers() {
+  const cfgTab = S.configTab || 'locations';
+  const subTabs = `
+    <div class="filter-row" style="margin-bottom:.85rem">
+      <button class="filter-chip ${cfgTab==='locations'?'active':''}" data-fn="setConfigTab" data-a1="locations">Locations</button>
+      <button class="filter-chip ${cfgTab==='companies'?'active':''}" data-fn="setConfigTab" data-a1="companies">Companies</button>
+      <button class="filter-chip ${cfgTab==='users'?'active':''}" data-fn="setConfigTab" data-a1="users">Users</button>
+    </div>`;
+  const items = db.users.length
+    ? db.users.map(u => {
+        const co = u.companyId ? db.companies.find(c => c.id === u.companyId) : null;
+        return `<div class="list-item" style="cursor:default">
+          <div class="usr-avatar" style="background:${avatarColour(u.name)}">${u.name.charAt(0).toUpperCase()}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:.93rem">${esc(u.name)}</div>
+            <div style="display:flex;gap:.35rem;align-items:center;margin-top:.2rem;flex-wrap:wrap">
+              <span class="role-badge role-${u.role}">${u.role}</span>
+              ${co ? `<span style="font-size:.75rem;color:var(--soft)">${esc(co.name)}</span>` : ''}
+              ${u.email ? `<span style="font-size:.72rem;color:var(--muted)">${esc(u.email)}</span>` : ''}
+            </div>
+          </div>
+          ${u.id !== S.currentUser?.id ? `<button class="del-btn" data-fn="deleteUser" data-a1="${u.id}">×</button>` : ''}
+        </div>`;
+      }).join('')
+    : `<div class="empty"><div class="eico">👤</div><p>No users yet.</p></div>`;
+  return appBar('Configuration', null) + `
+    <div class="main">
+      ${subTabs}
+      <div class="card">${items}</div>
+      <div class="sec-label">Add User</div>
+      <div class="card card-body">
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" id="nu_name" placeholder="e.g. James Murphy" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="nu_email" placeholder="user@company.com" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" id="nu_pin" placeholder="Minimum 6 characters" autocomplete="new-password" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Role</label>
+          <select id="nu_role" onchange="toggleCoField()">
+            <option value="administrator">Administrator</option>
+            <option value="engineer" selected>Engineer</option>
+            <option value="contractor">Contractor</option>
+          </select>
+        </div>
+        <div class="form-group" id="nu_co_group" style="display:none">
+          <label class="form-label">Company</label>
+          <select id="nu_co">
+            <option value="">— select company —</option>
+            ${db.companies.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div style="margin-top:.75rem">
+          <button class="btn btn-primary btn-block" data-fn="createUser">+ Add User</button>
+        </div>
+        <div id="nu_err" style="display:none;margin-top:.6rem;padding:.6rem .8rem;background:var(--red-bg);color:var(--red);border-radius:7px;font-size:.85rem;font-weight:600"></div>
+      </div>
+      <div class="sec-label">Data Backup</div>
+      <div class="card card-body" style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" data-fn="exportData" style="flex:1">⬇ Export</button>
+        <label class="btn btn-outline btn-sm" style="flex:1;cursor:pointer">⬆ Import
+          <input type="file" accept=".json" style="display:none" onchange="importData(this)" />
+        </label>
+      </div>
     </div>` + navBar('locations');
 }
 
