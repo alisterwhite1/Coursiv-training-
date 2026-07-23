@@ -141,7 +141,8 @@ body{
 .title-box .hint{font-size:.78em;color:#666;margin-top:4px;}
 
 textarea{min-height:110px;resize:vertical;font-family:inherit;}
-.desc-box textarea{min-height:150px;}
+.desc-box textarea{min-height:80px;}
+.desc-box .field + .field{margin-top:10px;}
 
 /* photos */
 .photos-box{background:#f7f9fb;}
@@ -352,8 +353,16 @@ textarea{min-height:110px;resize:vertical;font-family:inherit;}
 
   <div class="box desc-box">
     <div class="field">
-      <label for="s1Description">Description (Observation / Finding / Required Action)</label>
-      <textarea id="s1Description" placeholder="Observation:&#10;...&#10;&#10;Finding:&#10;- ...&#10;&#10;Required Action:&#10;- ..."></textarea>
+      <label for="s1Observation">Observation</label>
+      <textarea id="s1Observation" placeholder="Describe what was observed on site..."></textarea>
+    </div>
+    <div class="field">
+      <label for="s1Finding">Finding</label>
+      <textarea id="s1Finding" placeholder="- ..."></textarea>
+    </div>
+    <div class="field">
+      <label for="s1RequiredAction">Required Action</label>
+      <textarea id="s1RequiredAction" placeholder="- ..."></textarea>
     </div>
   </div>
 
@@ -456,7 +465,7 @@ textarea{min-height:110px;resize:vertical;font-family:inherit;}
   </div>
 
   <div class="footer-ref">Form Reference No.: DMBL-PAJV-FORM-1030 Rev. 1, Site Observation Report (SOR) Form, 02-Feb-2026</div>
-  <div class="footer-ref" style="border-top:none;color:#999;">App build: 2026-07-23-r6</div>
+  <div class="footer-ref" style="border-top:none;color:#999;">App build: 2026-07-23-r7</div>
 </div>
 
 <div class="action-bar">
@@ -1075,7 +1084,7 @@ if (typeof module !== 'undefined') module.exports = { buildSorWorkbook };
   // Bump this on every fix so a screenshot or an exported file can be
   // matched to a specific build when troubleshooting "it still looks the
   // same" reports - printed in the app footer and the Excel export.
-  var APP_BUILD = '2026-07-23-r6';
+  var APP_BUILD = '2026-07-23-r7';
 
   function fmtDateStr(yyyy_mm_dd) {
     if (!yyyy_mm_dd) return '';
@@ -1266,6 +1275,20 @@ if (typeof module !== 'undefined') module.exports = { buildSorWorkbook };
   function val(id) { var el = document.getElementById(id); return el ? el.value : ''; }
   function checked(id) { var el = document.getElementById(id); return !!(el && el.checked); }
 
+  // Observation/Finding/Required Action are separate input boxes on screen,
+  // but stay combined under one "Description" heading in the Excel/print
+  // output, same as the source paper form.
+  function buildDescription() {
+    var parts = [];
+    var obs = val('s1Observation').trim();
+    var find = val('s1Finding').trim();
+    var action = val('s1RequiredAction').trim();
+    if (obs) parts.push('Observation:\n' + obs);
+    if (find) parts.push('Finding:\n' + find);
+    if (action) parts.push('Required Action:\n' + action);
+    return parts.join('\n\n');
+  }
+
   function collectData() {
     var numEl = document.getElementById('sorRefNum');
     var yearEl = document.getElementById('sorRefYear');
@@ -1309,7 +1332,7 @@ if (typeof module !== 'undefined') module.exports = { buildSorWorkbook };
       },
       section1: {
         title: val('s1Title'),
-        description: val('s1Description'),
+        description: buildDescription(),
         photos: photoData,
         issuedByName: val('s1Name'),
         issuedByDesignation: val('s1Designation'),
@@ -1449,7 +1472,9 @@ if (typeof module !== 'undefined') module.exports = { buildSorWorkbook };
   function doNew() {
     if (!confirm('Start a new report? Unsaved entries on this form will be cleared.')) return;
     document.getElementById('s1Title').value = '';
-    document.getElementById('s1Description').value = '';
+    document.getElementById('s1Observation').value = '';
+    document.getElementById('s1Finding').value = '';
+    document.getElementById('s1RequiredAction').value = '';
     document.getElementById('s1Name').value = '';
     document.getElementById('s1Designation').value = '';
     document.getElementById('s1Signature').value = '';
