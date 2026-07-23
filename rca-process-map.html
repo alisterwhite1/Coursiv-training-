@@ -1075,9 +1075,14 @@
     if (row.capa == null) row.capa = { correctiveAction:'', preventiveAction:'', owner:'', targetDate:'', approvedBy:'', approvedDate:'', approved:false };
     return row;
   }
+  const NCR_DATE_FIELDS = ['date_raised','raised_by_date','approved_by_qm_date','closure_date_agreed',
+    'proposed_by_date','accepted_by_qm_date','confirmed_by_date','ca_verified_by_date'];
   function sanitizeNcrRow(row, recId){
     if (row.schema_version == null) row.schema_version = NCR_VERSION;
     if (!row.ncr_number) row.ncr_number = 'UNKNOWN-' + recId;
+    // Date <input> fields yield "" (not null) when left blank — Postgres date columns
+    // reject that ("invalid input syntax for type date"), so blank it out to null instead.
+    NCR_DATE_FIELDS.forEach(k => { if (row[k] === '') row[k] = null; });
     return row;
   }
   async function syncLibraryToSupabase(lib){
