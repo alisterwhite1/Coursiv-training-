@@ -692,6 +692,23 @@
     border-top: 1px solid var(--line);
   }
 
+  /* ── Auth gate ── */
+  .auth-gate {
+    position: fixed; inset: 0; background: var(--navy-deep);
+    display: flex; align-items: center; justify-content: center; padding: 1.5rem; z-index: 200;
+  }
+  .auth-gate.hidden { display: none; }
+  .auth-gate-box {
+    background: var(--paper-card); border-radius: var(--radius-lg);
+    max-width: 420px; width: 100%; padding: 2rem 1.8rem;
+    box-shadow: 0 20px 60px rgba(0,0,0,.4);
+  }
+  .auth-gate-brand {
+    font-family: Arial, sans-serif; font-size: .78rem; font-weight: 800;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--amber-deep); margin-bottom: 1rem;
+  }
+  .auth-gate-status { font-size: .88rem; color: var(--text-soft); line-height: 1.6; margin-bottom: 1rem; }
+
   /* ── Legend modal ── */
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(15,26,41,.55);
@@ -741,6 +758,26 @@
 </style>
 </head>
 <body>
+
+<div id="authGate" class="auth-gate">
+  <div class="auth-gate-box">
+    <div class="auth-gate-brand">SiteAssure — RCA Navigator</div>
+    <p id="authGateStatus" class="auth-gate-status">Connecting…</p>
+    <div id="authGateForm" class="capa-form" style="display:none;">
+      <label class="capa-label">Email
+        <input type="email" id="gateEmail" class="capa-input" placeholder="you@company.com" />
+      </label>
+      <label class="capa-label">Password
+        <input type="password" id="gatePassword" class="capa-input" placeholder="At least 6 characters" />
+      </label>
+      <div class="capa-row">
+        <button type="button" class="print-btn" id="gateSignUpBtn">Sign Up</button>
+        <button type="button" class="save-lib-btn" id="gateSignInBtn">Sign In</button>
+      </div>
+      <p class="cfg-section-hint" id="gateAuthStatus" style="display:none;"></p>
+    </div>
+  </div>
+</div>
 
 <header>
   <div class="header-inner">
@@ -899,30 +936,16 @@
     </div>
 
     <h4 class="cfg-section-title">Data Management</h4>
-    <p class="cfg-section-hint">Everything is stored in this browser only. Export a backup regularly if you'd rather not lose it.</p>
+    <p class="cfg-section-hint">Your project's investigations, NCRs, and settings live in Supabase, shared across everyone signed in to this project. Export a backup for an offline copy; restoring pushes the backup's contents back into Supabase.</p>
     <div class="summary-actions">
       <button class="print-btn" id="cfgExportBtn">⬇ Export All Data (Backup)</button>
       <button class="print-btn" id="cfgImportBtn">⬆ Restore from Backup</button>
       <input type="file" id="cfgImportInput" accept="application/json" style="display:none;" />
-      <button class="danger-btn" id="cfgClearBtn">🗑 Clear All Local Data</button>
+      <button class="danger-btn" id="cfgClearBtn">🗑 Clear This Device's Draft</button>
     </div>
 
-    <h4 class="cfg-section-title">Account (experimental)</h4>
-    <p class="cfg-section-hint" id="cfgAccountHint">Checking connection…</p>
-    <div class="capa-form" id="cfgAccountSignedOut" style="display:none;">
-      <label class="capa-label">Email
-        <input type="email" id="cfgAuthEmail" class="capa-input" placeholder="you@company.com" />
-      </label>
-      <label class="capa-label">Password
-        <input type="password" id="cfgAuthPassword" class="capa-input" placeholder="At least 6 characters" />
-      </label>
-      <div class="capa-row">
-        <button type="button" class="print-btn" id="cfgSignUpBtn">Sign Up</button>
-        <button type="button" class="save-lib-btn" id="cfgSignInBtn">Sign In</button>
-      </div>
-      <p class="cfg-section-hint" id="cfgAuthStatus" style="display:none;"></p>
-    </div>
-    <div class="capa-form" id="cfgAccountSignedIn" style="display:none;">
+    <h4 class="cfg-section-title">Account</h4>
+    <div class="capa-form" id="cfgAccountSignedIn">
       <p class="report-value" id="cfgAccountEmail"></p>
       <button type="button" class="danger-btn" id="cfgSignOutBtn" style="align-self:flex-start;">Sign Out</button>
     </div>
@@ -937,12 +960,133 @@
   const byId = {};
   DATA.forEach(n => byId[n.id] = n);
 
-  // ---- Supabase (optional backend; app still works fully offline on localStorage if absent) ----
+  // ---- Supabase (required backend — NCRs/investigations/config are shared per project, not per-browser) ----
   const SUPABASE_URL = 'https://fwuibyxhqkzvbjksaqxw.supabase.co';
   const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_7mA7b7S__uIAqjFUyXDaHw_pnAgB2-F';
   const supabaseClient = (typeof window.supabase !== 'undefined' && SUPABASE_URL)
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
     : null;
+
+  // In-memory caches, hydrated once from Supabase after sign-in + project resolution.
+  // load*() stay synchronous (matching every existing call site); save*() update the
+  // cache immediately and fire an async Supabase sync in the background.
+  let currentProjectId = null;
+  let libraryCache = [];
+  let ncrLibraryCache = [];
+  let projectConfigCache = null;
+  let knownInvestigationIds = new Set();
+  let knownNcrIds = new Set();
+
+  function camelToSnakeKey(s){ return s.replace(/[A-Z]/g, c => '_' + c.toLowerCase()); }
+  function snakeToCamelKey(s){ return s.replace(/_([a-z])/g, (_, c) => c.toUpperCase()); }
+  function recordToRow(record, fields){
+    const row = {};
+    fields.forEach(k => { if (record[k] !== undefined) row[camelToSnakeKey(k)] = record[k]; });
+    return row;
+  }
+  function rowToRecord(row){
+    const rec = {};
+    Object.keys(row).forEach(k => { rec[snakeToCamelKey(k)] = row[k]; });
+    return rec;
+  }
+
+  const INVESTIGATION_FIELDS = ['id','schemaVersion','faultTitle','evidence','navPath','concludedNodeId','concludedPath','capa','linkedNcrId'];
+  const NCR_FIELDS = ['id','schemaVersion','ncrNumber','dateRaised','respondent','ncrReason','source','location','geoLat','geoLng',
+    'description','requirementRef','referenceDocs','supportingEvidence','attachments','raisedBy','raisedByDate','approvedByQm',
+    'approvedByQmDate','dispositionType','proposedCorrection','closureDateAgreed','proposedBy','proposedByDate',
+    'correctionAcceptance','acceptanceNotes','acceptedByQm','acceptedByQmDate','caRequired','caNumber','linkedInvestigationId',
+    'rootCauseText','ncrOwnerRemarks','qmRemarks','confirmedBy','confirmedByDate','caVerifiedBy','caVerifiedByDate'];
+
+  function projectConfigToRow(cfg, projectId){
+    return {
+      project_id: projectId,
+      prefix: cfg.prefix, include_year: cfg.includeYear, year_format: cfg.yearFormat,
+      sequence_digits: cfg.sequenceDigits, separator: cfg.separator, reset_yearly: cfg.resetYearly,
+      ai_worker_url: cfg.aiWorkerUrl || null,
+      extra: {
+        companyName: cfg.companyName, projectName: cfg.projectName,
+        ncrReasonOptions: cfg.ncrReasonOptions, ncrDispositionOptions: cfg.ncrDispositionOptions,
+        ncrRequirementRefOptions: cfg.ncrRequirementRefOptions, maxPdfMb: cfg.maxPdfMb, imageQuality: cfg.imageQuality
+      }
+    };
+  }
+  function rowToProjectConfig(row){
+    const extra = row.extra || {};
+    return Object.assign(defaultProjectConfig(), {
+      prefix: row.prefix, includeYear: row.include_year, yearFormat: row.year_format,
+      sequenceDigits: row.sequence_digits, separator: row.separator, resetYearly: row.reset_yearly,
+      aiWorkerUrl: row.ai_worker_url || '',
+      companyName: extra.companyName || '', projectName: extra.projectName || '',
+      ncrReasonOptions: extra.ncrReasonOptions, ncrDispositionOptions: extra.ncrDispositionOptions,
+      ncrRequirementRefOptions: extra.ncrRequirementRefOptions, maxPdfMb: extra.maxPdfMb, imageQuality: extra.imageQuality
+    });
+  }
+
+  async function hydrateFromSupabase(projectId){
+    currentProjectId = projectId;
+    const [cfgRes, invRes, ncrRes] = await Promise.all([
+      supabaseClient.from('project_config').select('*').eq('project_id', projectId).maybeSingle(),
+      supabaseClient.from('investigations').select('*').eq('project_id', projectId).order('updated_at', { ascending: false }),
+      supabaseClient.from('ncrs').select('*').eq('project_id', projectId).order('updated_at', { ascending: false })
+    ]);
+    if (cfgRes.error) throw cfgRes.error;
+    if (invRes.error) throw invRes.error;
+    if (ncrRes.error) throw ncrRes.error;
+
+    projectConfigCache = cfgRes.data ? rowToProjectConfig(cfgRes.data) : defaultProjectConfig();
+
+    libraryCache = (invRes.data || []).map(row => {
+      const rec = rowToRecord(row);
+      rec.savedAt = row.updated_at;
+      return rec;
+    });
+    knownInvestigationIds = new Set(libraryCache.map(r => r.id));
+
+    ncrLibraryCache = (ncrRes.data || []).map(row => rowToRecord(row));
+    knownNcrIds = new Set(ncrLibraryCache.map(r => r.id));
+  }
+
+  async function syncProjectConfigToSupabase(cfg){
+    if (!supabaseClient || !currentProjectId) return;
+    try {
+      const { error } = await supabaseClient.from('project_config').upsert(projectConfigToRow(cfg, currentProjectId));
+      if (error) console.error('project_config sync failed:', error);
+    } catch (e) { console.error('project_config sync failed:', e); }
+  }
+  async function syncLibraryToSupabase(lib){
+    if (!supabaseClient || !currentProjectId) return;
+    try {
+      const currentIds = new Set(lib.map(r => r.id));
+      const removed = [...knownInvestigationIds].filter(id => !currentIds.has(id));
+      if (lib.length) {
+        const rows = lib.map(rec => Object.assign(recordToRow(rec, INVESTIGATION_FIELDS), { project_id: currentProjectId }));
+        const { error } = await supabaseClient.from('investigations').upsert(rows);
+        if (error) throw error;
+      }
+      if (removed.length) {
+        const { error } = await supabaseClient.from('investigations').delete().in('id', removed);
+        if (error) throw error;
+      }
+      knownInvestigationIds = currentIds;
+    } catch (e) { console.error('Investigation sync failed:', e); }
+  }
+  async function syncNcrLibraryToSupabase(lib){
+    if (!supabaseClient || !currentProjectId) return;
+    try {
+      const currentIds = new Set(lib.map(r => r.id));
+      const removed = [...knownNcrIds].filter(id => !currentIds.has(id));
+      if (lib.length) {
+        const rows = lib.map(rec => Object.assign(recordToRow(rec, NCR_FIELDS), { project_id: currentProjectId }));
+        const { error } = await supabaseClient.from('ncrs').upsert(rows);
+        if (error) throw error;
+      }
+      if (removed.length) {
+        const { error } = await supabaseClient.from('ncrs').delete().in('id', removed);
+        if (error) throw error;
+      }
+      knownNcrIds = currentIds;
+    } catch (e) { console.error('NCR sync failed:', e); }
+  }
 
   const COLOR_HEX = {
     amber: '#e8a13a', indigo: '#4c5fd5', teal: '#1f7a6c',
@@ -1027,14 +1171,11 @@
   // ---- Saved-investigations library ----
 
   function loadLibrary(){
-    try {
-      const raw = localStorage.getItem(LIBRARY_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch (e) {}
-    return [];
+    return libraryCache;
   }
   function saveLibrary(lib){
-    try { localStorage.setItem(LIBRARY_KEY, JSON.stringify(lib)); } catch (e) {}
+    libraryCache = lib;
+    syncLibraryToSupabase(lib);
   }
   function newRecordId(){
     return 'rec_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -1115,9 +1256,8 @@
     reader.readAsText(file);
   }
   function clearAllLocalData(){
-    if (!confirm('This will permanently delete every saved investigation, every NCR, and all settings from this browser. This cannot be undone. Continue?')) return;
-    if (!confirm("Last check — there is no undo. Delete everything?")) return;
-    [STORAGE_KEY, LIBRARY_KEY, NCR_STORAGE_KEY, NCR_LIBRARY_KEY, PROJECT_CONFIG_KEY].forEach(k => localStorage.removeItem(k));
+    if (!confirm("This clears the unsaved draft investigation and NCR on this device only. Your project's saved investigations, NCR register, and settings live in Supabase and aren't affected — delete those individually from their own screens if needed. Continue?")) return;
+    [STORAGE_KEY, NCR_STORAGE_KEY].forEach(k => localStorage.removeItem(k));
     location.reload();
   }
   function csvEscape(v){
@@ -1778,14 +1918,11 @@
     };
   }
   function loadProjectConfig(){
-    try {
-      const raw = localStorage.getItem(PROJECT_CONFIG_KEY);
-      if (raw) return Object.assign(defaultProjectConfig(), JSON.parse(raw));
-    } catch (e) {}
-    return defaultProjectConfig();
+    return projectConfigCache || defaultProjectConfig();
   }
   function saveProjectConfig(cfg){
-    try { localStorage.setItem(PROJECT_CONFIG_KEY, JSON.stringify(cfg)); } catch (e) {}
+    projectConfigCache = cfg;
+    syncProjectConfigToSupabase(cfg);
   }
   function printBrandSubHtml(){
     const cfg = loadProjectConfig();
@@ -1872,14 +2009,11 @@
   let ncrState = loadNcrState();
 
   function loadNcrLibrary(){
-    try {
-      const raw = localStorage.getItem(NCR_LIBRARY_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch (e) {}
-    return [];
+    return ncrLibraryCache;
   }
   function saveNcrLibrary(lib){
-    try { localStorage.setItem(NCR_LIBRARY_KEY, JSON.stringify(lib)); } catch (e) {}
+    ncrLibraryCache = lib;
+    syncNcrLibraryToSupabase(lib);
   }
   function saveNcrToLibrary(){
     ncrState.updatedAt = new Date().toISOString();
@@ -3371,73 +3505,13 @@
   });
   document.getElementById('cfgClearBtn').addEventListener('click', () => { clearAllLocalData(); });
 
-  // ---- Account (Supabase auth, experimental — additive only, doesn't gate the app) ----
-  const cfgAccountHint = document.getElementById('cfgAccountHint');
-  const cfgAccountSignedOut = document.getElementById('cfgAccountSignedOut');
-  const cfgAccountSignedIn = document.getElementById('cfgAccountSignedIn');
-  const cfgAuthEmail = document.getElementById('cfgAuthEmail');
-  const cfgAuthPassword = document.getElementById('cfgAuthPassword');
-  const cfgAuthStatus = document.getElementById('cfgAuthStatus');
-  const cfgSignUpBtn = document.getElementById('cfgSignUpBtn');
-  const cfgSignInBtn = document.getElementById('cfgSignInBtn');
+  // ---- Account (Configuration page — sign out only; signing in happens at the gate below) ----
   const cfgSignOutBtn = document.getElementById('cfgSignOutBtn');
-
-  function setAuthStatus(text){
-    cfgAuthStatus.textContent = text;
-    cfgAuthStatus.style.display = text ? 'block' : 'none';
-  }
-
-  function renderAccountSection(session){
-    if (session && session.user) {
-      cfgAccountHint.textContent = 'Connected to Supabase.';
-      cfgAccountSignedOut.style.display = 'none';
-      cfgAccountSignedIn.style.display = 'flex';
-      document.getElementById('cfgAccountEmail').textContent = 'Signed in as ' + session.user.email;
-    } else {
-      cfgAccountHint.textContent = 'Connected to Supabase — not signed in yet. This is optional and separate from your local data; nothing here affects the app until it\'s fully wired up.';
-      cfgAccountSignedOut.style.display = 'flex';
-      cfgAccountSignedIn.style.display = 'none';
-    }
-  }
-
-  if (!supabaseClient) {
-    cfgAccountHint.textContent = "Supabase isn't reachable from this device right now — the app works fully offline either way. Try again later.";
-  } else {
-    supabaseClient.auth.getSession().then(({ data }) => renderAccountSection(data.session));
-    supabaseClient.auth.onAuthStateChange((_event, session) => renderAccountSection(session));
-
-    cfgSignUpBtn.addEventListener('click', async () => {
-      const email = cfgAuthEmail.value.trim();
-      const password = cfgAuthPassword.value;
-      if (!email) { cfgAuthEmail.focus(); return; }
-      if (!password || password.length < 6) { cfgAuthPassword.focus(); return; }
-      cfgSignUpBtn.disabled = true;
-      cfgSignUpBtn.textContent = 'Signing up…';
-      const { error } = await supabaseClient.auth.signUp({ email, password });
-      cfgSignUpBtn.disabled = false;
-      cfgSignUpBtn.textContent = 'Sign Up';
-      if (error) { alert("Couldn't sign up: " + error.message); return; }
-      setAuthStatus('Account created — check your email and click the confirmation link, then come back here and tap Sign In.');
+  if (supabaseClient) {
+    supabaseClient.auth.getSession().then(({ data }) => {
+      if (data.session) document.getElementById('cfgAccountEmail').textContent = 'Signed in as ' + data.session.user.email;
     });
-
-    cfgSignInBtn.addEventListener('click', async () => {
-      const email = cfgAuthEmail.value.trim();
-      const password = cfgAuthPassword.value;
-      if (!email) { cfgAuthEmail.focus(); return; }
-      if (!password) { cfgAuthPassword.focus(); return; }
-      cfgSignInBtn.disabled = true;
-      cfgSignInBtn.textContent = 'Signing in…';
-      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-      cfgSignInBtn.disabled = false;
-      cfgSignInBtn.textContent = 'Sign In';
-      if (error) { setAuthStatus("Couldn't sign in: " + error.message); return; }
-      setAuthStatus('');
-      cfgAuthPassword.value = '';
-    });
-
-    cfgSignOutBtn.addEventListener('click', async () => {
-      await supabaseClient.auth.signOut();
-    });
+    cfgSignOutBtn.addEventListener('click', async () => { await supabaseClient.auth.signOut(); });
   }
 
   const swatchWrap = document.getElementById('colorSwatches');
@@ -3446,7 +3520,90 @@
     return `<span class="swatch"><i style="background:${COLOR_HEX[n.color]||'#3a5a82'}"></i>${escapeHtml(n.name)}</span>`;
   }).join('');
 
-  showNcrRegister();
+  // ---- Auth gate: nothing renders until signed in, project resolved, and data hydrated ----
+  const authGate = document.getElementById('authGate');
+  const authGateStatus = document.getElementById('authGateStatus');
+  const authGateForm = document.getElementById('authGateForm');
+  const gateEmail = document.getElementById('gateEmail');
+  const gatePassword = document.getElementById('gatePassword');
+  const gateSignUpBtn = document.getElementById('gateSignUpBtn');
+  const gateSignInBtn = document.getElementById('gateSignInBtn');
+  const gateAuthStatus = document.getElementById('gateAuthStatus');
+
+  function setGateAuthStatus(text){
+    gateAuthStatus.textContent = text;
+    gateAuthStatus.style.display = text ? 'block' : 'none';
+  }
+  function showGate(statusText){
+    authGate.classList.remove('hidden');
+    authGateStatus.textContent = statusText || '';
+    authGateStatus.style.display = statusText ? 'block' : 'none';
+  }
+
+  async function resolveProjectAndEnter(session){
+    authGateForm.style.display = 'none';
+    showGate('Loading your project…');
+    try {
+      const { data, error } = await supabaseClient.from('project_members').select('project_id').eq('user_id', session.user.id).limit(1).maybeSingle();
+      if (error) throw error;
+      if (!data) {
+        showGate("Signed in, but you haven't been added to a project yet. Ask your admin to add you — see supabase/README.md for the setup steps.");
+        return;
+      }
+      await hydrateFromSupabase(data.project_id);
+      authGate.classList.add('hidden');
+      showNcrRegister();
+    } catch (e) {
+      console.error('Project load failed:', e);
+      showGate("Couldn't load your project: " + (e.message || 'unknown error') + '. Check your connection and reload the page.');
+    }
+  }
+
+  if (!supabaseClient) {
+    showGate("Can't reach Supabase from this device right now — check your internet connection and reload. This app needs it to sign in.");
+  } else {
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) resolveProjectAndEnter(session);
+      else if (event === 'SIGNED_OUT') location.reload();
+    });
+
+    supabaseClient.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        resolveProjectAndEnter(data.session);
+      } else {
+        showGate('');
+        authGateForm.style.display = 'flex';
+      }
+    });
+
+    gateSignUpBtn.addEventListener('click', async () => {
+      const email = gateEmail.value.trim();
+      const password = gatePassword.value;
+      if (!email) { gateEmail.focus(); return; }
+      if (!password || password.length < 6) { gatePassword.focus(); return; }
+      gateSignUpBtn.disabled = true;
+      gateSignUpBtn.textContent = 'Signing up…';
+      const { error } = await supabaseClient.auth.signUp({ email, password });
+      gateSignUpBtn.disabled = false;
+      gateSignUpBtn.textContent = 'Sign Up';
+      if (error) { setGateAuthStatus("Couldn't sign up: " + error.message); return; }
+      setGateAuthStatus('Account created — check your email and click the confirmation link, then come back here and tap Sign In.');
+    });
+
+    gateSignInBtn.addEventListener('click', async () => {
+      const email = gateEmail.value.trim();
+      const password = gatePassword.value;
+      if (!email) { gateEmail.focus(); return; }
+      if (!password) { gatePassword.focus(); return; }
+      gateSignInBtn.disabled = true;
+      gateSignInBtn.textContent = 'Signing in…';
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      gateSignInBtn.disabled = false;
+      gateSignInBtn.textContent = 'Sign In';
+      if (error) { setGateAuthStatus("Couldn't sign in: " + error.message); return; }
+      setGateAuthStatus('');
+    });
+  }
 })();
 </script>
 </body>
