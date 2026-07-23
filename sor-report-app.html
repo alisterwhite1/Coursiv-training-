@@ -455,6 +455,7 @@ textarea{min-height:110px;resize:vertical;font-family:inherit;}
   </div>
 
   <div class="footer-ref">Form Reference No.: DMBL-PAJV-FORM-1030 Rev. 1, Site Observation Report (SOR) Form, 02-Feb-2026</div>
+  <div class="footer-ref" style="border-top:none;color:#999;">App build: 2026-07-23-r4</div>
 </div>
 
 <div class="action-bar">
@@ -952,6 +953,7 @@ function buildSorWorkbook(XB, JSZip, data, logos) {
   sheet.merge(r, 3, 5);
 
   fullRow('Form Reference No.: DMBL-PAJV-FORM-1030 Rev. 1, Site Observation Report (SOR) Form, 02-Feb-2026', sPlain, 16);
+  fullRow('App build: ' + (data.appBuild || ''), sPlain, 14);
 
   // header logos
   // Engineer + Parsons-AtkinsRealis are pre-combined into one image so they
@@ -1066,6 +1068,11 @@ if (typeof module !== 'undefined') module.exports = { buildSorWorkbook };
   ];
 
   var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // Bump this on every fix so a screenshot or an exported file can be
+  // matched to a specific build when troubleshooting "it still looks the
+  // same" reports - printed in the app footer and the Excel export.
+  var APP_BUILD = '2026-07-23-r4';
 
   function fmtDateStr(yyyy_mm_dd) {
     if (!yyyy_mm_dd) return '';
@@ -1282,6 +1289,7 @@ if (typeof module !== 'undefined') module.exports = { buildSorWorkbook };
     });
 
     return {
+      appBuild: APP_BUILD,
       projectName: val('projectName'),
       employer: val('employer'),
       engineer: val('engineer'),
