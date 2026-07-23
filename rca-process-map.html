@@ -1264,7 +1264,7 @@
     [STORAGE_KEY, NCR_STORAGE_KEY].forEach(k => localStorage.removeItem(k));
     location.reload();
   }
-  function importLegacyLocalData(){
+  async function importLegacyLocalData(){
     let legacyLib = [], legacyNcrLib = [];
     try { legacyLib = JSON.parse(localStorage.getItem(LIBRARY_KEY) || '[]'); } catch (e) {}
     try { legacyNcrLib = JSON.parse(localStorage.getItem(NCR_LIBRARY_KEY) || '[]'); } catch (e) {}
@@ -1273,15 +1273,25 @@
     if (!legacyLib.length && !legacyNcrLib.length) { alert("No pre-Supabase local data found in this browser."); return; }
     if (!confirm(`Found ${legacyLib.length} investigation(s) and ${legacyNcrLib.length} NCR(s) from before Supabase was wired in. Import them into this project?`)) return;
 
+    const btn = document.getElementById('cfgImportLegacyBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Importing — please wait…'; }
+
     const currentLibIds = new Set(libraryCache.map(r => r.id));
     const newLibRecords = legacyLib.filter(r => r && r.id && !currentLibIds.has(r.id));
-    if (newLibRecords.length) saveLibrary(libraryCache.concat(newLibRecords));
+    if (newLibRecords.length) {
+      libraryCache = libraryCache.concat(newLibRecords);
+      await syncLibraryToSupabase(libraryCache);
+    }
 
     const currentNcrIds = new Set(ncrLibraryCache.map(r => r.id));
     const newNcrRecords = legacyNcrLib.filter(r => r && r.id && !currentNcrIds.has(r.id));
-    if (newNcrRecords.length) saveNcrLibrary(ncrLibraryCache.concat(newNcrRecords));
+    if (newNcrRecords.length) {
+      ncrLibraryCache = ncrLibraryCache.concat(newNcrRecords);
+      await syncNcrLibraryToSupabase(ncrLibraryCache);
+    }
 
-    alert(`Imported ${newLibRecords.length} investigation(s) and ${newNcrRecords.length} NCR(s). Syncing to Supabase now.`);
+    if (btn) { btn.disabled = false; btn.textContent = '📥 Import Pre-Supabase Local Data'; }
+    alert(`Imported and confirmed saved to Supabase: ${newLibRecords.length} investigation(s), ${newNcrRecords.length} NCR(s). Safe to close the browser now.`);
     if (currentView === 'ncrRegister') showNcrRegister();
   }
   function csvEscape(v){
