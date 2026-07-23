@@ -5,10 +5,25 @@ browser's `localStorage` today, which means no shared NCR register
 across a team and no backup if browser data is cleared. This schema
 moves that to a real, shared, multi-user backend.
 
-**Status: schema only, not yet wired into the app.** The migration
-below has been tested against a local Postgres instance and runs
-cleanly, but the app itself doesn't talk to Supabase yet — that's the
-next piece of work.
+**Status: schema is applied-ready, and the app now has an experimental
+sign-in wired up under Configuration → Account.** The migration below
+has been tested against a local Postgres instance and runs cleanly.
+Sign-in is additive only — it doesn't gate the app yet, so it can be
+tested safely before the CRUD migration (localStorage → real Supabase
+reads/writes) makes it load-bearing.
+
+## Testing sign-in
+
+1. Open the app, tap the gear icon → scroll to **Account**
+2. Enter your email, tap **Send Sign-In Code**
+3. Check your inbox for a 6-digit code (check spam if it doesn't arrive
+   within a minute or two)
+4. Enter the code, tap **Verify Code**
+
+This uses an emailed one-time code rather than a clickable magic link,
+since the app runs as a local file with no stable web address for a
+link to redirect back to — codes sidestep that entirely and will keep
+working the same way once the app is hosted or packaged as a native app.
 
 ## What's in the schema (`migrations/0001_init.sql`)
 
@@ -43,17 +58,21 @@ That creates all the tables, triggers, and security policies in one go.
 
 ## What's still needed before this is live
 
-- The app needs the Supabase client wired in, with your project URL and
-  anon/public key (safe to share client-side — never the service_role key)
 - Every localStorage read/write in the app needs to be swapped for a
-  Supabase query
-- Basic sign-in (Supabase Auth) so `project_members` has someone to check
-  against
-- A way to create your first project and add yourself as `owner` (there's
-  no UI for that yet — for the very first project, this can be a couple
-  of manual inserts run once in the SQL Editor while the app screens for
-  it get built)
+  Supabase query (the big remaining piece)
+- A way to create your first project and add yourself as `owner` — once
+  you've signed in at least once (so your row exists in `auth.users`),
+  run this once in the SQL Editor, replacing the email:
 
-This is being built next — nothing above needs to be actioned by you
-yet except applying the migration and creating the bucket, whenever
-you're ready to move forward with this piece.
+  ```sql
+  insert into projects (name) values ('My First Project')
+  returning id;  -- copy this id for the next statement
+
+  insert into project_members (project_id, user_id, role)
+  select '<paste-project-id-here>', id, 'owner'
+  from auth.users where email = 'you@company.com';
+  ```
+
+Nothing above needs to be actioned by you yet except applying the
+migration and creating the bucket, whenever you're ready to move
+forward with this piece.
