@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <!-- v5 -->
   <title>SiteSnag — Construction Inspection</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.2/dist/umd/supabase.min.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -12,27 +16,28 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --blue:        #1d4ed8;
-      --blue-bg:     #dbeafe;
-      --orange:      #ea580c;
-      --orange-bg:   #ffedd5;
-      --green:       #15803d;
-      --green-bg:    #dcfce7;
-      --red:         #dc2626;
-      --red-bg:      #fee2e2;
-      --purple:      #7c3aed;
-      --purple-bg:   #ede9fe;
-      --amber:       #b45309;
-      --amber-bg:    #fef3c7;
-      --bg:          #f1f5f9;
+      --blue:        #1a56c4;
+      --blue-bg:     #dce8f8;
+      --orange:      #c05a10;
+      --orange-bg:   #fdecd8;
+      --green:       #1a6640;
+      --green-bg:    #e0f2e9;
+      --red:         #b02020;
+      --red-bg:      #fbe8e8;
+      --purple:      #5030a0;
+      --purple-bg:   #eee8f8;
+      --amber:       #8a5a00;
+      --amber-bg:    #fdf4dc;
+      --bg:          #f0f3f7;
       --card:        #ffffff;
-      --text:        #0f172a;
-      --soft:        #475569;
-      --muted:       #94a3b8;
-      --border:      #e2e8f0;
-      --radius:      14px;
-      --shadow:      0 1px 4px rgba(0,0,0,.08);
-      --shadow-md:   0 4px 16px rgba(0,0,0,.12);
+      --text:        #1a2a40;
+      --soft:        #4a5a70;
+      --muted:       #8a96a8;
+      --border:      #dde3ec;
+      --radius:      10px;
+      --shadow:      0 1px 3px rgba(0,0,0,.07);
+      --shadow-md:   0 4px 16px rgba(0,0,0,.10);
+      --navy:        #0f2544;
     }
 
     body {
@@ -46,7 +51,7 @@
 
     /* ── App header ── */
     .app-bar {
-      background: var(--blue);
+      background: var(--navy);
       color: #fff;
       padding: .75rem 1rem;
       display: flex;
@@ -57,23 +62,23 @@
       z-index: 90;
       box-shadow: 0 2px 8px rgba(0,0,0,.18);
     }
-    .app-bar h1 { font-size: 1.05rem; font-weight: 700; flex: 1; line-height: 1.2; }
-    .app-bar h1 small { display: block; font-size: .72rem; font-weight: 400; opacity: .7; }
+    .app-bar h1 { font-size: 1.05rem; font-weight: 600; flex: 1; line-height: 1.2; letter-spacing: .01em; }
+    .app-bar h1 small { display: block; font-size: .68rem; font-weight: 400; opacity: .5; letter-spacing: .06em; text-transform: uppercase; }
     .back-btn {
-      background: none; border: none; color: rgba(255,255,255,.85);
+      background: none; border: none; color: rgba(255,255,255,.7);
       font-size: 1.4rem; cursor: pointer; padding: 0 .2rem; line-height: 1;
     }
     .back-btn:hover { color: #fff; }
     .user-chip {
       display: flex; align-items: center; gap: .35rem;
-      background: rgba(255,255,255,.18); border-radius: 999px;
+      background: rgba(255,255,255,.12); border-radius: 6px;
       padding: .28rem .65rem .28rem .45rem;
-      font-size: .78rem; font-weight: 700; cursor: default;
-      max-width: 160px;
+      font-size: .78rem; font-weight: 600; cursor: default;
+      max-width: 160px; border: 1px solid rgba(255,255,255,.1);
     }
     .user-chip .avatar {
-      width: 22px; height: 22px; border-radius: 50%;
-      background: rgba(255,255,255,.35);
+      width: 22px; height: 22px; border-radius: 4px;
+      background: rgba(255,255,255,.2);
       display: flex; align-items: center; justify-content: center;
       font-size: .72rem; font-weight: 800; flex-shrink: 0;
     }
@@ -81,11 +86,11 @@
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .logout-btn {
-      background: rgba(255,255,255,.18); border: none; color: #fff;
-      border-radius: 8px; padding: .3rem .55rem; font-size: .78rem;
-      font-weight: 700; cursor: pointer; white-space: nowrap;
+      background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.15); color: rgba(255,255,255,.85);
+      border-radius: 6px; padding: .3rem .55rem; font-size: .78rem;
+      font-weight: 600; cursor: pointer; white-space: nowrap;
     }
-    .logout-btn:hover { background: rgba(255,255,255,.3); }
+    .logout-btn:hover { background: rgba(255,255,255,.2); }
 
     /* ── Login screen ── */
     .login-wrap {
@@ -106,8 +111,8 @@
       border: 2.5px solid transparent;
       box-shadow: var(--shadow); transition: all .15s;
     }
-    .user-card:hover { border-color: var(--blue); }
-    .user-card.selected { border-color: var(--blue); background: var(--blue-bg); }
+    .user-card:hover { border-color: var(--navy); }
+    .user-card.selected { border-color: var(--navy); background: var(--blue-bg); }
     .user-card .uc-avatar {
       width: 44px; height: 44px; border-radius: 50%;
       margin: 0 auto .5rem;
@@ -135,7 +140,7 @@
       border: 2px solid var(--border); background: transparent;
       transition: background .12s, border-color .12s;
     }
-    .pin-dot.filled { background: var(--blue); border-color: var(--blue); }
+    .pin-dot.filled { background: var(--navy); border-color: var(--navy); }
     .pin-keypad {
       display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem;
     }
@@ -147,8 +152,8 @@
     }
     .pin-key:active { background: var(--blue-bg); }
     .pin-key.del { color: var(--red); font-size: 1rem; }
-    .pin-key.go  { background: var(--blue); color: #fff; }
-    .pin-key.go:active { background: var(--blue); filter: brightness(1.1); }
+    .pin-key.go  { background: var(--navy); color: #fff; }
+    .pin-key.go:active { background: var(--navy); filter: brightness(1.15); }
     .pin-error { color: var(--red); font-size: .82rem; font-weight: 600; text-align: center; margin-top: .5rem; }
 
     /* ── Bottom nav ── */
@@ -156,18 +161,23 @@
       position: fixed; bottom: 0; left: 0; right: 0;
       background: #fff; border-top: 1px solid var(--border);
       display: flex; z-index: 90;
-      box-shadow: 0 -2px 12px rgba(0,0,0,.07);
+      box-shadow: 0 -2px 12px rgba(0,0,0,.06);
     }
     .nav-btn {
       flex: 1; border: none; background: none;
-      padding: .6rem .3rem .45rem;
-      display: flex; flex-direction: column; align-items: center; gap: .18rem;
-      cursor: pointer; color: var(--muted);
-      font-size: .62rem; font-weight: 700; letter-spacing: .02em;
-      transition: color .12s; font-family: inherit;
+      padding: .6rem .3rem .48rem;
+      display: flex; flex-direction: column; align-items: center; gap: .2rem;
+      cursor: pointer;
+      font-size: .56rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+      color: var(--muted);
+      transition: color .15s; font-family: inherit;
     }
-    .nav-btn .ico { font-size: 1.3rem; line-height: 1; }
-    .nav-btn.active { color: var(--blue); }
+    .nav-btn svg { display: block; }
+    .nav-btn .ico-bg { fill: #e4e9f2; transition: fill .15s; }
+    .nav-btn .ico-fg { fill: var(--muted); transition: fill .15s; }
+    .nav-btn.active { color: var(--navy); }
+    .nav-btn.active .ico-bg { fill: #cdd5e5; }
+    .nav-btn.active .ico-fg { fill: var(--navy); }
 
     /* ── Main ── */
     .main { padding: .85rem; max-width: 580px; margin: 0 auto; }
@@ -187,15 +197,16 @@
       cursor: pointer; gap: .8rem; transition: background .1s;
     }
     .list-item:last-child { border-bottom: none; }
-    .list-item:hover { background: #f8fafc; }
+    .list-item:hover { background: #f5f7fa; }
     .list-item:active { background: var(--blue-bg); }
 
     /* ── Snag list ── */
     .snag-num {
-      background: var(--blue); color: #fff;
-      font-size: .75rem; font-weight: 800;
-      border-radius: 7px; padding: .22rem .48rem;
+      background: var(--navy); color: #fff;
+      font-size: .72rem; font-weight: 700;
+      border-radius: 5px; padding: .22rem .48rem;
       min-width: 48px; text-align: center; flex-shrink: 0;
+      letter-spacing: .02em;
     }
     .snag-info { flex: 1; min-width: 0; }
     .snag-title {
@@ -215,18 +226,19 @@
     /* ── Badges ── */
     .badge {
       display: inline-flex; align-items: center;
-      padding: .18rem .55rem; border-radius: 999px;
-      font-size: .7rem; font-weight: 800; letter-spacing: .03em; white-space: nowrap;
+      padding: .15rem .52rem; border-radius: 4px;
+      font-size: .67rem; font-weight: 700; letter-spacing: .04em; white-space: nowrap;
+      border: 1px solid transparent;
     }
-    .b-open     { background: var(--amber-bg);  color: var(--amber); }
-    .b-assigned { background: var(--blue-bg);   color: var(--blue); }
-    .b-pending  { background: var(--purple-bg); color: var(--purple); }
-    .b-accepted { background: var(--green-bg);  color: var(--green); }
-    .b-rejected { background: var(--red-bg);    color: var(--red); }
+    .b-open     { background: var(--amber-bg);  color: var(--amber);  border-color: #e8c860; }
+    .b-assigned { background: var(--blue-bg);   color: var(--blue);   border-color: #b0ccee; }
+    .b-pending  { background: var(--purple-bg); color: var(--purple); border-color: #c0a8e8; }
+    .b-accepted { background: var(--green-bg);  color: var(--green);  border-color: #90c8a8; }
+    .b-rejected { background: var(--red-bg);    color: var(--red);    border-color: #e0a8a8; }
     .role-badge {
       display: inline-flex; align-items: center;
-      padding: .15rem .5rem; border-radius: 999px;
-      font-size: .68rem; font-weight: 800; letter-spacing: .05em; white-space: nowrap;
+      padding: .13rem .48rem; border-radius: 4px;
+      font-size: .67rem; font-weight: 700; letter-spacing: .05em; white-space: nowrap;
     }
     .role-engineer    { background: var(--blue-bg);   color: var(--blue); }
     .role-administrator { background: var(--purple-bg); color: var(--purple); }
@@ -235,31 +247,31 @@
     /* ── Buttons ── */
     .btn {
       display: inline-flex; align-items: center; justify-content: center;
-      gap: .4rem; padding: .62rem 1.25rem; border: none;
-      border-radius: 999px; font-size: .9rem; font-weight: 700;
+      gap: .4rem; padding: .6rem 1.2rem; border: none;
+      border-radius: 7px; font-size: .88rem; font-weight: 600;
       cursor: pointer; transition: filter .15s, transform .1s;
-      font-family: inherit; white-space: nowrap;
+      font-family: inherit; white-space: nowrap; letter-spacing: .02em;
     }
-    .btn:active { transform: scale(.95); }
-    .btn-primary { background: var(--blue); color: #fff; }
-    .btn-primary:hover { filter: brightness(1.1); }
+    .btn:active { transform: scale(.97); }
+    .btn-primary { background: var(--navy); color: #fff; }
+    .btn-primary:hover { filter: brightness(1.15); }
     .btn-success { background: var(--green); color: #fff; }
     .btn-danger  { background: var(--red);   color: #fff; }
-    .btn-outline { background: none; border: 2px solid var(--border); color: var(--soft); }
-    .btn-outline:hover { border-color: var(--blue); color: var(--blue); }
-    .btn-sm { padding: .38rem .85rem; font-size: .82rem; }
+    .btn-outline { background: none; border: 1.5px solid var(--border); color: var(--soft); }
+    .btn-outline:hover { border-color: var(--navy); color: var(--navy); }
+    .btn-sm { padding: .36rem .8rem; font-size: .8rem; }
     .btn-block { width: 100%; border-radius: var(--radius); }
 
     .fab {
       position: fixed; bottom: 86px; right: 1.1rem;
-      width: 54px; height: 54px; border-radius: 50%;
-      background: var(--blue); color: #fff; border: none;
-      font-size: 1.7rem; cursor: pointer; box-shadow: var(--shadow-md);
+      width: 52px; height: 52px; border-radius: 12px;
+      background: var(--navy); color: #fff; border: none;
+      font-size: 1.6rem; cursor: pointer; box-shadow: var(--shadow-md);
       display: flex; align-items: center; justify-content: center;
-      z-index: 80; transition: transform .15s;
+      z-index: 80; transition: transform .15s, filter .15s;
     }
-    .fab:hover { transform: scale(1.07); }
-    .fab:active { transform: scale(.9); }
+    .fab:hover { filter: brightness(1.2); }
+    .fab:active { transform: scale(.93); }
 
     /* ── Forms ── */
     .form-group { display: flex; flex-direction: column; gap: .38rem; }
@@ -274,7 +286,7 @@
       font-size: .93rem; font-family: inherit; color: var(--text);
       background: #fff; outline: none; transition: border-color .15s;
     }
-    input:focus, textarea:focus, select:focus { border-color: var(--blue); }
+    input:focus, textarea:focus, select:focus { border-color: var(--navy); }
     textarea { resize: vertical; min-height: 88px; }
 
     .photo-trigger {
@@ -283,7 +295,7 @@
       cursor: pointer; background: var(--bg); color: var(--soft);
       font-size: .9rem; font-weight: 600; transition: all .15s;
     }
-    .photo-trigger:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
+    .photo-trigger:hover { border-color: var(--navy); color: var(--navy); background: var(--blue-bg); }
     .photo-wrap { position: relative; border-radius: 10px; overflow: hidden; }
     .photo-wrap img { width: 100%; max-height: 220px; object-fit: cover; display: block; }
     .photo-remove {
@@ -349,17 +361,17 @@
 
     /* ── Project list ── */
     .proj-icon {
-      width: 40px; height: 40px; border-radius: 10px;
-      background: var(--blue); color: #fff;
+      width: 40px; height: 40px; border-radius: 8px;
+      background: var(--navy); color: #fff;
       display: flex; align-items: center; justify-content: center;
       font-size: 1.15rem; flex-shrink: 0;
     }
     .proj-name { font-weight: 700; font-size: .95rem; }
     .proj-count { font-size: .75rem; color: var(--muted); }
     .active-chip {
-      margin-left: auto; background: var(--blue); color: #fff;
-      font-size: .65rem; font-weight: 800; padding: .14rem .5rem;
-      border-radius: 999px; letter-spacing: .04em;
+      margin-left: auto; background: var(--navy); color: #fff;
+      font-size: .65rem; font-weight: 700; padding: .14rem .5rem;
+      border-radius: 4px; letter-spacing: .04em;
     }
 
     /* ── Company / User list ── */
@@ -390,12 +402,12 @@
     }
     .filter-row::-webkit-scrollbar { display: none; }
     .filter-chip {
-      flex-shrink: 0; padding: .35rem .8rem; border-radius: 999px;
-      font-size: .76rem; font-weight: 700; border: 2px solid var(--border);
+      flex-shrink: 0; padding: .32rem .75rem; border-radius: 6px;
+      font-size: .73rem; font-weight: 600; border: 1.5px solid var(--border);
       background: #fff; color: var(--soft); cursor: pointer;
-      transition: all .12s; font-family: inherit;
+      transition: all .12s; font-family: inherit; letter-spacing: .02em;
     }
-    .filter-chip.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .filter-chip.active { background: var(--navy); color: #fff; border-color: var(--navy); }
 
     /* ── Misc ── */
     .sec-label {
@@ -481,22 +493,34 @@
     <div class="login-logo">🏗</div>
     <div class="login-title">SiteSnag</div>
     <div class="login-sub">Construction Quality Inspection</div>
+    <div style="font-size:.7rem;color:var(--muted);margin-top:-.5rem;margin-bottom:.5rem">v2026.07.23</div>
 
-    <!-- Shown when no users exist -->
-    <div id="ls-setup" style="display:none;width:100%;max-width:480px">
-      <div class="card card-body" style="text-align:center">
-        <div style="font-size:1.5rem;margin-bottom:.5rem">👋</div>
-        <div style="font-weight:700;margin-bottom:.4rem">First time setup</div>
-        <div style="font-size:.88rem;color:var(--muted);margin-bottom:1rem">Create your first user to get started.</div>
-        <button id="btn-first-user" class="btn btn-primary btn-block">Create First User</button>
+    <!-- Email/password login form -->
+    <div id="ls-form" style="width:100%;max-width:420px">
+      <div class="card card-body" style="display:flex;flex-direction:column;gap:.85rem">
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" id="ls-email" placeholder="your@email.com" autocomplete="email"
+                 style="font-size:1rem" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" id="ls-password" placeholder="••••••••" autocomplete="current-password"
+                 style="font-size:1rem" />
+        </div>
+        <div id="ls-error" style="display:none;padding:.6rem .8rem;background:var(--red-bg);color:var(--red);border-radius:7px;font-size:.85rem;font-weight:600"></div>
+        <button id="ls-submit" class="btn btn-primary btn-block" style="font-size:1rem;padding:.72rem">Sign In</button>
+        <div style="text-align:center">
+          <button id="ls-forgot" style="background:none;border:none;color:var(--blue);font-size:.83rem;cursor:pointer;font-family:inherit;padding:.2rem">
+            Forgot password?
+          </button>
+        </div>
+      </div>
+      <div id="ls-reset-sent" style="display:none;margin-top:.75rem;padding:.75rem 1rem;background:var(--green-bg);color:var(--green);border-radius:8px;font-size:.87rem;font-weight:600;text-align:center">
+        Password reset email sent — check your inbox.
       </div>
     </div>
 
-    <!-- Shown when users exist -->
-    <div id="ls-users" style="display:none;width:100%;max-width:480px">
-      <div id="ls-user-grid" class="user-grid"></div>
-      <div id="ls-pin" style="display:none"></div>
-    </div>
   </div>
 </div>
 
@@ -524,9 +548,48 @@ let _syncMsg    = '';
 
 function supaClient() {
   if (!_supa && window.supabase) {
-    _supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+    _supa = window.supabase.createClient(SUPA_URL, SUPA_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true }
+    });
   }
   return _supa;
+}
+
+// Called once on startup — restores existing session and listens for changes
+function initSupabaseAuth() {
+  const cl = supaClient(); if (!cl) return;
+  // Restore session silently if already logged in
+  cl.auth.getSession().then(({ data }) => {
+    if (data?.session) _onAuthSession(data.session);
+  });
+  // React to sign-in / sign-out events
+  cl.auth.onAuthStateChange((_event, session) => {
+    if (session) { _onAuthSession(session); }
+    else         { _onAuthSignOut(); }
+  });
+}
+
+async function _onAuthSession(session) {
+  // Load the user's profile (name, role, companyId) from db.users by auth uid
+  await loadDB(); // ensure db is fresh
+  const profile = db.users.find(u => u.authId === session.user.id);
+  if (profile) {
+    S.currentUser = { id: profile.id, name: profile.name, role: profile.role, companyId: profile.companyId || null };
+    S.mode = profile.role === 'contractor' ? 'contractor' : 'engineer';
+    if (profile.role === 'contractor' && profile.companyId) S.contractorCompanyId = profile.companyId;
+  } else {
+    // Auth account exists but no profile yet — use email as fallback
+    S.currentUser = { id: session.user.id, name: session.user.email, role: 'engineer', companyId: null };
+  }
+  if (S.view === 'login' || !S.view) S.view = 'projects';
+  render();
+}
+
+function _onAuthSignOut() {
+  S.currentUser = null;
+  S.contractorCompanyId = null;
+  S.view = 'login';
+  render();
 }
 
 async function _syncToSupabase() {
@@ -971,117 +1034,77 @@ function render() {
 }
 
 function renderLoginScreen() {
-  const hasUsers = db.users.length > 0;
-  document.getElementById('ls-setup').style.display = hasUsers ? 'none' : 'block';
-  document.getElementById('ls-users').style.display = hasUsers ? 'block' : 'none';
+  // Nothing dynamic needed — form is static HTML, listeners attached once in initLoginListeners()
+}
 
-  if (!hasUsers) return;
+function initLoginListeners() {
+  const submitBtn = document.getElementById('ls-submit');
+  const forgotBtn = document.getElementById('ls-forgot');
+  const emailEl   = document.getElementById('ls-email');
+  const passEl    = document.getElementById('ls-password');
+  if (!submitBtn) return;
 
-  // Render user selection cards
-  const grid = document.getElementById('ls-user-grid');
-  grid.innerHTML = db.users.map(u => `
-    <div class="user-card ${u.id === S.loginUserId ? 'selected' : ''}" data-uid="${u.id}">
-      <div class="uc-avatar" style="background:${avatarColour(u.name)}">${u.name.charAt(0).toUpperCase()}</div>
-      <div class="uc-name">${esc(u.name)}</div>
-      <div class="uc-role">${u.role === 'engineer' ? 'Engineer' : u.role === 'administrator' ? 'Administrator' : 'Contractor'}</div>
-    </div>`).join('');
-
-  // Attach card click listeners each render
-  grid.querySelectorAll('.user-card').forEach(card => {
-    card.addEventListener('click', function() {
-      selectLoginUser(this.getAttribute('data-uid'));
-    });
+  submitBtn.addEventListener('click', doLogin);
+  [emailEl, passEl].forEach(el => {
+    el && el.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
   });
 
-  // Render PIN pad if user selected
-  const pinDiv = document.getElementById('ls-pin');
-  const sel = S.loginUserId ? db.users.find(u => u.id === S.loginUserId) : null;
-  if (sel) {
-    pinDiv.style.display = 'block';
-    pinDiv.innerHTML = `
-      <div class="pin-wrap">
-        <div class="pin-label">Enter PIN for ${esc(sel.name)}</div>
-        <div class="pin-dots">
-          ${[0,1,2,3].map(i => `<div class="pin-dot ${S.pinEntry.length > i ? 'filled' : ''}"></div>`).join('')}
-        </div>
-        <div class="pin-keypad" id="pin-keypad-grid">
-          ${[1,2,3,4,5,6,7,8,9].map(n => `<button class="pin-key" data-k="${n}">${n}</button>`).join('')}
-          <button class="pin-key del" data-k="del">⌫</button>
-          <button class="pin-key" data-k="0">0</button>
-          <button class="pin-key go" data-k="go">→</button>
-        </div>
-        ${S.pinError ? `<div class="pin-error">${esc(S.pinError)}</div>` : ''}
-      </div>`;
-    pinDiv.querySelectorAll('[data-k]').forEach(btn => {
-      btn.addEventListener('click', function() { pinKey(this.getAttribute('data-k')); });
+  forgotBtn && forgotBtn.addEventListener('click', async () => {
+    const email = document.getElementById('ls-email')?.value.trim();
+    if (!email) { _loginError('Enter your email address first.'); return; }
+    const cl = supaClient();
+    if (!cl) return;
+    forgotBtn.textContent = 'Sending…'; forgotBtn.disabled = true;
+    const { error } = await cl.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.href
     });
-  } else {
-    pinDiv.style.display = 'none';
-    pinDiv.innerHTML = '';
-  }
+    forgotBtn.textContent = 'Forgot password?'; forgotBtn.disabled = false;
+    if (error) { _loginError(error.message); }
+    else {
+      document.getElementById('ls-reset-sent').style.display = 'block';
+      _loginError('');
+    }
+  });
+}
+
+function _loginError(msg) {
+  const el = document.getElementById('ls-error');
+  if (!el) return;
+  el.style.display = msg ? 'block' : 'none';
+  el.textContent = msg;
 }
 
 // ══ VIEWS ══════════════════════════════════════════════════════════════════════
 
 // ── LOGIN ──────────────────────────────────────────────────────────────────────
-function startSetup() {
-  S.currentUser = { id: '__setup__', name: 'Setup', role: 'engineer' };
-  go('users');
-}
+async function doLogin() {
+  const email = document.getElementById('ls-email')?.value.trim();
+  const pass  = document.getElementById('ls-password')?.value;
+  if (!email || !pass) { _loginError('Please enter your email and password.'); return; }
 
-function selectLoginUser(id) {
-  S.loginUserId = id;
-  S.pinEntry = '';
-  S.pinError = '';
-  render();
-}
+  const submitBtn = document.getElementById('ls-submit');
+  if (submitBtn) { submitBtn.textContent = 'Signing in…'; submitBtn.disabled = true; }
+  _loginError('');
 
-function pinKey(k) {
-  if (k === 'del') {
-    S.pinEntry = S.pinEntry.slice(0, -1);
-    S.pinError = '';
-    render();
-    return;
+  const cl = supaClient();
+  if (!cl) { _loginError('Connection not ready — please wait a moment and try again.'); if (submitBtn) { submitBtn.textContent = 'Sign In'; submitBtn.disabled = false; } return; }
+
+  const { error } = await cl.auth.signInWithPassword({ email, password: pass });
+
+  if (submitBtn) { submitBtn.textContent = 'Sign In'; submitBtn.disabled = false; }
+  if (error) {
+    _loginError(error.message === 'Invalid login credentials'
+      ? 'Incorrect email or password.'
+      : error.message);
   }
-  if (k === 'go') { doLogin(); return; }
-  if (S.pinEntry.length >= 4) return;
-  S.pinEntry += k;
-  S.pinError = '';
-  render();
-  if (S.pinEntry.length === 4) setTimeout(doLogin, 120);
+  // On success, onAuthStateChange fires → _onAuthSession → render()
 }
 
-function doLogin() {
-  const u = db.users.find(u => u.id === S.loginUserId);
-  if (!u) return;
-  if (String(u.pin) !== String(S.pinEntry)) {
-    S.pinError = 'Incorrect PIN — try again.';
-    S.pinEntry = '';
-    render();
-    return;
-  }
-  S.currentUser = { id: u.id, name: u.name, role: u.role, companyId: u.companyId || null };
-  S.mode = u.role === 'contractor' ? 'contractor' : 'engineer';
-  if (u.role === 'contractor' && u.companyId) S.contractorCompanyId = u.companyId;
-  S.pinEntry = '';
-  S.pinError = '';
-  S.loginUserId = null;
-  // Log the login
-  if (!db.loginLog) db.loginLog = [];
-  db.loginLog.push({ userId: u.id, name: u.name, role: u.role, at: Date.now(), action: 'login' });
-  saveDB();
-  go('projects');
-}
-
-function logout() {
+async function logout() {
   if (!confirm(`Log out as ${S.currentUser?.name}?`)) return;
-  if (!db.loginLog) db.loginLog = [];
-  db.loginLog.push({ userId: S.currentUser.id, name: S.currentUser.name, role: S.currentUser.role, at: Date.now(), action: 'logout' });
-  saveDB();
-  S.currentUser = null;
-  S.contractorCompanyId = null;
-  saveState();
-  render();
+  const cl = supaClient();
+  if (cl) await cl.auth.signOut();
+  // _onAuthSignOut fires via onAuthStateChange
 }
 
 // ── USERS ──────────────────────────────────────────────────────────────────────
@@ -1114,6 +1137,14 @@ function viewUsers() {
         <input type="text" id="nu_name" placeholder="e.g. James Murphy" />
       </div>
       <div class="form-group">
+        <label class="form-label">Email Address</label>
+        <input type="email" id="nu_email" placeholder="user@company.com" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" id="nu_pin" placeholder="Minimum 6 characters" autocomplete="new-password" />
+      </div>
+      <div class="form-group">
         <label class="form-label">Role</label>
         <select id="nu_role" onchange="toggleCoField()">
           ${canAddAdmin ? `<option value="administrator">Administrator</option>` : ''}
@@ -1127,11 +1158,6 @@ function viewUsers() {
           <option value="">— select company —</option>
           ${db.companies.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
         </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">4-Digit PIN</label>
-        <input type="password" id="nu_pin" placeholder="e.g. 1234" maxlength="4"
-               inputmode="numeric" pattern="[0-9]{4}" />
       </div>
       <div style="margin-top:.75rem">
         <button class="btn btn-primary btn-block" data-fn="createUser">+ Add User</button>
@@ -1215,36 +1241,53 @@ function toggleCoField() {
   if (grp) grp.style.display = role === 'contractor' ? 'flex' : 'none';
 }
 
-function createUser() {
-  const name  = document.getElementById('nu_name').value.trim();
-  const role  = document.getElementById('nu_role').value;
+async function createUser() {
+  const name  = document.getElementById('nu_name')?.value.trim();
+  const email = document.getElementById('nu_email')?.value.trim();
+  const pass  = document.getElementById('nu_pin')?.value;
+  const role  = document.getElementById('nu_role')?.value;
   const co    = document.getElementById('nu_co')?.value || null;
-  const pin   = document.getElementById('nu_pin').value.trim();
   const errEl = document.getElementById('nu_err');
   if (errEl) errEl.style.display = 'none';
   const fail = msg => { if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; } };
-  if (!name)                              { fail('Please enter a full name.'); return; }
-  if (!/^\d{4}$/.test(pin))              { fail('PIN must be exactly 4 digits (numbers only).'); return; }
-  if (role === 'contractor' && !co)       { fail('Please select a company for this contractor.'); return; }
-  if (role === 'administrator' && S.currentUser?.role !== 'administrator' && S.currentUser?.id !== '__setup__') {
+
+  if (!name)                        { fail('Please enter a full name.'); return; }
+  if (!email || !email.includes('@')){ fail('Please enter a valid email address.'); return; }
+  if (!pass || pass.length < 6)     { fail('Password must be at least 6 characters.'); return; }
+  if (role === 'contractor' && !co) { fail('Please select a company for this contractor.'); return; }
+  if (role === 'administrator' && S.currentUser?.role !== 'administrator') {
     fail('Only an Administrator can create another Administrator.'); return;
   }
-  db.users.push({ id: uid(), name, role, companyId: co || null, pin, createdAt: Date.now() });
+
+  const btn = document.querySelector('[data-fn="createUser"]');
+  if (btn) { btn.textContent = 'Creating…'; btn.disabled = true; }
+
+  const cl = supaClient();
+  if (!cl) { fail('Connection not ready — try again in a moment.'); if (btn) { btn.textContent = '+ Add User'; btn.disabled = false; } return; }
+
+  // Register with Supabase Auth
+  const { data: authData, error: authErr } = await cl.auth.signUp({ email, password: pass });
+  if (btn) { btn.textContent = '+ Add User'; btn.disabled = false; }
+  if (authErr) { fail(authErr.message); return; }
+
+  const authId = authData.user?.id || null;
+  const newUser = { id: uid(), authId, name, email, role, companyId: co || null, createdAt: Date.now() };
+  db.users.push(newUser);
   saveDB();
-  if (S.currentUser?.id === '__setup__') {
-    S.currentUser = null;
-    render();
-    return;
-  }
+  // Clear form
+  ['nu_name','nu_email','nu_pin'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   render();
 }
 
-function deleteUser(id) {
+async function deleteUser(id) {
   if (id === S.currentUser?.id) { alert("You can't delete your own account."); return; }
   if (!confirm('Remove this user?')) return;
   db.users = db.users.filter(u => u.id !== id);
   saveDB();
   render();
+  // Note: Supabase Auth user deletion requires service-role key (server-side only).
+  // The auth account becomes orphaned but harmless — they can no longer log in
+  // because their profile is removed from db.users and _onAuthSession won't find them.
 }
 
 // ── PROJECTS ───────────────────────────────────────────────────────────────────
@@ -1592,31 +1635,8 @@ function viewContractorRespond() {
 }
 
 // ── COMPANIES ──────────────────────────────────────────────────────────────────
-function viewCompanies() {
-  const items = db.companies.length
-    ? db.companies.map(c => `
-        <div class="list-item">
-          <div class="co-avatar">${c.name.charAt(0).toUpperCase()}</div>
-          <span class="co-name">${esc(c.name)}</span>
-          <button class="del-btn" data-fn="deleteCo" data-a1="${c.id}">×</button>
-        </div>`).join('')
-    : `<div class="empty"><div class="eico">🏢</div><p>No companies yet.</p></div>`;
-
-  return appBar('Contractor Companies', 'projects') + `
-    <div class="main">
-      <div class="card">${items}</div>
-      <div class="sec-label">Add Company</div>
-      <div class="card card-body">
-        <div class="form-group">
-          <label class="form-label">Company Name</label>
-          <input type="text" id="newCoName" placeholder="e.g. Smith Plastering Ltd" />
-        </div>
-        <div style="margin-top:.75rem">
-          <button class="btn btn-primary btn-block" data-fn="addCo">+ Add Company</button>
-        </div>
-      </div>
-    </div>` + navBar('companies');
-}
+function viewCompanies() { S.configTab = 'companies'; return viewLocations(); }
+function viewUsers()     { S.configTab = 'users';     return viewLocations(); }
 
 // ── REPORTS & ANALYTICS ───────────────────────────────────────────────────────
 function viewReports() {
@@ -1983,31 +2003,34 @@ function navBar(active) {
       : 'projects';
   const isInspector = S.currentUser?.role === 'engineer';
   const isAdmin     = S.currentUser?.role === 'administrator';
+  const navIco = {
+    projects: `<svg width="24" height="24" viewBox="0 0 24 24"><rect class="ico-bg" x="2" y="6" width="20" height="16" rx="2"/><rect class="ico-fg" x="2" y="6" width="9" height="16" rx="2"/><rect class="ico-bg" x="6" y="2" width="8" height="6" rx="1.5"/></svg>`,
+    snags:    `<svg width="24" height="24" viewBox="0 0 24 24"><rect class="ico-bg" x="4" y="2" width="16" height="20" rx="2"/><rect class="ico-fg" x="8" y="7" width="8" height="2" rx="1"/><rect class="ico-fg" x="8" y="11" width="8" height="2" rx="1"/><rect class="ico-fg" x="8" y="15" width="5" height="2" rx="1"/></svg>`,
+    reports:  `<svg width="24" height="24" viewBox="0 0 24 24"><rect class="ico-bg" x="2" y="11" width="6" height="10" rx="1"/><rect class="ico-bg" x="9" y="7" width="6" height="14" rx="1"/><rect class="ico-fg" x="16" y="3" width="6" height="18" rx="1"/></svg>`,
+    config:   `<svg width="24" height="24" viewBox="0 0 24 24"><circle class="ico-bg" cx="12" cy="12" r="10"/><circle class="ico-fg" cx="12" cy="12" r="3.5"/><rect class="ico-fg" x="11.1" y="2" width="1.8" height="4.5" rx=".9"/><rect class="ico-fg" x="11.1" y="17.5" width="1.8" height="4.5" rx=".9"/><rect class="ico-fg" x="2" y="11.1" width="4.5" height="1.8" rx=".9"/><rect class="ico-fg" x="17.5" y="11.1" width="4.5" height="1.8" rx=".9"/></svg>`,
+    companies:`<svg width="24" height="24" viewBox="0 0 24 24"><rect class="ico-bg" x="2" y="7" width="20" height="15" rx="2"/><rect class="ico-fg" x="6" y="11" width="3" height="3" rx=".5"/><rect class="ico-fg" x="10.5" y="11" width="3" height="3" rx=".5"/><rect class="ico-fg" x="15" y="11" width="3" height="3" rx=".5"/><rect class="ico-fg" x="8" y="17" width="8" height="5" rx=".5"/><rect class="ico-bg" x="7" y="2" width="10" height="7" rx="1.5"/></svg>`,
+    users:    `<svg width="24" height="24" viewBox="0 0 24 24"><circle class="ico-bg" cx="12" cy="8" r="5"/><path class="ico-fg" d="M12 3a5 5 0 100 10A5 5 0 0012 3z"/><rect class="ico-bg" x="2" y="17" width="20" height="7" rx="3.5"/><path class="ico-fg" d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="none"/></svg>`,
+  };
+  const configActive = active==='locations'||active==='companies'||active==='users';
   return `<nav class="bottom-nav">
     <button class="nav-btn ${active==='projects'?'active':''}" data-fn="goView" data-a1="projects">
-      <span class="ico">📂</span>Projects
+      ${navIco.projects}Projects
     </button>
     <button class="nav-btn ${active==='snag-list'?'active':''}" data-fn="${snagFn}" data-a1="${snagA1}">
-      <span class="ico">📋</span>Snags
+      ${navIco.snags}Snags
     </button>
     ${isInspector||isAdmin ? `<button class="nav-btn ${active==='reports'?'active':''}" data-fn="goView" data-a1="reports">
-      <span class="ico">📊</span>Reports
+      ${navIco.reports}Reports
     </button>` : ''}
-    ${isAdmin ? `<button class="nav-btn ${active==='locations'?'active':''}" data-fn="goView" data-a1="locations">
-      <span class="ico">⚙️</span>Config
+    ${isAdmin ? `<button class="nav-btn ${configActive?'active':''}" data-fn="goView" data-a1="locations">
+      ${navIco.config}Config
     </button>` : ''}
-    <button class="nav-btn ${active==='companies'?'active':''}" data-fn="goView" data-a1="companies">
-      <span class="ico">🏢</span>Companies
-    </button>
-    <button class="nav-btn ${active==='users'?'active':''}" data-fn="goView" data-a1="users">
-      <span class="ico">👤</span>Users
-    </button>
   </nav>`;
 }
 
 // ── MODALS ─────────────────────────────────────────────────────────────────────
 function openAssignModal(snagId) {
-  if (!db.companies.length) { alert('Add companies first (Companies tab).'); return; }
+  if (!db.companies.length) { alert('Add companies first (Config → Companies).'); return; }
   const snag = db.snags.find(s => s.id === snagId);
   const opts = db.companies.map(c =>
     `<option value="${c.id}" ${c.id===snag.assignedTo?'selected':''}>${esc(c.name)}</option>`).join('');
@@ -2124,10 +2147,11 @@ function doExportCSV() {
   const rows = [headers, ...snags.map(_snagToRow)];
   const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `SiteSnag_Export_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
+  a.href = url; a.download = `SiteSnag_Export_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
   closeModal();
 }
 
@@ -2173,7 +2197,18 @@ function doExportExcel() {
   wsReg['!autofilter'] = { ref: `A1:O1` };
   XLSX.utils.book_append_sheet(wb, wsReg, 'Snag Register');
 
-  XLSX.writeFile(wb, `SiteSnag_Export_${new Date().toISOString().slice(0,10)}.xlsx`);
+  try {
+    // Blob download — works on all browsers including mobile
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `SiteSnag_Export_${new Date().toISOString().slice(0,10)}.xlsx`;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+  } catch(e) {
+    alert('Excel export failed: ' + (e.message || e));
+  }
   closeModal();
 }
 
@@ -2501,75 +2536,109 @@ async function _doExportPDFInner() {
     }
   });
 
-  // ── SNAG DETAIL PAGES (with photos) ──
-  if (includePhotos) {
-    for (const snag of snags) {
+  // ── SNAG DETAIL PAGES (3 snags per page) ──
+  const SNAGS_PER_PAGE = 4;
+  const SLOT_H = Math.floor((H - 28 - 14) / SNAGS_PER_PAGE); // usable height per slot
+
+  async function _addPhoto(src, x, slotY, maxW, maxH, label) {
+    try {
+      let imgSrc = src;
+      if (src && src.startsWith('http')) {
+        try {
+          const resp = await fetch(src);
+          const blob = await resp.blob();
+          imgSrc = await new Promise(res => { const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(blob); });
+        } catch(e) { return 0; }
+      }
+      const dims = await new Promise(res => { const i=new Image(); i.onload=()=>res({w:i.naturalWidth,h:i.naturalHeight}); i.onerror=()=>res({w:1,h:1}); i.src=imgSrc; });
+      const aspect = dims.h / dims.w;
+      let iw = maxW, ih = iw * aspect;
+      if (ih > maxH) { ih = maxH; iw = ih / aspect; }
+      const fmt = imgSrc.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+      doc.addImage(imgSrc, fmt, x, slotY, iw, ih);
+      doc.setFontSize(6); doc.setTextColor(120, 130, 145);
+      doc.text(label, x, slotY + ih + 3);
+      return ih + 4;
+    } catch(e) { return 0; }
+  }
+
+  for (let i = 0; i < snags.length; i++) {
+    const slotIndex = i % SNAGS_PER_PAGE;
+    if (slotIndex === 0) {
       doc.addPage();
       _pdfPageHeader(doc, projName, W, NAVY, WHITE);
-      let sy = 28;
+    }
+    const snag = snags[i];
+    const slotTop = 28 + slotIndex * SLOT_H;
 
-      // Snag header bar
-      doc.setFillColor(245, 247, 250);
-      doc.rect(14, sy, W - 28, 14, 'F');
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...NAVY);
-      doc.text(`${numStr(snag.number)} — ${snag.title || ''}`, 18, sy + 9);
-      sy += 18;
+    // Divider line between slots
+    if (slotIndex > 0) {
+      doc.setDrawColor(210, 218, 230);
+      doc.setLineWidth(0.25);
+      doc.line(14, slotTop - 1, W - 14, slotTop - 1);
+    }
 
-      // Meta row
-      doc.setFontSize(8);
+    // Snag header bar
+    doc.setFillColor(237, 241, 248);
+    doc.rect(14, slotTop, W - 28, 9, 'F');
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...NAVY);
+    const titleText = doc.splitTextToSize(`${numStr(snag.number)}  —  ${snag.title || ''}`, W - 75);
+    doc.text(titleText[0], 17, slotTop + 6);
+
+    // Status badge right-aligned in header
+    const statusLabel = STATUSES[snag.status]?.label || snag.status;
+    const statusColors = { open:[180,32,32], assigned:[26,86,196], pending:[80,48,160], accepted:[26,102,64], rejected:[100,100,100] };
+    const sc2 = statusColors[snag.status] || [100,100,100];
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...sc2);
+    doc.text(statusLabel.toUpperCase(), W - 16, slotTop + 6, { align: 'right' });
+
+    let sy = slotTop + 12;
+
+    // Meta line
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(80, 95, 115);
+    const metaParts = [
+      snag.discipline,
+      snag.building && (snag.building + (snag.buildingName ? ` (${snag.buildingName})` : '')),
+      snag.floor,
+      snag.room,
+      coName(snag.assignedTo),
+      new Date(snag.createdAt).toLocaleDateString('en-GB'),
+    ].filter(Boolean);
+    const metaLine = doc.splitTextToSize(metaParts.join('  ·  '), W - 28);
+    doc.text(metaLine[0], 14, sy);
+    sy += 4.5;
+
+    // Description — up to 2 lines
+    if (snag.description) {
+      doc.setFontSize(7.5);
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(71, 85, 105);
-      const meta = [
-        snag.discipline || '',
-        snag.subsystem  || '',
-        [snag.building + (snag.buildingName ? ` (${snag.buildingName})` : ''), snag.floor, snag.room].filter(Boolean).join(' › '),
-        coName(snag.assignedTo) || '',
-        STATUSES[snag.status]?.label || snag.status,
-        new Date(snag.createdAt).toLocaleDateString('en-GB'),
-      ].filter(Boolean).join('  ·  ');
-      doc.text(doc.splitTextToSize(meta, W - 28), 14, sy);
-      sy += 8;
+      doc.setTextColor(30, 42, 64);
+      const descLines = doc.splitTextToSize(snag.description, W - 28);
+      const truncated = descLines.slice(0, 2);
+      if (descLines.length > 2) truncated[1] = truncated[1].replace(/\s*$/, '…');
+      doc.text(truncated, 14, sy);
+      sy += truncated.length * 4 + 1;
+    }
 
-      // Description
-      if (snag.description) {
-        doc.setFontSize(9);
-        doc.setTextColor(15, 23, 42);
-        const descLines = doc.splitTextToSize(snag.description, W - 28);
-        doc.text(descLines, 14, sy);
-        sy += descLines.length * 4.5 + 4;
-      }
-
-      // Photos — maintain aspect ratio
+    // Photos — fill remaining slot space
+    if (includePhotos) {
       const hasOpen = !!snag.photo;
       const hasRect = !!snag.rectification?.photo;
-      const maxPhotoW = (W - 28 - (hasOpen && hasRect ? 6 : 0)) / (hasOpen && hasRect ? 2 : 1);
-      const maxPhotoH = Math.min(80, H - sy - 30);
-
-      async function _addPhoto(src, x, label) {
-        try {
-          // If src is an external URL (R2), fetch and convert to base64 first
-          let imgSrc = src;
-          if (src && src.startsWith('http')) {
-            try {
-              const resp = await fetch(src);
-              const blob = await resp.blob();
-              imgSrc = await new Promise(res => { const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(blob); });
-            } catch(e) { return; } // skip photo if fetch fails
-          }
-          const dims = await new Promise(res => { const i=new Image(); i.onload=()=>res({w:i.naturalWidth,h:i.naturalHeight}); i.onerror=()=>res({w:1,h:1}); i.src=imgSrc; });
-          const aspect = dims.h / dims.w;
-          let iw = maxPhotoW, ih = iw * aspect;
-          if (ih > maxPhotoH) { ih = maxPhotoH; iw = ih / aspect; }
-          const fmt = imgSrc.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-          doc.addImage(imgSrc, fmt, x, sy, iw, ih);
-          doc.setFontSize(7); doc.setTextColor(100,116,139);
-          doc.text(label, x, sy + ih + 4);
-        } catch(e) {}
+      const photoCount = (hasOpen ? 1 : 0) + (hasRect ? 1 : 0);
+      if (photoCount > 0) {
+        const availH = (slotTop + SLOT_H) - sy - 6;
+        const maxPhotoH = Math.max(availH, 10);
+        const gap = 4;
+        const maxPhotoW = photoCount === 2 ? (W - 28 - gap) / 2 : W - 28;
+        if (hasOpen) await _addPhoto(snag.photo, 14, sy, maxPhotoW, maxPhotoH, 'Opening Photo');
+        if (hasRect) await _addPhoto(snag.rectification.photo, hasOpen ? 14 + maxPhotoW + gap : 14, sy, maxPhotoW, maxPhotoH, 'Closing Photo');
       }
-      if (hasOpen) await _addPhoto(snag.photo, 14, 'Opening Photo');
-      if (hasRect) await _addPhoto(snag.rectification.photo, hasOpen ? 14 + maxPhotoW + 6 : 14, 'Closing Photo');
     }
   }
 
@@ -2647,17 +2716,19 @@ function createProject() {
 }
 
 function addCo() {
-  const n = document.getElementById('newCoName').value.trim();
+  const n = document.getElementById('newCoName')?.value.trim() || document.getElementById('new_co')?.value.trim();
   if (!n) { alert('Enter a company name.'); return; }
   if (db.companies.some(c => c.name.toLowerCase() === n.toLowerCase())) { alert('Company already exists.'); return; }
   db.companies.push({ id: uid(), name: n });
   saveDB(); render();
 }
+function addCompany() { addCo(); }
 function deleteCo(id) {
   if (!confirm('Remove this company?')) return;
   db.companies = db.companies.filter(c => c.id !== id);
   saveDB(); render();
 }
+function deleteCompany(id) { deleteCo(id); }
 
 async function handlePhoto(input) {
   const f = input.files[0]; if (!f) return;
@@ -2867,10 +2938,24 @@ function onFloorChange(val) {
 function viewLocations() {
   const isAdmin = S.currentUser?.role === 'administrator';
   if (!isAdmin) return viewProjects();
+
+  // Sub-tab routing inside Config
+  const cfgTab = S.configTab || 'locations';
+  if (cfgTab === 'companies') return _viewConfigCompanies();
+  if (cfgTab === 'users')     return _viewConfigUsers();
+
+  // ── LOCATIONS TAB ──
   const locs = db.locations || [];
   const el = S.editingLoc || {};
+  const subTabs = `
+    <div class="filter-row" style="margin-bottom:.85rem">
+      <button class="filter-chip ${cfgTab==='locations'?'active':''}" data-fn="setConfigTab" data-a1="locations">Locations</button>
+      <button class="filter-chip ${cfgTab==='companies'?'active':''}" data-fn="setConfigTab" data-a1="companies">Companies</button>
+      <button class="filter-chip ${cfgTab==='users'?'active':''}" data-fn="setConfigTab" data-a1="users">Users</button>
+    </div>`;
   return appBar('Configuration', null) + `
     <div class="main">
+      ${subTabs}
       <div class="card card-body" style="margin-bottom:.75rem">
         <div style="display:flex;gap:.5rem;align-items:center">
           <input type="text" id="new_building" placeholder="New building name…" style="flex:1;padding:.55rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.95rem;font-family:inherit" />
@@ -3024,6 +3109,113 @@ function viewLocations() {
         </div>
       </div>
     </div>
+    </div>` + navBar('locations');
+}
+
+function setConfigTab(tab) { S.configTab = tab; go('locations'); }
+
+// ── CONFIG SUB-VIEW: COMPANIES ──────────────────────────────────────────────────
+function _viewConfigCompanies() {
+  const cfgTab = S.configTab || 'locations';
+  const subTabs = `
+    <div class="filter-row" style="margin-bottom:.85rem">
+      <button class="filter-chip ${cfgTab==='locations'?'active':''}" data-fn="setConfigTab" data-a1="locations">Locations</button>
+      <button class="filter-chip ${cfgTab==='companies'?'active':''}" data-fn="setConfigTab" data-a1="companies">Companies</button>
+      <button class="filter-chip ${cfgTab==='users'?'active':''}" data-fn="setConfigTab" data-a1="users">Users</button>
+    </div>`;
+  const items = db.companies.length
+    ? db.companies.map(c => `
+        <div class="list-item" style="cursor:default">
+          <div class="co-avatar">${c.name.charAt(0).toUpperCase()}</div>
+          <div class="co-name">${esc(c.name)}</div>
+          <button class="del-btn" data-fn="deleteCompany" data-a1="${c.id}">×</button>
+        </div>`).join('')
+    : `<div class="empty"><div class="eico">🏢</div><p>No companies yet.</p></div>`;
+  return appBar('Configuration', null) + `
+    <div class="main">
+      ${subTabs}
+      <div class="card">${items}</div>
+      <div class="sec-label">Add Company</div>
+      <div class="card card-body">
+        <div style="display:flex;gap:.5rem">
+          <input type="text" id="new_co" placeholder="Company name…" style="flex:1" />
+          <button class="btn btn-primary" data-fn="addCompany">Add</button>
+        </div>
+      </div>
+    </div>` + navBar('locations');
+}
+
+// ── CONFIG SUB-VIEW: USERS ──────────────────────────────────────────────────────
+function _viewConfigUsers() {
+  const cfgTab = S.configTab || 'locations';
+  const subTabs = `
+    <div class="filter-row" style="margin-bottom:.85rem">
+      <button class="filter-chip ${cfgTab==='locations'?'active':''}" data-fn="setConfigTab" data-a1="locations">Locations</button>
+      <button class="filter-chip ${cfgTab==='companies'?'active':''}" data-fn="setConfigTab" data-a1="companies">Companies</button>
+      <button class="filter-chip ${cfgTab==='users'?'active':''}" data-fn="setConfigTab" data-a1="users">Users</button>
+    </div>`;
+  const items = db.users.length
+    ? db.users.map(u => {
+        const co = u.companyId ? db.companies.find(c => c.id === u.companyId) : null;
+        return `<div class="list-item" style="cursor:default">
+          <div class="usr-avatar" style="background:${avatarColour(u.name)}">${u.name.charAt(0).toUpperCase()}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:.93rem">${esc(u.name)}</div>
+            <div style="display:flex;gap:.35rem;align-items:center;margin-top:.2rem;flex-wrap:wrap">
+              <span class="role-badge role-${u.role}">${u.role}</span>
+              ${co ? `<span style="font-size:.75rem;color:var(--soft)">${esc(co.name)}</span>` : ''}
+              ${u.email ? `<span style="font-size:.72rem;color:var(--muted)">${esc(u.email)}</span>` : ''}
+            </div>
+          </div>
+          ${u.id !== S.currentUser?.id ? `<button class="del-btn" data-fn="deleteUser" data-a1="${u.id}">×</button>` : ''}
+        </div>`;
+      }).join('')
+    : `<div class="empty"><div class="eico">👤</div><p>No users yet.</p></div>`;
+  return appBar('Configuration', null) + `
+    <div class="main">
+      ${subTabs}
+      <div class="card">${items}</div>
+      <div class="sec-label">Add User</div>
+      <div class="card card-body">
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" id="nu_name" placeholder="e.g. James Murphy" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="nu_email" placeholder="user@company.com" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" id="nu_pin" placeholder="Minimum 6 characters" autocomplete="new-password" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Role</label>
+          <select id="nu_role" onchange="toggleCoField()">
+            <option value="administrator">Administrator</option>
+            <option value="engineer" selected>Engineer</option>
+            <option value="contractor">Contractor</option>
+          </select>
+        </div>
+        <div class="form-group" id="nu_co_group" style="display:none">
+          <label class="form-label">Company</label>
+          <select id="nu_co">
+            <option value="">— select company —</option>
+            ${db.companies.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div style="margin-top:.75rem">
+          <button class="btn btn-primary btn-block" data-fn="createUser">+ Add User</button>
+        </div>
+        <div id="nu_err" style="display:none;margin-top:.6rem;padding:.6rem .8rem;background:var(--red-bg);color:var(--red);border-radius:7px;font-size:.85rem;font-weight:600"></div>
+      </div>
+      <div class="sec-label">Data Backup</div>
+      <div class="card card-body" style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" data-fn="exportData" style="flex:1">⬇ Export</button>
+        <label class="btn btn-outline btn-sm" style="flex:1;cursor:pointer">⬆ Import
+          <input type="file" accept=".json" style="display:none" onchange="importData(this)" />
+        </label>
+      </div>
     </div>` + navBar('locations');
 }
 
@@ -3214,12 +3406,11 @@ if (db.settings?.r2PublicUrl) R2_PUBLIC_URL = db.settings.r2PublicUrl;
 loadState();
 if (!storageOK) showStorageWarning();
 
-// Wire static login-screen button — addEventListener + direct .onclick for maximum compatibility
-var _setupBtn = document.getElementById('btn-first-user');
-if (_setupBtn) {
-  _setupBtn.addEventListener('click', startSetup);
-  _setupBtn.onclick = startSetup;  // direct property as second fallback
-}
+// Wire email/password login form
+initLoginListeners();
+
+// Start Supabase Auth — restores existing session or waits for sign-in
+initSupabaseAuth();
 
 render();
 
