@@ -337,7 +337,7 @@ textarea{min-height:110px;resize:vertical;font-family:inherit;}
 
   <div class="box title-box">
     <label for="s1Title">Observation Title (bold &amp; underlined &mdash; this becomes the saved file name)</label>
-    <input type="text" id="s1Title" placeholder="e.g. Improper Packing Material and Excessive Root Gap at Collar Beam Connection location BG 32">
+    <input type="text" id="s1Title" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="e.g. Improper Packing Material and Excessive Root Gap at Collar Beam Connection location BG 32">
     <div class="hint">This exact text is used as the filename when you export or print the report.</div>
   </div>
 
@@ -351,8 +351,10 @@ textarea{min-height:110px;resize:vertical;font-family:inherit;}
   <div class="box photos-box">
     <div class="field" style="margin-bottom:6px;"><label>Site Photographs (kept separate from the description above)</label></div>
     <div class="photo-add-row">
-      <button type="button" class="btn primary" id="btnAddPhoto">Take / Add Photo</button>
-      <input type="file" id="photoInput" accept="image/*" capture="environment" multiple style="display:none">
+      <button type="button" class="btn primary" id="btnTakePhoto">Take Photo</button>
+      <button type="button" class="btn" id="btnPickPhoto">Choose from Gallery</button>
+      <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
+      <input type="file" id="galleryInput" accept="image/*" multiple style="display:none">
     </div>
     <div class="photo-grid" id="photoGrid"></div>
     <div class="photo-empty" id="photoEmptyMsg">No photographs added yet.</div>
@@ -1015,7 +1017,14 @@ function buildSorWorkbook(XB, JSZip, data, logos) {
   zip.file('xl/drawings/drawing1.xml', drawingXml);
   zip.file('xl/drawings/_rels/drawing1.xml.rels', drawingRels);
 
-  return zip.generateAsync({ type: typeof window === 'undefined' ? 'nodebuffer' : 'blob' });
+  // mimeType matters most for the browser Blob path: without it JSZip
+  // defaults to application/octet-stream, and mobile file managers/share
+  // sheets then sniff the bytes (a zip is a zip) and present the workbook
+  // as a generic archive instead of opening it as a single .xlsx file.
+  return zip.generateAsync({
+    type: typeof window === 'undefined' ? 'nodebuffer' : 'blob',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
 }
 
 if (typeof module !== 'undefined') module.exports = { buildSorWorkbook };
@@ -1129,24 +1138,32 @@ if (typeof module !== 'undefined') module.exports = { buildSorWorkbook };
     });
   }
 
-  function initPhotoHandlers() {
-    var addBtn = document.getElementById('btnAddPhoto');
-    var input = document.getElementById('photoInput');
-    addBtn.addEventListener('click', function () { input.click(); });
-    input.addEventListener('change', function () {
-      var files = Array.prototype.slice.call(input.files || []);
-      var chain = Promise.resolve();
-      files.forEach(function (file) {
-        chain = chain.then(function () {
-          return resizeImageFile(file, 1400, 0.78).then(function (res) {
-            photoSeq++;
-            photos.push({ id: photoSeq, dataUrl: res.dataUrl, width: res.width, height: res.height, caption: '' });
-            renderPhotoGrid();
-          }).catch(function (err) { console.error('photo resize failed', err); });
-        });
+  function handlePickedFiles(input) {
+    var files = Array.prototype.slice.call(input.files || []);
+    var chain = Promise.resolve();
+    files.forEach(function (file) {
+      chain = chain.then(function () {
+        return resizeImageFile(file, 1400, 0.78).then(function (res) {
+          photoSeq++;
+          photos.push({ id: photoSeq, dataUrl: res.dataUrl, width: res.width, height: res.height, caption: '' });
+          renderPhotoGrid();
+        }).catch(function (err) { console.error('photo resize failed', err); });
       });
-      chain.then(function () { input.value = ''; });
     });
+    chain.then(function () { input.value = ''; });
+  }
+
+  // Two separate inputs/buttons on purpose: iOS Safari silently fails to open
+  // the picker at all when `capture` and `multiple` are set on the same
+  // <input>, so camera capture (single shot) and gallery picking (multiple)
+  // are kept apart.
+  function initPhotoHandlers() {
+    var cameraInput = document.getElementById('cameraInput');
+    var galleryInput = document.getElementById('galleryInput');
+    document.getElementById('btnTakePhoto').addEventListener('click', function () { cameraInput.click(); });
+    document.getElementById('btnPickPhoto').addEventListener('click', function () { galleryInput.click(); });
+    cameraInput.addEventListener('change', function () { handlePickedFiles(cameraInput); });
+    galleryInput.addEventListener('change', function () { handlePickedFiles(galleryInput); });
   }
 
   // ---- root cause checklist ----
@@ -1354,14 +1371,22 @@ if (typeof module !== 'undefined') module.exports = { buildSorWorkbook };
     document.title = title;
     autosizeTextareas();
     createPrintValues();
+    var cleaned = false;
     function cleanup() {
+      if (cleaned) return;
+      cleaned = true;
       document.title = prevTitle;
       restoreTextareas();
       removePrintValues();
       window.removeEventListener('afterprint', cleanup);
     }
     window.addEventListener('afterprint', cleanup);
-    setTimeout(function () { window.print(); }, 50);
+    // iOS Safari only honors window.print() as a trusted user gesture if it
+    // runs synchronously inside the click handler - no setTimeout/async gap.
+    window.print();
+    // afterprint is unreliable on some mobile browsers, so also clean up
+    // on a safety-net delay in case it never fires.
+    setTimeout(cleanup, 2000);
   }
 
   function doNew() {
