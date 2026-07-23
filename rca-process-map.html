@@ -375,6 +375,22 @@
   }
   .capa-launch-btn:hover, .print-btn:hover { filter: brightness(1.05); }
   .print-btn { background: var(--navy); color: #fff; }
+  .danger-btn {
+    margin-top: 1.2rem;
+    padding: .9rem 1.3rem;
+    border-radius: 999px;
+    border: 1.5px solid #c23a3a;
+    background: transparent;
+    color: #c23a3a;
+    font-size: .88rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .danger-btn:hover { background: #c23a3a; color: #fff; }
+  .modal.modal-config { max-width: 640px; }
+  .cfg-section-title { margin-top: 1.6rem; margin-bottom: .3rem; }
+  .cfg-section-hint { font-size: .85rem; color: var(--text-soft); line-height: 1.6; margin-bottom: 1rem; }
 
   .capa-form { display: flex; flex-direction: column; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
   .capa-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
@@ -608,6 +624,9 @@
       font-family: Arial, sans-serif; font-size: .68rem; font-weight: bold;
       letter-spacing: .12em; text-transform: uppercase; color: #c9821d; margin-bottom: .35rem;
     }
+    #printReport .pr-brand-sub {
+      font-family: Arial, sans-serif; font-size: .78rem; font-weight: 600; color: #444; margin-bottom: .5rem;
+    }
     #printReport h1 { font-size: 1.5rem; margin-bottom: .2rem; }
     #printReport h2 { font-size: 1.05rem; font-weight: normal; color: #444; margin-bottom: .6rem; }
     #printReport .pr-meta { font-family: Arial, sans-serif; font-size: .72rem; color: #666; display: flex; gap: 1.2rem; }
@@ -736,7 +755,7 @@
     </div>
     <button class="legend-btn" id="ncrRegisterBtn">📋 NCR Register</button>
     <button class="legend-btn" id="reportsBtn">📊 Reports</button>
-    <button class="legend-btn" id="ncrSettingsBtn">⚙ Numbering</button>
+    <button class="legend-btn" id="ncrSettingsBtn">⚙ Configuration</button>
     <button class="map-btn" id="homeBtn">⌂ Direct RCA</button>
     <button class="legend-btn" id="libraryBtn">📁 Saved Investigations</button>
     <button class="legend-btn" id="legendBtn">Legend</button>
@@ -774,12 +793,29 @@
 </div>
 
 <div class="modal-backdrop" id="ncrSettingsModal">
-  <div class="modal">
+  <div class="modal modal-config">
     <button class="close-x" id="closeNcrSettings">&times;</button>
-    <h3>NCR Numbering Format</h3>
+    <h3>Configuration</h3>
     <p style="font-size:.85rem; color:var(--text-soft); line-height:1.6; margin-bottom:1rem;">
-      Sets how new NCR numbers are auto-suggested. This is a per-project setting — different projects
-      often use different numbering conventions. Changing it only affects <em>new</em> NCRs; anything
+      All settings here are stored in this browser and apply to every investigation and NCR you work on.
+    </p>
+
+    <h4 class="cfg-section-title">Branding</h4>
+    <p class="cfg-section-hint">Shown on printed/exported reports underneath the app name.</p>
+    <div class="capa-form">
+      <div class="capa-row">
+        <label class="capa-label">Company Name
+          <input type="text" id="cfgCompanyName" class="capa-input" placeholder="e.g. Acme Construction Ltd" />
+        </label>
+        <label class="capa-label">Project / Site Name
+          <input type="text" id="cfgProjectName" class="capa-input" placeholder="e.g. Riverside Tower, Block C" />
+        </label>
+      </div>
+    </div>
+
+    <h4 class="cfg-section-title">NCR Numbering Format</h4>
+    <p class="cfg-section-hint">
+      Sets how new NCR numbers are auto-suggested. Changing it only affects <em>new</em> NCRs; anything
       already raised keeps the number it was given.
     </p>
     <div class="capa-form">
@@ -814,8 +850,40 @@
       <p class="report-value" id="cfgPreview" style="font-weight:800; font-size:1.05rem;">NCR-2026-001</p>
     </div>
 
-    <h3 style="margin-top:1.6rem;">AI-Assisted Suggestions (optional)</h3>
-    <p style="font-size:.85rem; color:var(--text-soft); line-height:1.6; margin-bottom:1rem;">
+    <h4 class="cfg-section-title">NCR Taxonomy Lists</h4>
+    <p class="cfg-section-hint">One option per line. Customize these to match your own QA vocabulary — leave a list empty to fall back to the built-in defaults.</p>
+    <div class="capa-form">
+      <label class="capa-label">NCR Reason options
+        <textarea id="cfgReasonOptions" class="capa-input" rows="4" spellcheck="false"></textarea>
+      </label>
+      <label class="capa-label">Disposition options
+        <textarea id="cfgDispositionOptions" class="capa-input" rows="4" spellcheck="false"></textarea>
+      </label>
+      <label class="capa-label">Requirement Reference options
+        <textarea id="cfgRequirementRefOptions" class="capa-input" rows="4" spellcheck="false"></textarea>
+      </label>
+      <button type="button" class="print-btn" id="cfgResetTaxonomyBtn" style="align-self:flex-start;">Restore Defaults</button>
+    </div>
+
+    <h4 class="cfg-section-title">Attachments</h4>
+    <p class="cfg-section-hint">Controls how photos and PDFs attached to NCRs are stored in this browser.</p>
+    <div class="capa-form">
+      <div class="capa-row">
+        <label class="capa-label">Max PDF size (MB)
+          <input type="number" id="cfgMaxPdfMb" class="capa-input" min="1" max="20" />
+        </label>
+        <label class="capa-label">Photo compression
+          <select id="cfgImageQuality" class="capa-input">
+            <option value="high">High quality (larger files)</option>
+            <option value="medium">Medium (recommended)</option>
+            <option value="low">Low (smallest files)</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <h4 class="cfg-section-title">AI-Assisted Suggestions (optional)</h4>
+    <p class="cfg-section-hint">
       Paste your deployed Worker URL to enable AI-suggested evidence/root-cause text alongside the
       built-in suggestions. Leave blank to use built-in suggestions only — the app works fully offline
       either way.
@@ -828,6 +896,15 @@
 
     <div class="summary-actions">
       <button class="save-lib-btn" id="cfgSaveBtn">Save Settings</button>
+    </div>
+
+    <h4 class="cfg-section-title">Data Management</h4>
+    <p class="cfg-section-hint">Everything is stored in this browser only. Export a backup regularly if you'd rather not lose it.</p>
+    <div class="summary-actions">
+      <button class="print-btn" id="cfgExportBtn">⬇ Export All Data (Backup)</button>
+      <button class="print-btn" id="cfgImportBtn">⬆ Restore from Backup</button>
+      <input type="file" id="cfgImportInput" accept="application/json" style="display:none;" />
+      <button class="danger-btn" id="cfgClearBtn">🗑 Clear All Local Data</button>
     </div>
   </div>
 </div>
@@ -979,6 +1056,41 @@
     a.href = url; a.download = filename;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  }
+  function exportAllDataBackup(){
+    const backup = {
+      exportedAt: new Date().toISOString(),
+      projectConfig: loadProjectConfig(),
+      rcaLibrary: loadLibrary(),
+      ncrLibrary: loadNcrLibrary()
+    };
+    downloadJson(backup, `siteassure-backup-${new Date().toISOString().slice(0,10)}.json`);
+  }
+  function importAllDataBackup(file){
+    const reader = new FileReader();
+    reader.onload = () => {
+      let backup;
+      try {
+        backup = JSON.parse(reader.result);
+        if (!backup || typeof backup !== 'object') throw new Error('bad format');
+      } catch (e) {
+        alert("This file doesn't look like a valid SiteAssure backup.");
+        return;
+      }
+      if (!confirm('This will REPLACE your current RCA library, NCR register, and settings with the contents of this backup file. Continue?')) return;
+      if (backup.projectConfig) saveProjectConfig(Object.assign(defaultProjectConfig(), backup.projectConfig));
+      if (Array.isArray(backup.rcaLibrary)) saveLibrary(backup.rcaLibrary);
+      if (Array.isArray(backup.ncrLibrary)) saveNcrLibrary(backup.ncrLibrary);
+      alert('Backup restored. Reloading…');
+      location.reload();
+    };
+    reader.readAsText(file);
+  }
+  function clearAllLocalData(){
+    if (!confirm('This will permanently delete every saved investigation, every NCR, and all settings from this browser. This cannot be undone. Continue?')) return;
+    if (!confirm("Last check — there is no undo. Delete everything?")) return;
+    [STORAGE_KEY, LIBRARY_KEY, NCR_STORAGE_KEY, NCR_LIBRARY_KEY, PROJECT_CONFIG_KEY].forEach(k => localStorage.removeItem(k));
+    location.reload();
   }
   function csvEscape(v){
     const s = v == null ? '' : String(v);
@@ -1626,7 +1738,16 @@
 
   const PROJECT_CONFIG_KEY = 'rcaNavigatorProjectConfig';
   function defaultProjectConfig(){
-    return { prefix: 'NCR', includeYear: true, yearFormat: 'YYYY', sequenceDigits: 3, separator: '-', resetYearly: false, aiWorkerUrl: '' };
+    return {
+      prefix: 'NCR', includeYear: true, yearFormat: 'YYYY', sequenceDigits: 3, separator: '-', resetYearly: false,
+      aiWorkerUrl: '',
+      companyName: '', projectName: '',
+      ncrReasonOptions: NCR_REASON_OPTIONS.slice(),
+      ncrDispositionOptions: NCR_DISPOSITION_OPTIONS.slice(),
+      ncrRequirementRefOptions: NCR_REQUIREMENT_REF_OPTIONS.slice(),
+      maxPdfMb: 3,
+      imageQuality: 'medium'
+    };
   }
   function loadProjectConfig(){
     try {
@@ -1637,6 +1758,11 @@
   }
   function saveProjectConfig(cfg){
     try { localStorage.setItem(PROJECT_CONFIG_KEY, JSON.stringify(cfg)); } catch (e) {}
+  }
+  function printBrandSubHtml(){
+    const cfg = loadProjectConfig();
+    const parts = [cfg.companyName, cfg.projectName].filter(s => s && s.trim());
+    return parts.length ? `<div class="pr-brand-sub">${parts.map(escapeHtml).join(' · ')}</div>` : '';
   }
   function formatNcrNumber(seq, cfg){
     cfg = cfg || loadProjectConfig();
@@ -1816,21 +1942,24 @@
       reader.readAsDataURL(file);
     });
   }
-  const MAX_PDF_BYTES = 3 * 1024 * 1024;
+  const IMAGE_QUALITY_PRESETS = { high: 0.85, medium: 0.72, low: 0.55 };
+  function maxPdfBytes(){ return (loadProjectConfig().maxPdfMb || 3) * 1024 * 1024; }
+  function imageQualityValue(){ return IMAGE_QUALITY_PRESETS[loadProjectConfig().imageQuality] || IMAGE_QUALITY_PRESETS.medium; }
   async function addNcrAttachmentFiles(fileList){
     const remaining = 6 - ncrState.attachments.length;
     if (remaining <= 0) { alert('Up to 6 attachments per NCR for now — remove one before adding another.'); return; }
     const files = Array.from(fileList).slice(0, remaining);
     const tooLarge = [];
+    const maxBytes = maxPdfBytes();
     for (const file of files) {
       let dataUrl = null;
       let kind = 'Document';
       if (file.type.startsWith('image/')) {
         kind = 'Photo';
-        try { dataUrl = await resizeImageToDataUrl(file, 900, 0.72); } catch (e) {}
+        try { dataUrl = await resizeImageToDataUrl(file, 900, imageQualityValue()); } catch (e) {}
       } else if (file.type === 'application/pdf') {
         kind = 'PDF';
-        if (file.size <= MAX_PDF_BYTES) {
+        if (file.size <= maxBytes) {
           try { dataUrl = await readFileAsDataUrl(file); } catch (e) {}
         } else {
           tooLarge.push(file.name);
@@ -1841,7 +1970,7 @@
     saveNcrState();
     showNcrForm();
     if (tooLarge.length) {
-      alert(`${tooLarge.join(', ')} — over the 3 MB limit, so only the filename was kept (not the file itself). Attach a smaller/compressed copy if you need it stored.`);
+      alert(`${tooLarge.join(', ')} — over the ${(maxBytes / (1024*1024)).toFixed(0)} MB limit, so only the filename was kept (not the file itself). Attach a smaller/compressed copy if you need it stored.`);
     }
   }
   function importNcrFiles(fileList){
@@ -2119,6 +2248,7 @@
 
     const stage = ncrStage(r);
     const overdue = ncrOverdueDays(r);
+    const cfg = loadProjectConfig();
 
     const el = document.getElementById('content');
     el.innerHTML = `
@@ -2140,7 +2270,7 @@
           </div>
           <div class="capa-row">
             ${ncrTextField('ncrRespondent', 'Respondent Company / Person', r.respondent, {placeholder:'Who the nonconformance is raised against'})}
-            ${ncrSelect('ncrReason', 'NCR Reason', r.ncrReason, NCR_REASON_OPTIONS)}
+            ${ncrSelect('ncrReason', 'NCR Reason', r.ncrReason, cfg.ncrReasonOptions)}
           </div>
           <div class="capa-row">
             ${ncrSelect('ncrSource', 'Source of NCR', r.source, NCR_SOURCE_OPTIONS)}
@@ -2164,7 +2294,7 @@
               <div class="report-label">Requirement Reference <span class="required-mark">*required</span></div>
               <select id="ncrRequirementRef" class="capa-input">
                 <option value=""${!r.requirementRef ? ' selected' : ''}>Select…</option>
-                ${NCR_REQUIREMENT_REF_OPTIONS.map(o => `<option value="${escapeHtml(o)}"${r.requirementRef===o ? ' selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+                ${cfg.ncrRequirementRefOptions.map(o => `<option value="${escapeHtml(o)}"${r.requirementRef===o ? ' selected' : ''}>${escapeHtml(o)}</option>`).join('')}
               </select>
               <div id="requirementRefRequiredMsg" class="evidence-required-msg" style="display:none;">Select what type of requirement this breaches before saving — this is a required hold point.</div>
             </div>
@@ -2201,7 +2331,7 @@
         <div class="report-block">
           <div class="report-label">Proposed Correction <span class="capa-hint">(containment / rectification of the nonconformity)</span></div>
           <div class="capa-form" style="padding-top:.6rem;border-top:none;">
-            ${ncrSelect('ncrDisposition', 'Disposition', r.dispositionType, NCR_DISPOSITION_OPTIONS)}
+            ${ncrSelect('ncrDisposition', 'Disposition', r.dispositionType, cfg.ncrDispositionOptions)}
             <label class="capa-label">Proposed Correction
               <textarea id="ncrProposedCorrection" class="capa-input" rows="3" spellcheck="true" placeholder="What will be done to correct this specific occurrence?">${escapeHtml(r.proposedCorrection)}</textarea>
             </label>
@@ -2600,6 +2730,7 @@
     const html = `
       <div class="pr-header">
         <div class="pr-brand">Root Cause Navigator</div>
+        ${printBrandSubHtml()}
         <h1>Nonconformance Report</h1>
         <h2>${escapeHtml(r.ncrNumber || '(NCR number not entered)')}</h2>
         <div class="pr-meta"><span>Stage: ${escapeHtml(stage.label)}</span><span>Generated: ${escapeHtml(generatedOn)}</span></div>
@@ -2784,6 +2915,7 @@
     const html = `
       <div class="pr-header">
         <div class="pr-brand">Root Cause Navigator</div>
+        ${printBrandSubHtml()}
         <h1>Reports &amp; Statistics</h1>
         <div class="pr-meta"><span>Generated: ${escapeHtml(generatedOn)}</span></div>
       </div>
@@ -3022,6 +3154,7 @@
     const html = `
       <div class="pr-header">
         <div class="pr-brand">Root Cause Navigator</div>
+        ${printBrandSubHtml()}
         <h1>Root Cause Analysis &amp; CAPA Report</h1>
         <h2>${escapeHtml(state.faultTitle || '(fault/defect title not entered)')}</h2>
         <div class="pr-meta"><span>Report ref: ${escapeHtml(reportRef)}</span><span>Generated: ${escapeHtml(generatedOn)}</span></div>
@@ -3133,8 +3266,19 @@
     sequenceDigits: document.getElementById('cfgSeqDigits'),
     separator: document.getElementById('cfgSeparator'),
     resetYearly: document.getElementById('cfgResetYearly'),
-    aiWorkerUrl: document.getElementById('cfgAiWorkerUrl')
+    aiWorkerUrl: document.getElementById('cfgAiWorkerUrl'),
+    companyName: document.getElementById('cfgCompanyName'),
+    projectName: document.getElementById('cfgProjectName'),
+    reasonOptions: document.getElementById('cfgReasonOptions'),
+    dispositionOptions: document.getElementById('cfgDispositionOptions'),
+    requirementRefOptions: document.getElementById('cfgRequirementRefOptions'),
+    maxPdfMb: document.getElementById('cfgMaxPdfMb'),
+    imageQuality: document.getElementById('cfgImageQuality')
   };
+  function parseOptionLines(text, fallback){
+    const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
+    return lines.length ? lines : fallback.slice();
+  }
   function readCfgFromForm(){
     return {
       prefix: cfgFields.prefix.value,
@@ -3143,7 +3287,14 @@
       sequenceDigits: parseInt(cfgFields.sequenceDigits.value) || 3,
       separator: cfgFields.separator.value,
       resetYearly: cfgFields.resetYearly.checked,
-      aiWorkerUrl: cfgFields.aiWorkerUrl.value.trim()
+      aiWorkerUrl: cfgFields.aiWorkerUrl.value.trim(),
+      companyName: cfgFields.companyName.value.trim(),
+      projectName: cfgFields.projectName.value.trim(),
+      ncrReasonOptions: parseOptionLines(cfgFields.reasonOptions.value, NCR_REASON_OPTIONS),
+      ncrDispositionOptions: parseOptionLines(cfgFields.dispositionOptions.value, NCR_DISPOSITION_OPTIONS),
+      ncrRequirementRefOptions: parseOptionLines(cfgFields.requirementRefOptions.value, NCR_REQUIREMENT_REF_OPTIONS),
+      maxPdfMb: Math.max(1, Math.min(20, parseInt(cfgFields.maxPdfMb.value) || 3)),
+      imageQuality: cfgFields.imageQuality.value
     };
   }
   function refreshCfgPreview(){
@@ -3159,6 +3310,13 @@
     cfgFields.separator.value = cfg.separator;
     cfgFields.resetYearly.checked = cfg.resetYearly;
     cfgFields.aiWorkerUrl.value = cfg.aiWorkerUrl || '';
+    cfgFields.companyName.value = cfg.companyName || '';
+    cfgFields.projectName.value = cfg.projectName || '';
+    cfgFields.reasonOptions.value = (cfg.ncrReasonOptions || NCR_REASON_OPTIONS).join('\n');
+    cfgFields.dispositionOptions.value = (cfg.ncrDispositionOptions || NCR_DISPOSITION_OPTIONS).join('\n');
+    cfgFields.requirementRefOptions.value = (cfg.ncrRequirementRefOptions || NCR_REQUIREMENT_REF_OPTIONS).join('\n');
+    cfgFields.maxPdfMb.value = cfg.maxPdfMb || 3;
+    cfgFields.imageQuality.value = cfg.imageQuality || 'medium';
     refreshCfgPreview();
     ncrSettingsModal.classList.add('open');
   }
@@ -3171,6 +3329,19 @@
     ncrSettingsModal.classList.remove('open');
     if (currentView === 'ncrRegister') showNcrRegister();
   });
+  document.getElementById('cfgResetTaxonomyBtn').addEventListener('click', () => {
+    cfgFields.reasonOptions.value = NCR_REASON_OPTIONS.join('\n');
+    cfgFields.dispositionOptions.value = NCR_DISPOSITION_OPTIONS.join('\n');
+    cfgFields.requirementRefOptions.value = NCR_REQUIREMENT_REF_OPTIONS.join('\n');
+  });
+  document.getElementById('cfgExportBtn').addEventListener('click', () => { exportAllDataBackup(); });
+  const cfgImportInput = document.getElementById('cfgImportInput');
+  document.getElementById('cfgImportBtn').addEventListener('click', () => { cfgImportInput.click(); });
+  cfgImportInput.addEventListener('change', (e) => {
+    if (e.target.files.length) importAllDataBackup(e.target.files[0]);
+    e.target.value = '';
+  });
+  document.getElementById('cfgClearBtn').addEventListener('click', () => { clearAllLocalData(); });
 
   const swatchWrap = document.getElementById('colorSwatches');
   const branchNodes = DATA.filter(n => n.level === 'branch' && n.color !== 'grey');
