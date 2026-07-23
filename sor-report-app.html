@@ -261,6 +261,7 @@ textarea{min-height:110px;resize:vertical;font-family:inherit;}
 </style>
 </head>
 <body>
+<div id="diagBanner" style="display:none;position:sticky;top:0;z-index:100;background:#c0392b;color:#fff;font-size:.8em;padding:6px 10px;white-space:pre-wrap;word-break:break-word;"></div>
 <div class="app">
   <div class="header-logos">
     <div class="logo-left">
@@ -361,8 +362,8 @@ textarea{min-height:110px;resize:vertical;font-family:inherit;}
     <div class="photo-add-row">
       <button type="button" class="btn primary" id="btnTakePhoto">Take Photo</button>
       <button type="button" class="btn" id="btnPickPhoto">Choose from Gallery</button>
-      <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
-      <input type="file" id="galleryInput" accept="image/*" multiple style="display:none">
+      <input type="file" id="cameraInput" accept="image/*" capture="environment" style="position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;">
+      <input type="file" id="galleryInput" accept="image/*" multiple style="position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;">
     </div>
     <div class="photo-grid" id="photoGrid"></div>
     <div class="photo-empty" id="photoEmptyMsg">No photographs added yet.</div>
@@ -455,7 +456,7 @@ textarea{min-height:110px;resize:vertical;font-family:inherit;}
   </div>
 
   <div class="footer-ref">Form Reference No.: DMBL-PAJV-FORM-1030 Rev. 1, Site Observation Report (SOR) Form, 02-Feb-2026</div>
-  <div class="footer-ref" style="border-top:none;color:#999;">App build: 2026-07-23-r5</div>
+  <div class="footer-ref" style="border-top:none;color:#999;">App build: 2026-07-23-r6</div>
 </div>
 
 <div class="action-bar">
@@ -1074,7 +1075,7 @@ if (typeof module !== 'undefined') module.exports = { buildSorWorkbook };
   // Bump this on every fix so a screenshot or an exported file can be
   // matched to a specific build when troubleshooting "it still looks the
   // same" reports - printed in the app footer and the Excel export.
-  var APP_BUILD = '2026-07-23-r5';
+  var APP_BUILD = '2026-07-23-r6';
 
   function fmtDateStr(yyyy_mm_dd) {
     if (!yyyy_mm_dd) return '';
@@ -1352,32 +1353,39 @@ if (typeof module !== 'undefined') module.exports = { buildSorWorkbook };
   // ---- export to excel ----
   function doExport() {
     if (warnIfTitleEmpty()) return;
-    var data = collectData();
-    var logos = {
-      leftCombo: { bytes: base64ToUint8Array(LOGO_LEFT_COMBO_HIRES_B64), w: 1770, h: 242 },
-      rta: { bytes: base64ToUint8Array(LOGO_RTA_HIRES_B64), w: 1121, h: 219 },
-    };
     var btn = document.getElementById('btnExport');
     var origText = btn.textContent;
-    btn.textContent = 'Building...';
-    btn.disabled = true;
-    buildSorWorkbook(XlsxBuilder, JSZip, data, logos).then(function (blob) {
-      var filename = sanitizeFilename(data.section1.title) + '.xlsx';
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
-    }).catch(function (err) {
-      console.error(err);
+    try {
+      var data = collectData();
+      var logos = {
+        leftCombo: { bytes: base64ToUint8Array(LOGO_LEFT_COMBO_HIRES_B64), w: 1770, h: 242 },
+        rta: { bytes: base64ToUint8Array(LOGO_RTA_HIRES_B64), w: 1121, h: 219 },
+      };
+      btn.textContent = 'Building...';
+      btn.disabled = true;
+      buildSorWorkbook(XlsxBuilder, JSZip, data, logos).then(function (blob) {
+        var filename = sanitizeFilename(data.section1.title) + '.xlsx';
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      }).catch(function (err) {
+        showDiagnostic('Export failed: ' + err.message);
+        alert('Could not build the Excel file: ' + err.message);
+      }).then(function () {
+        btn.textContent = origText;
+        btn.disabled = false;
+      });
+    } catch (err) {
+      showDiagnostic('Export failed: ' + err.message);
       alert('Could not build the Excel file: ' + err.message);
-    }).finally(function () {
       btn.textContent = origText;
       btn.disabled = false;
-    });
+    }
   }
 
   // ---- print / save pdf ----
@@ -1408,28 +1416,34 @@ if (typeof module !== 'undefined') module.exports = { buildSorWorkbook };
 
   function doPrint() {
     if (warnIfTitleEmpty()) return;
-    var data = collectData();
-    var title = sanitizeFilename(data.section1.title);
-    var prevTitle = document.title;
-    document.title = title;
-    autosizeTextareas();
-    createPrintValues();
-    var cleaned = false;
-    function cleanup() {
-      if (cleaned) return;
-      cleaned = true;
-      document.title = prevTitle;
-      restoreTextareas();
-      removePrintValues();
-      window.removeEventListener('afterprint', cleanup);
+    try {
+      var data = collectData();
+      var title = sanitizeFilename(data.section1.title);
+      var prevTitle = document.title;
+      document.title = title;
+      autosizeTextareas();
+      createPrintValues();
+      var cleaned = false;
+      var cleanup = function () {
+        if (cleaned) return;
+        cleaned = true;
+        document.title = prevTitle;
+        restoreTextareas();
+        removePrintValues();
+        window.removeEventListener('afterprint', cleanup);
+      };
+      window.addEventListener('afterprint', cleanup);
+      // iOS Safari only honors window.print() as a trusted user gesture if
+      // it runs synchronously inside the click handler - no setTimeout/async
+      // gap - so everything above must also be synchronous.
+      window.print();
+      // afterprint is unreliable on some mobile browsers, so also clean up
+      // on a safety-net delay in case it never fires.
+      setTimeout(cleanup, 2000);
+    } catch (err) {
+      showDiagnostic('Print failed: ' + err.message);
+      alert('Could not open the print dialog: ' + err.message);
     }
-    window.addEventListener('afterprint', cleanup);
-    // iOS Safari only honors window.print() as a trusted user gesture if it
-    // runs synchronously inside the click handler - no setTimeout/async gap.
-    window.print();
-    // afterprint is unreliable on some mobile browsers, so also clean up
-    // on a safety-net delay in case it never fires.
-    setTimeout(cleanup, 2000);
   }
 
   function doNew() {
@@ -1460,15 +1474,40 @@ if (typeof module !== 'undefined') module.exports = { buildSorWorkbook };
     window.scrollTo(0, 0);
   }
 
+  // Visible on-page error banner: several reports of things silently not
+  // working on iPhone turned out impossible to diagnose blind (no devtools
+  // access on a phone). Any JS error - init-time or from a button handler -
+  // now surfaces as text the user can screenshot, instead of nothing
+  // happening at all. It also stops one failing init step (e.g. camera
+  // input setup) from silently preventing every later step (e.g. the root
+  // cause checklist, or the Export/Print button handlers) from ever running.
+  function showDiagnostic(msg) {
+    var el = document.getElementById('diagBanner');
+    if (!el) return;
+    el.style.display = 'block';
+    var line = document.createElement('div');
+    line.textContent = msg;
+    el.appendChild(line);
+  }
+  window.addEventListener('error', function (e) {
+    showDiagnostic('Error: ' + e.message + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : ''));
+  });
+  window.addEventListener('unhandledrejection', function (e) {
+    showDiagnostic('Unhandled error: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+  });
+  function safeInit(name, fn) {
+    try { fn(); } catch (err) { showDiagnostic('Failed to start "' + name + '": ' + err.message); }
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
-    initPhotoHandlers();
-    initRootCauseList();
-    setDefaultDates();
-    initLivePreviews();
-    renderPhotoGrid();
-    document.getElementById('btnExport').addEventListener('click', doExport);
-    document.getElementById('btnPrint').addEventListener('click', doPrint);
-    document.getElementById('btnNew').addEventListener('click', doNew);
+    safeInit('photo buttons', initPhotoHandlers);
+    safeInit('root cause checklist', initRootCauseList);
+    safeInit('default dates', setDefaultDates);
+    safeInit('live previews', initLivePreviews);
+    safeInit('photo grid', renderPhotoGrid);
+    safeInit('export button', function () { document.getElementById('btnExport').addEventListener('click', doExport); });
+    safeInit('print button', function () { document.getElementById('btnPrint').addEventListener('click', doPrint); });
+    safeInit('new report button', function () { document.getElementById('btnNew').addEventListener('click', doNew); });
   });
 })();
 
