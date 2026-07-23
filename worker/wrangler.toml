@@ -1,0 +1,6 @@
+name = "siteassure-rca-ai"
+main = "src/index.js"
+compatibility_date = "2026-07-23"
+
+# ANTHROPIC_API_KEY is set as a secret, not here:
+#   wrangler secret put ANTHROPIC_API_KEY

@@ -305,6 +305,12 @@
     outline: none;
     cursor: pointer;
   }
+  .evidence-suggest-status {
+    margin-top: .35rem;
+    font-size: .72rem;
+    font-style: italic;
+    color: var(--text-soft);
+  }
 
   .deeper-btn {
     margin-top: .3rem;
@@ -807,8 +813,21 @@
       <div class="report-label">Next NCR number will look like</div>
       <p class="report-value" id="cfgPreview" style="font-weight:800; font-size:1.05rem;">NCR-2026-001</p>
     </div>
+
+    <h3 style="margin-top:1.6rem;">AI-Assisted Suggestions (optional)</h3>
+    <p style="font-size:.85rem; color:var(--text-soft); line-height:1.6; margin-bottom:1rem;">
+      Paste your deployed Worker URL to enable AI-suggested evidence/root-cause text alongside the
+      built-in suggestions. Leave blank to use built-in suggestions only — the app works fully offline
+      either way.
+    </p>
+    <div class="capa-form">
+      <label class="capa-label">Worker URL <span class="capa-hint">(e.g. https://siteassure-rca-ai.your-subdomain.workers.dev)</span>
+        <input type="url" id="cfgAiWorkerUrl" class="capa-input" placeholder="https://your-worker.workers.dev" />
+      </label>
+    </div>
+
     <div class="summary-actions">
-      <button class="save-lib-btn" id="cfgSaveBtn">Save Numbering Format</button>
+      <button class="save-lib-btn" id="cfgSaveBtn">Save Settings</button>
     </div>
   </div>
 </div>
@@ -1135,6 +1154,42 @@
     return (n.questions || []).slice();
   }
 
+  // Progressively enhances the static suggestion dropdown with AI-generated, case-specific
+  // suggestions from the optional Worker. Never blocks or replaces the static fallback —
+  // construction sites often have poor or no connectivity.
+  function fetchAiSuggestions(node, onSuggestions){
+    const workerUrl = (loadProjectConfig().aiWorkerUrl || '').trim();
+    if (!workerUrl) return;
+    const status = document.getElementById('evidenceSuggestStatus');
+    if (status) { status.textContent = 'Checking for AI suggestions…'; status.style.display = 'block'; }
+    const isRootLevel = node.level === 'rootcausetype' || node.level === 'rootcause';
+    const payload = {
+      faultTitle: state.faultTitle || '',
+      nodeName: node.name || '',
+      nodeDefinition: node.definition || '',
+      typicalIssues: node.typicalIssues || '',
+      questions: node.questions || [],
+      isRootLevel
+    };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    fetch(workerUrl.replace(/\/+$/, '') + '/suggest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    })
+      .then(res => res.ok ? res.json() : Promise.reject(new Error('Worker returned ' + res.status)))
+      .then(data => {
+        clearTimeout(timeout);
+        onSuggestions(Array.isArray(data.suggestions) ? data.suggestions : null);
+      })
+      .catch(() => {
+        clearTimeout(timeout);
+        if (status) status.style.display = 'none';
+      });
+  }
+
   function evidenceMissing(n){
     return n.id !== 1 && !(state.evidence[n.id] && state.evidence[n.id].trim());
   }
@@ -1208,7 +1263,7 @@
     }
     const evidenceSuggest = document.getElementById('evidenceSuggest');
     if (evidenceSuggest) {
-      const opts = suggestionOptions(node);
+      let opts = suggestionOptions(node).slice();
       evidenceSuggest.addEventListener('change', () => {
         if (evidenceSuggest.value === '') return;
         const text = opts[parseInt(evidenceSuggest.value)];
@@ -1222,6 +1277,24 @@
         if (cb) cb.disabled = !ta.value.trim();
         evidenceSuggest.value = '';
         ta.focus();
+      });
+      fetchAiSuggestions(node, (aiTexts) => {
+        if (!aiTexts || !aiTexts.length) return;
+        const liveSuggest = document.getElementById('evidenceSuggest');
+        if (!liveSuggest) return; // node changed before the response arrived
+        const group = document.createElement('optgroup');
+        group.label = 'AI-suggested (Quality Director)';
+        aiTexts.forEach((text) => {
+          const idx = opts.length;
+          opts.push(text);
+          const option = document.createElement('option');
+          option.value = String(idx);
+          option.textContent = text.length > 90 ? text.slice(0, 87) + '…' : text;
+          group.appendChild(option);
+        });
+        liveSuggest.appendChild(group);
+        const status = document.getElementById('evidenceSuggestStatus');
+        if (status) status.style.display = 'none';
       });
     }
     const concludeBtn = document.getElementById('concludeBtn');
@@ -1294,11 +1367,16 @@
     const val = escapeHtml(state.evidence[n.id] || '');
     const opts = suggestionOptions(n);
     const rootLevel = n.level === 'rootcausetype' || n.level === 'rootcause';
-    const selectHtml = opts.length ? `
+    const aiEnabled = !!loadProjectConfig().aiWorkerUrl;
+    const showSelect = opts.length || aiEnabled;
+    const selectHtml = showSelect ? `
       <select id="evidenceSuggest" class="evidence-suggest">
         <option value="">${rootLevel ? 'Suggested fixes…' : 'Suggested prompts…'}</option>
-        ${opts.map((o,i) => `<option value="${i}">${escapeHtml(o.length > 90 ? o.slice(0,87) + '…' : o)}</option>`).join('')}
-      </select>` : '';
+        ${opts.length ? `<optgroup label="Suggested" id="evidenceSuggestStaticGroup">
+          ${opts.map((o,i) => `<option value="${i}">${escapeHtml(o.length > 90 ? o.slice(0,87) + '…' : o)}</option>`).join('')}
+        </optgroup>` : ''}
+      </select>
+      <div id="evidenceSuggestStatus" class="evidence-suggest-status" style="display:none;"></div>` : '';
     return `<div class="evidence-block">
       <div class="field-label">${evidenceLabel(n)} <span class="required-mark">*required</span></div>
       ${selectHtml}
@@ -1500,7 +1578,7 @@
 
   const PROJECT_CONFIG_KEY = 'rcaNavigatorProjectConfig';
   function defaultProjectConfig(){
-    return { prefix: 'NCR', includeYear: true, yearFormat: 'YYYY', sequenceDigits: 3, separator: '-', resetYearly: false };
+    return { prefix: 'NCR', includeYear: true, yearFormat: 'YYYY', sequenceDigits: 3, separator: '-', resetYearly: false, aiWorkerUrl: '' };
   }
   function loadProjectConfig(){
     try {
@@ -3006,7 +3084,8 @@
     yearFormat: document.getElementById('cfgYearFormat'),
     sequenceDigits: document.getElementById('cfgSeqDigits'),
     separator: document.getElementById('cfgSeparator'),
-    resetYearly: document.getElementById('cfgResetYearly')
+    resetYearly: document.getElementById('cfgResetYearly'),
+    aiWorkerUrl: document.getElementById('cfgAiWorkerUrl')
   };
   function readCfgFromForm(){
     return {
@@ -3015,7 +3094,8 @@
       yearFormat: cfgFields.yearFormat.value,
       sequenceDigits: parseInt(cfgFields.sequenceDigits.value) || 3,
       separator: cfgFields.separator.value,
-      resetYearly: cfgFields.resetYearly.checked
+      resetYearly: cfgFields.resetYearly.checked,
+      aiWorkerUrl: cfgFields.aiWorkerUrl.value.trim()
     };
   }
   function refreshCfgPreview(){
@@ -3030,6 +3110,7 @@
     cfgFields.sequenceDigits.value = cfg.sequenceDigits;
     cfgFields.separator.value = cfg.separator;
     cfgFields.resetYearly.checked = cfg.resetYearly;
+    cfgFields.aiWorkerUrl.value = cfg.aiWorkerUrl || '';
     refreshCfgPreview();
     ncrSettingsModal.classList.add('open');
   }
