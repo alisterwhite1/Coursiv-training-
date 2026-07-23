@@ -1064,13 +1064,29 @@
       return { ok: false, error: e.message || String(e) };
     }
   }
+  // Legacy/older local records may be missing fields the database requires (NOT NULL
+  // columns with no useful default) — these fill in sane fallbacks rather than letting
+  // one messy old record's missing field block the whole sync with a not-null violation.
+  function sanitizeInvestigationRow(row){
+    if (row.schema_version == null) row.schema_version = TAXONOMY_VERSION;
+    if (row.fault_title == null) row.fault_title = '';
+    if (row.evidence == null) row.evidence = {};
+    if (row.nav_path == null) row.nav_path = [1];
+    if (row.capa == null) row.capa = { correctiveAction:'', preventiveAction:'', owner:'', targetDate:'', approvedBy:'', approvedDate:'', approved:false };
+    return row;
+  }
+  function sanitizeNcrRow(row, recId){
+    if (row.schema_version == null) row.schema_version = NCR_VERSION;
+    if (!row.ncr_number) row.ncr_number = 'UNKNOWN-' + recId;
+    return row;
+  }
   async function syncLibraryToSupabase(lib){
     if (!supabaseClient || !currentProjectId) return { ok: false, error: 'Not connected to Supabase.' };
     try {
       const currentIds = new Set(lib.map(r => r.id));
       const removed = [...knownInvestigationIds].filter(id => !currentIds.has(id));
       if (lib.length) {
-        const rows = lib.map(rec => Object.assign(recordToRow(rec, INVESTIGATION_FIELDS), { project_id: currentProjectId }));
+        const rows = lib.map(rec => sanitizeInvestigationRow(Object.assign(recordToRow(rec, INVESTIGATION_FIELDS), { project_id: currentProjectId })));
         const { error } = await supabaseClient.from('investigations').upsert(rows);
         if (error) throw error;
       }
@@ -1091,7 +1107,7 @@
       const currentIds = new Set(lib.map(r => r.id));
       const removed = [...knownNcrIds].filter(id => !currentIds.has(id));
       if (lib.length) {
-        const rows = lib.map(rec => Object.assign(recordToRow(rec, NCR_FIELDS), { project_id: currentProjectId }));
+        const rows = lib.map(rec => sanitizeNcrRow(Object.assign(recordToRow(rec, NCR_FIELDS), { project_id: currentProjectId }), rec.id));
         const { error } = await supabaseClient.from('ncrs').upsert(rows);
         if (error) throw error;
       }
