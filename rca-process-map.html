@@ -1050,15 +1050,22 @@
     knownNcrIds = new Set(ncrLibraryCache.map(r => r.id));
   }
 
+  // Every sync function returns { ok, error } rather than throwing/swallowing, so
+  // callers that only fire-and-forget can ignore the result, while callers that need
+  // to know whether the write actually landed (e.g. the legacy-data import) can check it.
   async function syncProjectConfigToSupabase(cfg){
-    if (!supabaseClient || !currentProjectId) return;
+    if (!supabaseClient || !currentProjectId) return { ok: false, error: 'Not connected to Supabase.' };
     try {
       const { error } = await supabaseClient.from('project_config').upsert(projectConfigToRow(cfg, currentProjectId));
-      if (error) console.error('project_config sync failed:', error);
-    } catch (e) { console.error('project_config sync failed:', e); }
+      if (error) throw error;
+      return { ok: true };
+    } catch (e) {
+      console.error('project_config sync failed:', e);
+      return { ok: false, error: e.message || String(e) };
+    }
   }
   async function syncLibraryToSupabase(lib){
-    if (!supabaseClient || !currentProjectId) return;
+    if (!supabaseClient || !currentProjectId) return { ok: false, error: 'Not connected to Supabase.' };
     try {
       const currentIds = new Set(lib.map(r => r.id));
       const removed = [...knownInvestigationIds].filter(id => !currentIds.has(id));
@@ -1072,10 +1079,14 @@
         if (error) throw error;
       }
       knownInvestigationIds = currentIds;
-    } catch (e) { console.error('Investigation sync failed:', e); }
+      return { ok: true };
+    } catch (e) {
+      console.error('Investigation sync failed:', e);
+      return { ok: false, error: e.message || String(e) };
+    }
   }
   async function syncNcrLibraryToSupabase(lib){
-    if (!supabaseClient || !currentProjectId) return;
+    if (!supabaseClient || !currentProjectId) return { ok: false, error: 'Not connected to Supabase.' };
     try {
       const currentIds = new Set(lib.map(r => r.id));
       const removed = [...knownNcrIds].filter(id => !currentIds.has(id));
@@ -1089,7 +1100,11 @@
         if (error) throw error;
       }
       knownNcrIds = currentIds;
-    } catch (e) { console.error('NCR sync failed:', e); }
+      return { ok: true };
+    } catch (e) {
+      console.error('NCR sync failed:', e);
+      return { ok: false, error: e.message || String(e) };
+    }
   }
 
   const COLOR_HEX = {
@@ -1275,22 +1290,53 @@
 
     const btn = document.getElementById('cfgImportLegacyBtn');
     if (btn) { btn.disabled = true; btn.textContent = 'Importing — please wait…'; }
+    const resetBtn = () => { if (btn) { btn.disabled = false; btn.textContent = '📥 Import Pre-Supabase Local Data'; } };
 
     const currentLibIds = new Set(libraryCache.map(r => r.id));
     const newLibRecords = legacyLib.filter(r => r && r.id && !currentLibIds.has(r.id));
-    if (newLibRecords.length) {
-      libraryCache = libraryCache.concat(newLibRecords);
-      await syncLibraryToSupabase(libraryCache);
-    }
-
     const currentNcrIds = new Set(ncrLibraryCache.map(r => r.id));
     const newNcrRecords = legacyNcrLib.filter(r => r && r.id && !currentNcrIds.has(r.id));
-    if (newNcrRecords.length) {
-      ncrLibraryCache = ncrLibraryCache.concat(newNcrRecords);
-      await syncNcrLibraryToSupabase(ncrLibraryCache);
+
+    if (!newLibRecords.length && !newNcrRecords.length) {
+      resetBtn();
+      alert('Nothing new to import — everything found was already in Supabase.');
+      return;
     }
 
-    if (btn) { btn.disabled = false; btn.textContent = '📥 Import Pre-Supabase Local Data'; }
+    // Phase 1: insert both sides with cross-links (linkedNcrId / linkedInvestigationId)
+    // temporarily stripped. A legacy investigation and its linked NCR can both be new to
+    // Supabase at once — inserting either one first, with the link already pointing at
+    // the other, would violate that row's foreign key since the other side doesn't exist yet.
+    if (newLibRecords.length) {
+      libraryCache = libraryCache.concat(newLibRecords.map(r => Object.assign({}, r, { linkedNcrId: null })));
+      const res = await syncLibraryToSupabase(libraryCache);
+      if (!res.ok) { resetBtn(); alert('Import failed while saving investigations: ' + res.error); return; }
+    }
+    if (newNcrRecords.length) {
+      ncrLibraryCache = ncrLibraryCache.concat(newNcrRecords.map(r => Object.assign({}, r, { linkedInvestigationId: null })));
+      const res = await syncNcrLibraryToSupabase(ncrLibraryCache);
+      if (!res.ok) { resetBtn(); alert('Import failed while saving NCRs: ' + res.error); return; }
+    }
+
+    // Phase 2: now that both sides exist, restore the original cross-links.
+    if (newLibRecords.length) {
+      libraryCache = libraryCache.map(r => {
+        const orig = newLibRecords.find(o => o.id === r.id);
+        return orig ? Object.assign({}, r, { linkedNcrId: orig.linkedNcrId || null }) : r;
+      });
+      const res = await syncLibraryToSupabase(libraryCache);
+      if (!res.ok) { resetBtn(); alert('Investigations saved, but restoring their NCR links failed: ' + res.error); return; }
+    }
+    if (newNcrRecords.length) {
+      ncrLibraryCache = ncrLibraryCache.map(r => {
+        const orig = newNcrRecords.find(o => o.id === r.id);
+        return orig ? Object.assign({}, r, { linkedInvestigationId: orig.linkedInvestigationId || null }) : r;
+      });
+      const res = await syncNcrLibraryToSupabase(ncrLibraryCache);
+      if (!res.ok) { resetBtn(); alert('NCRs saved, but restoring their investigation links failed: ' + res.error); return; }
+    }
+
+    resetBtn();
     alert(`Imported and confirmed saved to Supabase: ${newLibRecords.length} investigation(s), ${newNcrRecords.length} NCR(s). Safe to close the browser now.`);
     if (currentView === 'ncrRegister') showNcrRegister();
   }
