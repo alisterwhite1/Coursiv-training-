@@ -913,11 +913,14 @@
       <label class="capa-label">Email
         <input type="email" id="cfgAuthEmail" class="capa-input" placeholder="you@company.com" />
       </label>
-      <button type="button" class="print-btn" id="cfgSendCodeBtn" style="align-self:flex-start;">Send Sign-In Code</button>
-      <label class="capa-label" id="cfgAuthCodeRow" style="display:none;">6-digit code <span class="capa-hint">(check your email)</span>
-        <input type="text" id="cfgAuthCode" class="capa-input" inputmode="numeric" maxlength="6" placeholder="123456" />
+      <label class="capa-label">Password
+        <input type="password" id="cfgAuthPassword" class="capa-input" placeholder="At least 6 characters" />
       </label>
-      <button type="button" class="print-btn" id="cfgVerifyCodeBtn" style="align-self:flex-start; display:none;">Verify Code</button>
+      <div class="capa-row">
+        <button type="button" class="print-btn" id="cfgSignUpBtn">Sign Up</button>
+        <button type="button" class="save-lib-btn" id="cfgSignInBtn">Sign In</button>
+      </div>
+      <p class="cfg-section-hint" id="cfgAuthStatus" style="display:none;"></p>
     </div>
     <div class="capa-form" id="cfgAccountSignedIn" style="display:none;">
       <p class="report-value" id="cfgAccountEmail"></p>
@@ -3373,11 +3376,16 @@
   const cfgAccountSignedOut = document.getElementById('cfgAccountSignedOut');
   const cfgAccountSignedIn = document.getElementById('cfgAccountSignedIn');
   const cfgAuthEmail = document.getElementById('cfgAuthEmail');
-  const cfgAuthCodeRow = document.getElementById('cfgAuthCodeRow');
-  const cfgAuthCode = document.getElementById('cfgAuthCode');
-  const cfgSendCodeBtn = document.getElementById('cfgSendCodeBtn');
-  const cfgVerifyCodeBtn = document.getElementById('cfgVerifyCodeBtn');
+  const cfgAuthPassword = document.getElementById('cfgAuthPassword');
+  const cfgAuthStatus = document.getElementById('cfgAuthStatus');
+  const cfgSignUpBtn = document.getElementById('cfgSignUpBtn');
+  const cfgSignInBtn = document.getElementById('cfgSignInBtn');
   const cfgSignOutBtn = document.getElementById('cfgSignOutBtn');
+
+  function setAuthStatus(text){
+    cfgAuthStatus.textContent = text;
+    cfgAuthStatus.style.display = text ? 'block' : 'none';
+  }
 
   function renderAccountSection(session){
     if (session && session.user) {
@@ -3398,33 +3406,33 @@
     supabaseClient.auth.getSession().then(({ data }) => renderAccountSection(data.session));
     supabaseClient.auth.onAuthStateChange((_event, session) => renderAccountSection(session));
 
-    cfgSendCodeBtn.addEventListener('click', async () => {
+    cfgSignUpBtn.addEventListener('click', async () => {
       const email = cfgAuthEmail.value.trim();
+      const password = cfgAuthPassword.value;
       if (!email) { cfgAuthEmail.focus(); return; }
-      cfgSendCodeBtn.disabled = true;
-      cfgSendCodeBtn.textContent = 'Sending…';
-      const { error } = await supabaseClient.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
-      cfgSendCodeBtn.disabled = false;
-      cfgSendCodeBtn.textContent = 'Send Sign-In Code';
-      if (error) { alert('Could not send sign-in code: ' + error.message); return; }
-      cfgAuthCodeRow.style.display = 'flex';
-      cfgVerifyCodeBtn.style.display = 'inline-block';
-      cfgAuthCode.focus();
+      if (!password || password.length < 6) { cfgAuthPassword.focus(); return; }
+      cfgSignUpBtn.disabled = true;
+      cfgSignUpBtn.textContent = 'Signing up…';
+      const { error } = await supabaseClient.auth.signUp({ email, password });
+      cfgSignUpBtn.disabled = false;
+      cfgSignUpBtn.textContent = 'Sign Up';
+      if (error) { alert("Couldn't sign up: " + error.message); return; }
+      setAuthStatus('Account created — check your email and click the confirmation link, then come back here and tap Sign In.');
     });
 
-    cfgVerifyCodeBtn.addEventListener('click', async () => {
+    cfgSignInBtn.addEventListener('click', async () => {
       const email = cfgAuthEmail.value.trim();
-      const token = cfgAuthCode.value.trim();
-      if (!token) { cfgAuthCode.focus(); return; }
-      cfgVerifyCodeBtn.disabled = true;
-      cfgVerifyCodeBtn.textContent = 'Verifying…';
-      const { error } = await supabaseClient.auth.verifyOtp({ email, token, type: 'email' });
-      cfgVerifyCodeBtn.disabled = false;
-      cfgVerifyCodeBtn.textContent = 'Verify Code';
-      if (error) { alert("That code didn't work: " + error.message); return; }
-      cfgAuthCode.value = '';
-      cfgAuthCodeRow.style.display = 'none';
-      cfgVerifyCodeBtn.style.display = 'none';
+      const password = cfgAuthPassword.value;
+      if (!email) { cfgAuthEmail.focus(); return; }
+      if (!password) { cfgAuthPassword.focus(); return; }
+      cfgSignInBtn.disabled = true;
+      cfgSignInBtn.textContent = 'Signing in…';
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      cfgSignInBtn.disabled = false;
+      cfgSignInBtn.textContent = 'Sign In';
+      if (error) { setAuthStatus("Couldn't sign in: " + error.message); return; }
+      setAuthStatus('');
+      cfgAuthPassword.value = '';
     });
 
     cfgSignOutBtn.addEventListener('click', async () => {
