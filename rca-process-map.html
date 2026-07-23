@@ -692,6 +692,57 @@
     border-top: 1px solid var(--line);
   }
 
+  /* ── Splash screen ── */
+  .splash-screen {
+    position: fixed; inset: 0; z-index: 300;
+    background: radial-gradient(120% 90% at 50% 8%, #0f2438 0%, #0a1a29 78%);
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity .6s ease;
+  }
+  .splash-screen.splash-hide { opacity: 0; pointer-events: none; }
+  .splash-screen.splash-done { display: none; }
+  .splash-inner { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+  .splash-lockup { display: flex; align-items: center; gap: 1.1rem; }
+  .splash-icon { width: 68px; height: 68px; opacity: 0; animation: iconIn .5s ease .15s forwards; }
+  .splash-icon rect { opacity: 0; transform-origin: center; }
+  .splash-icon rect:nth-child(1) { animation: barIn .45s ease .35s forwards; }
+  .splash-icon rect:nth-child(2) { animation: barIn .45s ease .50s forwards; }
+  .splash-icon rect:nth-child(3) { animation: barIn .45s ease .65s forwards; }
+  .splash-icon rect:nth-child(4) { animation: barIn .45s ease .80s forwards; }
+  .splash-icon rect:nth-child(5) { animation: barInAmber .5s ease .95s forwards; }
+  .splash-word {
+    font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-weight: 800; font-size: 2.3rem; letter-spacing: -0.02em;
+    color: #eaf2fa; opacity: 0; transform: translateX(-6px);
+    animation: wordIn .5s ease .7s forwards;
+  }
+  .splash-word span { color: #e0a24d; }
+  .splash-appname {
+    font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-weight: 600; font-size: 1.15rem; color: #9db7cf; opacity: 0;
+    animation: eyebrowIn .5s ease 1.0s forwards;
+  }
+  .splash-eyebrow {
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Consolas, monospace;
+    font-size: .78rem; font-weight: 600; letter-spacing: .22em; text-transform: uppercase;
+    color: #9db7cf; opacity: 0;
+    animation: eyebrowIn .5s ease 1.4s forwards;
+  }
+  @keyframes iconIn { to { opacity: 1; } }
+  @keyframes barIn {
+    from { opacity: 0; transform: scaleX(0.3) translateY(4px); }
+    to { opacity: .88; transform: scaleX(1) translateY(0); }
+  }
+  @keyframes barInAmber {
+    from { opacity: 0; transform: scaleX(0.3) translateY(4px); }
+    to { opacity: 1; transform: scaleX(1) translateY(0); }
+  }
+  @keyframes wordIn { to { opacity: 1; transform: translateX(0); } }
+  @keyframes eyebrowIn { to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    .splash-icon, .splash-icon rect, .splash-word, .splash-eyebrow { animation: none !important; opacity: 1 !important; transform: none !important; }
+  }
+
   /* ── Auth gate ── */
   .auth-gate {
     position: fixed; inset: 0; background: var(--navy-deep);
@@ -758,6 +809,23 @@
 </style>
 </head>
 <body>
+
+<div id="splashScreen" class="splash-screen">
+  <div class="splash-inner">
+    <div class="splash-lockup">
+      <svg class="splash-icon" viewBox="0 0 120 120" fill="none" aria-hidden="true">
+        <rect x="20" y="24" width="80" height="11" fill="#eaf2fa"/>
+        <rect x="26" y="41" width="68" height="11" fill="#eaf2fa"/>
+        <rect x="32" y="58" width="56" height="11" fill="#eaf2fa"/>
+        <rect x="38" y="75" width="44" height="11" fill="#eaf2fa"/>
+        <rect x="44" y="92" width="32" height="11" fill="#e0a24d"/>
+      </svg>
+      <div class="splash-word">Site<span>Assure</span></div>
+    </div>
+    <div class="splash-appname">RCA Navigator</div>
+    <div class="splash-eyebrow">NCR &middot; RCA &middot; CAPA</div>
+  </div>
+</div>
 
 <div id="authGate" class="auth-gate">
   <div class="auth-gate-box">
@@ -960,6 +1028,17 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 (function(){
+  // ---- Splash screen: brief brand reveal on cold load, independent of auth/hydration timing ----
+  (function(){
+    const splash = document.getElementById('splashScreen');
+    if (!splash) return;
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    setTimeout(() => {
+      splash.classList.add('splash-hide');
+      setTimeout(() => splash.classList.add('splash-done'), 650);
+    }, reduced ? 150 : 3200);
+  })();
+
   const DATA = JSON.parse(document.getElementById('rca-data').textContent);
   const byId = {};
   DATA.forEach(n => byId[n.id] = n);
