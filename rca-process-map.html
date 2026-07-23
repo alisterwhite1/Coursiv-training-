@@ -943,6 +943,10 @@
       <input type="file" id="cfgImportInput" accept="application/json" style="display:none;" />
       <button class="danger-btn" id="cfgClearBtn">🗑 Clear This Device's Draft</button>
     </div>
+    <p class="cfg-section-hint" style="margin-top:1rem;">Have investigations/NCRs from before Supabase was wired in? They may still be sitting in this browser's storage, unused since the switch.</p>
+    <div class="summary-actions">
+      <button class="print-btn" id="cfgImportLegacyBtn">📥 Import Pre-Supabase Local Data</button>
+    </div>
 
     <h4 class="cfg-section-title">Account</h4>
     <div class="capa-form" id="cfgAccountSignedIn">
@@ -1259,6 +1263,26 @@
     if (!confirm("This clears the unsaved draft investigation and NCR on this device only. Your project's saved investigations, NCR register, and settings live in Supabase and aren't affected — delete those individually from their own screens if needed. Continue?")) return;
     [STORAGE_KEY, NCR_STORAGE_KEY].forEach(k => localStorage.removeItem(k));
     location.reload();
+  }
+  function importLegacyLocalData(){
+    let legacyLib = [], legacyNcrLib = [];
+    try { legacyLib = JSON.parse(localStorage.getItem(LIBRARY_KEY) || '[]'); } catch (e) {}
+    try { legacyNcrLib = JSON.parse(localStorage.getItem(NCR_LIBRARY_KEY) || '[]'); } catch (e) {}
+    if (!Array.isArray(legacyLib)) legacyLib = [];
+    if (!Array.isArray(legacyNcrLib)) legacyNcrLib = [];
+    if (!legacyLib.length && !legacyNcrLib.length) { alert("No pre-Supabase local data found in this browser."); return; }
+    if (!confirm(`Found ${legacyLib.length} investigation(s) and ${legacyNcrLib.length} NCR(s) from before Supabase was wired in. Import them into this project?`)) return;
+
+    const currentLibIds = new Set(libraryCache.map(r => r.id));
+    const newLibRecords = legacyLib.filter(r => r && r.id && !currentLibIds.has(r.id));
+    if (newLibRecords.length) saveLibrary(libraryCache.concat(newLibRecords));
+
+    const currentNcrIds = new Set(ncrLibraryCache.map(r => r.id));
+    const newNcrRecords = legacyNcrLib.filter(r => r && r.id && !currentNcrIds.has(r.id));
+    if (newNcrRecords.length) saveNcrLibrary(ncrLibraryCache.concat(newNcrRecords));
+
+    alert(`Imported ${newLibRecords.length} investigation(s) and ${newNcrRecords.length} NCR(s). Syncing to Supabase now.`);
+    if (currentView === 'ncrRegister') showNcrRegister();
   }
   function csvEscape(v){
     const s = v == null ? '' : String(v);
@@ -3504,6 +3528,7 @@
     e.target.value = '';
   });
   document.getElementById('cfgClearBtn').addEventListener('click', () => { clearAllLocalData(); });
+  document.getElementById('cfgImportLegacyBtn').addEventListener('click', () => { importLegacyLocalData(); });
 
   // ---- Account (Configuration page — sign out only; signing in happens at the gate below) ----
   const cfgSignOutBtn = document.getElementById('cfgSignOutBtn');
