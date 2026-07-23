@@ -455,7 +455,7 @@ textarea{min-height:110px;resize:vertical;font-family:inherit;}
   </div>
 
   <div class="footer-ref">Form Reference No.: DMBL-PAJV-FORM-1030 Rev. 1, Site Observation Report (SOR) Form, 02-Feb-2026</div>
-  <div class="footer-ref" style="border-top:none;color:#999;">App build: 2026-07-23-r4</div>
+  <div class="footer-ref" style="border-top:none;color:#999;">App build: 2026-07-23-r5</div>
 </div>
 
 <div class="action-bar">
@@ -729,9 +729,7 @@ function buildSorWorkbook(XB, JSZip, data, logos) {
 
   const NUM_COLS = 6;
   const sheet = new XB.Sheet(styles, NUM_COLS);
-  // Doubled from the original [15,20,16,13,13,20] so the header has enough
-  // horizontal room for full-size logos without them overhanging the box.
-  sheet.setColWidths([30, 40, 32, 26, 26, 40]);
+  sheet.setColWidths([15, 20, 16, 13, 13, 20]);
 
   const fullRow = (value, styleId, height) => {
     const r = sheet.addRow([{ col: 0, value, styleId }], height);
@@ -743,7 +741,7 @@ function buildSorWorkbook(XB, JSZip, data, logos) {
   // header logo band - a single row sized to the logos so both anchor to the
   // same row and sit snugly against the title bar below (no orphan gap).
   {
-    const r = sheet.addRow([{ col: 0, value: '' }], 96);
+    const r = sheet.addRow([{ col: 0, value: '' }], 66);
     for (let c = 1; c < NUM_COLS; c++) sheet.rows[r].cells.push({ col: c, value: '' });
     sheet.merge(r, 0, NUM_COLS - 1);
   }
@@ -960,10 +958,14 @@ function buildSorWorkbook(XB, JSZip, data, logos) {
   // stay stacked tightly (anchoring them as two separate floating images
   // caused a large, disjointed gap between them). Both logos anchor to the
   // same row so they line up with each other.
-  // Sized to the (doubled) column widths below (A:D ~896px, E:F ~462px) so
-  // neither logo overhangs past the right edge of the boxed form.
-  const lc = emuFor(logos.leftCombo.w, logos.leftCombo.h, 840, true);
-  const l3 = emuFor(logos.rta.w, logos.rta.h, 430, true);
+  // Column widths are back to the original (widening them earlier to fit
+  // bigger logos also widened every other row's cells, breaking text
+  // wrapping/proportions throughout the body of the form). These are sized
+  // to nearly the full available width within the UNCHANGED columns below
+  // (A:D ~448px, E:F ~231px) - close to the practical ceiling without
+  // overhanging the box or widening the rest of the form.
+  const lc = emuFor(logos.leftCombo.w, logos.leftCombo.h, 440, true);
+  const l3 = emuFor(logos.rta.w, logos.rta.h, 225, true);
   sheet.addImage(0, 0, lc.cx, lc.cy, logos.leftCombo.bytes, 'png');
   sheet.addImage(0, 4, l3.cx, l3.cy, logos.rta.bytes, 'png');
 
@@ -1072,7 +1074,7 @@ if (typeof module !== 'undefined') module.exports = { buildSorWorkbook };
   // Bump this on every fix so a screenshot or an exported file can be
   // matched to a specific build when troubleshooting "it still looks the
   // same" reports - printed in the app footer and the Excel export.
-  var APP_BUILD = '2026-07-23-r4';
+  var APP_BUILD = '2026-07-23-r5';
 
   function fmtDateStr(yyyy_mm_dd) {
     if (!yyyy_mm_dd) return '';
