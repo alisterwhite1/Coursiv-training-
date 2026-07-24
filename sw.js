@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sitesnag-v2';
+const CACHE_NAME = 'sitesnag-v3';
 const APP_SHELL = [
   './sitesnag.html',
   './manifest.json',
