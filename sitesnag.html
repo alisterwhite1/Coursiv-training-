@@ -1419,7 +1419,7 @@ function viewSnagList() {
               <span class="snag-co">${esc(coName(s.assignedTo))}</span>
             </div>
           </div>
-          ${s.photo ? `<img class="snag-thumb" src="${s.photo}" />` : `<div class="snag-thumb-empty">📷</div>`}
+          ${s.photo ? `<img class="snag-thumb" src="${s.photo}" onerror="this.outerHTML='&lt;div class=&quot;snag-thumb-empty&quot; title=&quot;Photo unavailable&quot;&gt;⚠️&lt;/div&gt;'" />` : `<div class="snag-thumb-empty">📷</div>`}
         </div>`).join('')
     : `<div class="empty"><div class="eico">✅</div><p>No snags${S.filter!=='all'?' with this filter':''}.</p></div>`;
 
@@ -1475,7 +1475,7 @@ function viewSnagDetail() {
     <div class="divider"></div>
     <div style="padding:1rem">
       <div class="sec-label" style="margin:0 0 .6rem">Rectification Submitted</div>
-      ${r.photo ? `<img src="${r.photo}" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:.7rem;display:block" />` : ''}
+      ${r.photo ? `<img src="${r.photo}" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:.7rem;display:block" onerror="this.outerHTML='&lt;div style=&quot;padding:1.2rem;text-align:center;background:var(--red-bg);color:var(--red);border-radius:8px;margin-bottom:.7rem;font-size:.85rem&quot;&gt;⚠️ Photo unavailable&lt;/div&gt;'" />` : ''}
       <div class="detail-row"><span class="detail-label">By</span>
         <span class="detail-val">${esc(r.by || coName(snag.assignedTo))}</span></div>
       <div class="detail-row"><span class="detail-label">Submitted</span>
@@ -1507,7 +1507,7 @@ function viewSnagDetail() {
     <div class="main">
       ${statusAlert}
       <div class="card">
-        ${snag.photo ? `<img class="detail-photo" src="${snag.photo}" />` : ''}
+        ${snag.photo ? `<img class="detail-photo" src="${snag.photo}" onerror="this.outerHTML='&lt;div style=&quot;padding:1.6rem;text-align:center;background:var(--red-bg);color:var(--red);font-size:.85rem&quot;&gt;⚠️ Photo unavailable — the file may not have finished uploading. Try re-taking it.&lt;/div&gt;'" />` : ''}
         <div class="card-body">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
             ${badge(snag.status)}
@@ -2803,7 +2803,7 @@ async function handlePhoto(input) {
   const f = input.files[0]; if (!f) return;
   snap();
   const base64 = await resizePhoto(f);
-  const path = `${S.projectId||'p'}/${Date.now()}_open.jpg`;
+  const path = `${S.projectId||'p'}/${Date.now()}_${uid()}_open.jpg`;
   const r2url = await uploadPhotoToR2(base64, path);
   S.fd.photo = r2url || base64;
   render();
@@ -2812,7 +2812,7 @@ async function handleRectPhoto(input) {
   const f = input.files[0]; if (!f) return;
   snap();
   const base64 = await resizePhoto(f);
-  const path = `${S.projectId||'p'}/${Date.now()}_close.jpg`;
+  const path = `${S.projectId||'p'}/${Date.now()}_${uid()}_close.jpg`;
   const r2url = await uploadPhotoToR2(base64, path);
   S.fd.rectPhoto = r2url || base64;
   render();
