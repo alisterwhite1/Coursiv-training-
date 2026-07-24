@@ -1476,6 +1476,36 @@ async function deleteUser(id) {
 }
 
 // ── PROJECTS ───────────────────────────────────────────────────────────────────
+function onboardingCard() {
+  const isAdmin = S.currentUser?.role === 'administrator';
+  if (!isAdmin) return '';
+  const steps = [
+    { done: db.projects.length > 0,  label: 'Create your first project',        hint: 'Use the form below',                   fn: null },
+    { done: db.locations.length > 0, label: 'Add a building & rooms',           hint: 'Config → Locations',                   fn: 'goCfg', a1: 'locations' },
+    { done: db.companies.length > 0, label: 'Add a contractor company',         hint: 'Config → Companies',                   fn: 'goCfg', a1: 'companies' },
+    { done: db.users.length > 1,     label: 'Invite your team',                 hint: 'Config → Users',                       fn: 'goCfg', a1: 'users' },
+  ];
+  if (steps.every(s => s.done)) return ''; // setup complete — nothing to show
+  const rows = steps.map(s => `
+    <div style="display:flex;align-items:center;gap:.7rem;padding:.55rem 0;border-bottom:1px solid var(--border)">
+      <div style="width:22px;height:22px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;
+        background:${s.done?'var(--green)':'var(--bg)'};color:${s.done?'#fff':'var(--muted)'};border:1.5px solid ${s.done?'var(--green)':'var(--border)'}">${s.done?'✓':''}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.88rem;font-weight:600;color:${s.done?'var(--muted)':'var(--text)'};${s.done?'text-decoration:line-through':''}">${s.label}</div>
+        <div style="font-size:.74rem;color:var(--muted)">${s.hint}</div>
+      </div>
+      ${!s.done && s.fn ? `<button class="btn btn-outline btn-sm" data-fn="${s.fn}" data-a1="${s.a1}">Go</button>` : ''}
+    </div>`).join('');
+  return `
+    <div class="sec-label">Getting Started</div>
+    <div class="card card-body">
+      <div style="font-size:.82rem;color:var(--soft);margin-bottom:.5rem">Complete these steps to get SiteSnag ready for your team.</div>
+      ${rows}
+    </div>`;
+}
+
+function goCfg(tab) { S.configTab = tab; go('locations'); }
+
 function viewProjects() {
   const items = db.projects.length
     ? db.projects.map(p => `
@@ -1488,11 +1518,13 @@ function viewProjects() {
     : `<div class="empty"><div class="eico">📂</div><p>No projects yet.<br>Create one below.</p></div>`;
 
   const isInspector = S.currentUser?.role === 'engineer';
+  const isAdmin = S.currentUser?.role === 'administrator';
   return appBar('SiteSnag', '') + `
     <div class="main">
+      ${onboardingCard()}
       <div class="sec-label">Projects</div>
       <div class="card">${items}</div>
-      ${isInspector ? `
+      ${(isInspector || isAdmin) ? `
         <div class="sec-label">New Project</div>
         <div class="card card-body">
           <div class="form-group">
