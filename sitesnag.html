@@ -678,20 +678,87 @@ function _onAuthSignOut() {
   render();
 }
 
+// ── OFFLINE RESILIENCE ───────────────────────────────────────────────────────
+let _pendingSync = false;      // true when local changes haven't reached the cloud yet
+let _retryTimer = null;
+const RETRY_DELAY_MS = 12000;
+
 async function _syncToSupabase() {
-  const cl = supaClient(); if (!cl) return;
+  const cl = supaClient();
+  if (!cl || !navigator.onLine) {
+    _pendingSync = true;
+    _syncStatus = 'offline';
+    _updateSyncBanner();
+    _scheduleRetry();
+    return;
+  }
   _syncStatus = 'syncing';
+  _updateSyncBanner();
   try {
     const { error } = await cl.from('app_data').upsert({
       id: 'main', data: db, updated_at: new Date().toISOString()
     });
-    _syncStatus = error ? 'error' : 'ok';
-    _syncMsg = error ? error.message : '';
+    if (error) throw error;
+    _syncStatus = 'ok';
+    _syncMsg = '';
+    _pendingSync = false;
+    if (_retryTimer) { clearTimeout(_retryTimer); _retryTimer = null; }
+    _tryUploadPendingPhotos();
   } catch(e) {
     _syncStatus = 'error';
     _syncMsg = e.message;
+    _pendingSync = true;
+    _scheduleRetry();
+  }
+  _updateSyncBanner();
+}
+
+function _scheduleRetry() {
+  if (_retryTimer) return; // already scheduled
+  _retryTimer = setTimeout(() => {
+    _retryTimer = null;
+    if (_pendingSync) _syncToSupabase();
+  }, RETRY_DELAY_MS);
+}
+
+// Re-attempt R2 upload for any photo still stored as base64 (captured while offline/R2 unreachable)
+async function _tryUploadPendingPhotos() {
+  if (!navigator.onLine || !R2_PUBLIC_URL) return;
+  let changed = false;
+  for (const s of db.snags) {
+    if (s.photo && s.photo.startsWith('data:')) {
+      const url = await uploadPhotoToR2(s.photo, `${s.projectId||'p'}/${Date.now()}_${uid()}_open.jpg`);
+      if (url) { s.photo = url; changed = true; }
+    }
+    if (s.rectification?.photo && s.rectification.photo.startsWith('data:')) {
+      const url = await uploadPhotoToR2(s.rectification.photo, `${s.projectId||'p'}/${Date.now()}_${uid()}_close.jpg`);
+      if (url) { s.rectification.photo = url; changed = true; }
+    }
+  }
+  if (changed) {
+    if (storageOK) localStorage.setItem(DB_KEY, JSON.stringify(db));
+    _syncToSupabase();
+    if (S.view) render();
   }
 }
+
+function _updateSyncBanner() {
+  let el = document.getElementById('sync-banner');
+  const show = _syncStatus === 'offline' || (_syncStatus === 'error' && _pendingSync);
+  if (!show) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'sync-banner';
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9997;background:#b45309;color:#fff;padding:.55rem 1rem;font-size:.78rem;font-weight:600;text-align:center';
+    document.body.appendChild(el);
+  }
+  el.textContent = _syncStatus === 'offline'
+    ? '⚠ Offline — changes are saved on this device and will sync automatically once you\'re back online.'
+    : '⚠ Sync failed — will retry automatically. Your changes are safe on this device.';
+}
+
+window.addEventListener('online', () => { if (_pendingSync) _syncToSupabase(); });
+window.addEventListener('offline', () => { _syncStatus = 'offline'; _pendingSync = true; _updateSyncBanner(); _scheduleRetry(); });
 
 async function pushToSupabase() {
   const cl = supaClient();
