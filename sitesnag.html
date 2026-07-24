@@ -243,13 +243,18 @@
 
       /* Tighter, less "toy-like" proportions at desktop size */
       .list-item { padding: .58rem .9rem; gap: .65rem; }
-      .snag-num { font-size: .63rem; padding: .16rem .4rem; min-width: 38px; }
+      .snag-num {
+        font-size: .62rem; font-weight: 700; padding: .15rem .38rem; min-width: 0;
+        background: var(--bg); color: var(--soft); border: 1px solid var(--border);
+      }
       .snag-title { font-size: .85rem; }
       .snag-co { font-size: .68rem; }
       .snag-thumb, .snag-thumb-empty { width: 34px; height: 34px; border-radius: 6px; }
       .badge { padding: .1rem .42rem; font-size: .6rem; border-width: 1px; }
       .role-badge { padding: .08rem .38rem; font-size: .6rem; }
       .filter-chip { padding: .28rem .65rem; font-size: .72rem; }
+      .app-bar h1 { font-size: .92rem; }
+      .app-bar-logo { height: 30px; width: 30px; }
     }
 
     /* ── Cards ── */
