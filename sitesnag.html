@@ -665,8 +665,8 @@ const DB_KEY    = 'sitesnag_v1';
 const STATE_KEY = 'sitesnag_state';
 let db = { projects: [], companies: [], snags: [], users: [], locations: [], subsystems: [], splashConfig: { projectImage: null, logos: [] }, snagCounter: {} };
 // locations:  [{ id, building, floors: [{ id, name, rooms: [string] }] }]
-// subsystems: [{ id, discipline, name }]  discipline ∈ DISCIPLINES
-const DISCIPLINES = ['Civil works', 'MEP works', 'System works'];
+// subsystems: [{ id, discipline, name }]  discipline ∈ db.disciplines
+const DEFAULT_DISCIPLINES = ['Civil works', 'MEP works', 'System works'];
 const SNAG_CATEGORIES = {
   A: { label: 'Critical / Category A', sub: 'Safety or structural',       desc: 'Defects posing risk to life, structural integrity, or fire/life-safety systems. Work stops; immediate rectification before any further progress. Often triggers an NCR.', color: 'var(--red)',    bg: 'var(--red-bg)' },
   B: { label: 'Major / Category B',    sub: 'Functional or compliance',   desc: 'Defects preventing a system or element from performing its intended function, or breaching code, specification, or authority requirements. Must be closed before handover/testing; blocks sectional completion.', color: 'var(--orange)', bg: 'var(--orange-bg)' },
@@ -723,6 +723,7 @@ async function _onAuthSession(session) {
           if (!db.subsystems)   db.subsystems   = [];
           if (!db.splashConfig) db.splashConfig = { projectImage: null, logos: [] };
           if (!db.snagCounter)  db.snagCounter  = {};
+          if (!db.disciplines || !db.disciplines.length) db.disciplines = [...DEFAULT_DISCIPLINES];
           if (storageOK) localStorage.setItem(DB_KEY, JSON.stringify(db));
         }
       } catch(e) { console.warn('Auto-pull failed:', e.message); }
@@ -953,6 +954,7 @@ async function pullFromSupabase() {
     db = { projects: [], companies: [], snags: [], users: [], locations: [], subsystems: [], splashConfig: { projectImage: null, logos: [] }, ...data.data };
     if (!db.subsystems) db.subsystems = [];
     if (!db.splashConfig) db.splashConfig = { projectImage: null, logos: [] };
+    if (!db.disciplines || !db.disciplines.length) db.disciplines = [...DEFAULT_DISCIPLINES];
     if (db.settings?.r2PublicUrl) R2_PUBLIC_URL = db.settings.r2PublicUrl;
     if (db.settings?.photoWorkerUrl) PHOTO_WORKER_URL = db.settings.photoWorkerUrl;
     if (storageOK) localStorage.setItem(DB_KEY, JSON.stringify(db));
@@ -985,6 +987,7 @@ function loadDB() {
   if (!db.subsystems)   db.subsystems   = [];
   if (!db.splashConfig) db.splashConfig = { projectImage: null, logos: [] };
   if (!db.snagCounter)  db.snagCounter  = {};
+  if (!db.disciplines || !db.disciplines.length) db.disciplines = [...DEFAULT_DISCIPLINES];
 }
 function saveDB() {
   if (storageOK) {
@@ -1833,7 +1836,7 @@ function viewSnagForm() {
           <select id="f_discipline" onchange="onDisciplineChange(this.value)"
                   style="width:100%;padding:.55rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.95rem;font-family:inherit;background:#fff">
             <option value="">— Select discipline —</option>
-            ${DISCIPLINES.map(d=>`<option value="${esc(d)}" ${d===selDisc?'selected':''}>${esc(d)}</option>`).join('')}
+            ${db.disciplines.map(d=>`<option value="${esc(d)}" ${d===selDisc?'selected':''}>${esc(d)}</option>`).join('')}
           </select>
         </div>
         <div class="form-group">
@@ -2130,7 +2133,7 @@ function viewReports() {
     : '<div class="empty" style="padding:1rem"><p style="font-size:.85rem">No contractor data yet.</p></div>';
 
   // ── DISCIPLINE BREAKDOWN ──
-  const discRows = DISCIPLINES.map(d => {
+  const discRows = db.disciplines.map(d => {
     const ds = allSnags.filter(s => s.discipline === d);
     const dOpen   = ds.filter(s => s.status === 'open' || s.status === 'assigned').length;
     const dClosed = ds.filter(s => s.status === 'accepted').length;
@@ -2776,7 +2779,7 @@ async function _doExportPDFInner() {
   doc.autoTable({
     startY: y,
     head: [['Discipline', 'Total', 'Open', 'Closed', '% Done']],
-    body: DISCIPLINES.map(d => {
+    body: db.disciplines.map(d => {
       const ds = snags.filter(s => s.discipline === d);
       const dOpen   = ds.filter(s => s.status === 'open' || s.status === 'assigned').length;
       const dClosed = ds.filter(s => s.status === 'accepted').length;
@@ -3396,8 +3399,23 @@ function viewLocations() {
     </div>
 
     <div class="card card-body" style="margin-bottom:.75rem">
+      <div style="font-weight:700;font-size:1rem;margin-bottom:.75rem">🏷️ Disciplines</div>
+      <div style="font-size:.82rem;color:var(--soft);margin-bottom:.6rem">Used in the snag form and the snag numbering code (e.g. CIV, MEP).</div>
+      ${db.disciplines.map(disc => `
+        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem;padding:.35rem .55rem;background:var(--bg);border-radius:8px">
+          <span style="flex:1;font-size:.9rem">${esc(disc)}</span>
+          <button class="btn" style="background:var(--red-bg);color:var(--red);padding:.2rem .55rem;font-size:.78rem" data-fn="deleteDiscipline" data-a1="${esc(disc)}">×</button>
+        </div>`).join('')}
+      <div style="display:flex;gap:.4rem;margin-top:.4rem">
+        <input type="text" id="new_discipline" placeholder="Add discipline… e.g. Landscaping works"
+               style="flex:1;padding:.4rem .6rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
+        <button class="btn btn-primary" style="padding:.4rem .7rem;font-size:.85rem" data-fn="addDiscipline">+ Add</button>
+      </div>
+    </div>
+
+    <div class="card card-body" style="margin-bottom:.75rem">
       <div style="font-weight:700;font-size:1rem;margin-bottom:.75rem">🔧 Subsystems</div>
-      ${DISCIPLINES.map(disc => {
+      ${db.disciplines.map(disc => {
         const subs = (db.subsystems || []).filter(s => s.discipline === disc);
         return `<div style="margin-bottom:1rem">
           <div style="font-weight:600;color:var(--blue);margin-bottom:.4rem">${esc(disc)}</div>
@@ -3730,6 +3748,23 @@ function deleteRoom(bldgId, floorAndRoom) {
   const f = b.floors.find(f => f.id === floorId);
   if (!f) return;
   f.rooms = f.rooms.filter(r => r !== roomName);
+  saveDB(); render();
+}
+
+function addDiscipline() {
+  const inp = document.getElementById('new_discipline');
+  const name = (inp?.value || '').trim();
+  if (!name) return;
+  if (db.disciplines.some(d => d.toLowerCase() === name.toLowerCase())) { alert('That discipline already exists.'); return; }
+  db.disciplines.push(name);
+  saveDB(); render();
+}
+function deleteDiscipline(name) {
+  const inUse = db.snags.some(s => s.discipline === name);
+  if (inUse && !confirm(`"${name}" is used by existing snags. Remove it from the list anyway? (existing snags keep their value, but it won't be selectable for new ones)`)) return;
+  if (!inUse && !confirm(`Remove "${name}"?`)) return;
+  db.disciplines = db.disciplines.filter(d => d !== name);
+  db.subsystems = db.subsystems.filter(s => s.discipline !== name);
   saveDB(); render();
 }
 
