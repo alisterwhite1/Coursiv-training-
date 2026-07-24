@@ -674,6 +674,15 @@ const SNAG_CATEGORIES = {
   D: { label: 'Minor / Category D',    sub: 'Cosmetic or finish',         desc: 'Visual and aesthetic defects with no functional consequence — scratches, paint touch-ups, alignment, cleaning. Typically permitted onto the defects list at handover and closed during the DNP.', color: 'var(--blue)',   bg: 'var(--blue-bg)' },
   E: { label: 'Observation / Category E', sub: 'Non-defect',              desc: 'Housekeeping, incomplete works not yet due, or items for monitoring. Recorded for tracking only; no rectification obligation.', color: 'var(--muted)',  bg: 'var(--bg)' },
 };
+// Default SLA targets (days to close) per category. null = no target (Observation).
+const DEFAULT_SLA_DAYS = { A: 1, B: 7, C: 14, D: 30, E: null };
+
+function isOverdue(snag) {
+  if (!snag.category || snag.status === 'accepted') return false;
+  const slaDays = (db.settings?.slaDays ?? DEFAULT_SLA_DAYS)[snag.category];
+  if (!slaDays) return false;
+  return (Date.now() - snag.createdAt) > slaDays * 86400000;
+}
 
 var storageOK = (function() {
   try { localStorage.setItem('__test__', '1'); localStorage.removeItem('__test__'); return true; } catch(e) { return false; }
@@ -1747,7 +1756,7 @@ function viewSnagList() {
             <div class="snag-num">${numStr(s.number)}</div>
             ${s.category ? `<div class="cat-chip" style="background:${SNAG_CATEGORIES[s.category].bg};color:${SNAG_CATEGORIES[s.category].color}" title="${esc(SNAG_CATEGORIES[s.category].label)}">${s.category}</div>` : ''}
           </div>
-          <div class="cell-status"><span class="cell-label">Status</span>${badge(s.status)}</div>
+          <div class="cell-status"><span class="cell-label">Status</span>${badge(s.status)}${isOverdue(s) ? `<span class="badge" style="background:var(--red-bg);color:var(--red);margin-left:.3rem" title="Past SLA target">⏱ Overdue</span>` : ''}</div>
           <div class="cell-date"><span class="cell-label">Date</span><span>${fmtDate(s.createdAt)}</span></div>
           <div class="cell-descwrap">
             <div class="cell-desc"><span class="cell-label">Description</span><div class="snag-title">${esc(s.title)}</div></div>
@@ -1855,6 +1864,7 @@ function viewSnagDetail() {
             <div style="display:flex;align-items:center;gap:.4rem">
               ${badge(snag.status)}
               ${snag.category ? `<span class="badge" style="background:${SNAG_CATEGORIES[snag.category].bg};color:${SNAG_CATEGORIES[snag.category].color}">${snag.category} — ${esc(SNAG_CATEGORIES[snag.category].label.split(' / ')[0])}</span>` : ''}
+              ${isOverdue(snag) ? `<span class="badge" style="background:var(--red-bg);color:var(--red)">⏱ Overdue</span>` : ''}
             </div>
             <span style="font-size:.75rem;color:var(--muted)">${fmtDate(snag.createdAt)}</span>
           </div>
@@ -2410,13 +2420,17 @@ function getNotifSnags() {
   const profile = db.users.find(u => u.id === S.currentUser.id);
   const seenAt = profile?.notifSeenAt || 0;
   const isContractor = S.currentUser.role === 'contractor';
-  return db.snags.filter(s => {
+  const recent = db.snags.filter(s => {
     const lastAt = (s.history && s.history.length) ? s.history[s.history.length-1].at : s.createdAt;
     if (!lastAt || lastAt <= seenAt) return false;
     return isContractor
       ? s.assignedTo === S.currentUser.companyId && (s.status === 'assigned' || s.status === 'rejected')
       : s.status === 'pending';
   });
+  // Overdue snags are a standing alert, not a one-time event — always surfaced for admins/engineers until resolved.
+  const overdue = !isContractor ? db.snags.filter(isOverdue) : [];
+  const seen = new Set();
+  return [...recent, ...overdue].filter(s => !seen.has(s.id) && seen.add(s.id));
 }
 function openNotifications() {
   const profile = db.users.find(u => u.id === S.currentUser.id);
@@ -3169,6 +3183,18 @@ function saveWorkerUrl() {
   alert(PHOTO_WORKER_URL ? '✓ Uploads now go through the Worker — R2 keys are no longer used for new photos.' : 'Worker URL cleared — uploads will use the direct R2 keys again.');
 }
 
+function saveSlaTargets() {
+  const slaDays = {};
+  Object.keys(SNAG_CATEGORIES).forEach(k => {
+    const v = document.getElementById('sla_' + k)?.value.trim();
+    slaDays[k] = v ? Math.max(0, parseInt(v, 10)) : null;
+  });
+  if (!db.settings) db.settings = {};
+  db.settings.slaDays = slaDays;
+  saveDB(); render();
+  alert('✓ SLA targets saved.');
+}
+
 function setFilter(f) { S.filter = f; render(); }
 function selectProject(id) { S.projectId = id; S.filter = 'all'; go('snag-list'); }
 
@@ -3508,6 +3534,22 @@ function viewLocations() {
                style="flex:1;padding:.4rem .6rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
         <button class="btn btn-primary" style="padding:.4rem .7rem;font-size:.85rem" data-fn="addDiscipline">+ Add</button>
       </div>
+    </div>
+
+    <div class="card card-body" style="margin-bottom:.75rem">
+      <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">⏱️ SLA Targets</div>
+      <div style="font-size:.82rem;color:var(--soft);margin-bottom:.6rem;line-height:1.5">
+        Days allowed to close a snag before it's flagged overdue, by classification. Leave blank for no target.
+      </div>
+      ${Object.entries(SNAG_CATEGORIES).map(([k, c]) => `
+        <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem">
+          <span class="badge" style="background:${c.bg};color:${c.color};flex-shrink:0;min-width:26px;text-align:center">${k}</span>
+          <span style="flex:1;font-size:.87rem">${esc(c.label.split(' / ')[0])}</span>
+          <input type="number" min="0" id="sla_${k}" placeholder="days"
+                 value="${(db.settings?.slaDays ?? DEFAULT_SLA_DAYS)[k] ?? ''}"
+                 style="width:80px;padding:.4rem .5rem;border:2px solid var(--border);border-radius:8px;font-size:.87rem;font-family:inherit" />
+        </div>`).join('')}
+      <button class="btn btn-primary btn-block" style="margin-top:.5rem" data-fn="saveSlaTargets">Save SLA Targets</button>
     </div>
 
     <div class="card card-body" style="margin-bottom:.75rem">
