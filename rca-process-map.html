@@ -3747,9 +3747,12 @@
     const result = await saveProjectConfig(readCfgFromForm());
     btn.disabled = false;
     if (result.ok) {
-      if (status) { status.textContent = ''; }
-      ncrSettingsModal.classList.remove('open');
-      if (currentView === 'ncrRegister') showNcrRegister();
+      if (status) { status.textContent = 'Saved.'; status.style.color = '#1f7a4d'; }
+      setTimeout(() => {
+        if (status) status.textContent = '';
+        ncrSettingsModal.classList.remove('open');
+        if (currentView === 'ncrRegister') showNcrRegister();
+      }, 700);
     } else {
       if (status) {
         status.textContent = 'Could not save — ' + (result.error || 'unknown error') + '. Check your connection and try again.';
