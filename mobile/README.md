@@ -95,11 +95,15 @@ real store submission:
   after publishing (a new app id means a new store listing, not an
   update to the old one). Worth finalizing once the organization/brand
   name question is settled.
-- **App icon** — currently using Capacitor's default icon. The Strata
-  icon from the earlier logo concepts was earmarked for this. Capacitor
-  has a tool (`@capacitor/assets`) that generates every required icon
-  size from one source image — say the word whenever you want this
-  wired in.
+- **App icon** — done for Android. The Strata mark (navy cross-section
+  bars, amber base) from the visual identity review is now the real
+  launcher icon at every density, including the adaptive icon's
+  foreground/background layers. Source artwork lives in
+  `resources/icon-only.png`, `icon-foreground.png`, and
+  `icon-background.png`; regenerate with
+  `npx capacitor-assets generate --android --iconBackgroundColor '#ffffff'`
+  if the mark ever changes. iOS icons aren't generated yet — that needs
+  the same command with `--ios` once there's a Mac to build on.
 - **Splash screen** — the web app already has its own animated splash
   (CSS-based, plays after the native shell loads). There's a separate
   *native* splash screen concept in Capacitor (shown instantly before
