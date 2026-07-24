@@ -557,15 +557,15 @@
          Snag ID | Description  }
          Status  | Discipline/Subsystem/Location/Assigned  } Picture (spans full block height)
          Date    |                                          } */
-      .card:has(.list-item) { border-radius: 0; border: 1px solid #333; box-shadow: none; }
-      .list-item {
+      .card:has(.snag-row) { border-radius: 0; border: 1px solid #333; box-shadow: none; }
+      .snag-row {
         display: grid;
         grid-template-columns: 165px 1fr 92px;
         grid-template-rows: auto auto auto;
         padding: 0; gap: 0;
         border-bottom: 2px solid #333;
       }
-      .list-item:last-child { border-bottom: none; }
+      .snag-row:last-child { border-bottom: none; }
       .cell-label { display: none; }
       .cell-id, .cell-status, .cell-date, .cell-desc, .cell-meta, .cell-photo {
         padding: .5rem .8rem; border-right: 1px solid #999;
@@ -1652,7 +1652,7 @@ function viewSnagList() {
           ? `<img class="snag-thumb" src="${s.photo}" onerror="this.outerHTML='&lt;div class=&quot;snag-thumb-empty&quot; title=&quot;Photo unavailable&quot;&gt;⚠️&lt;/div&gt;'" />`
           : `<div class="snag-thumb-empty">📷</div>`;
         return `
-        <div class="list-item" data-fn="goSnag" data-a1="${s.id}">
+        <div class="list-item snag-row" data-fn="goSnag" data-a1="${s.id}">
           <div class="cell-id">
             <span class="cell-label">Snag ID</span>
             <div class="snag-num">${numStr(s.number)}</div>
@@ -3317,6 +3317,16 @@ function onFloorChange(val) {
   render();
 }
 
+function configSubTabs(cfgTab) {
+  return `
+    <div class="filter-row" style="margin-bottom:.85rem">
+      <button class="filter-chip ${cfgTab==='locations'?'active':''}" data-fn="setConfigTab" data-a1="locations">Locations</button>
+      <button class="filter-chip ${cfgTab==='companies'?'active':''}" data-fn="setConfigTab" data-a1="companies">Companies</button>
+      <button class="filter-chip ${cfgTab==='users'?'active':''}" data-fn="setConfigTab" data-a1="users">Users</button>
+      <button class="filter-chip ${cfgTab==='audit'?'active':''}" data-fn="setConfigTab" data-a1="audit">Audit Log</button>
+    </div>`;
+}
+
 function viewLocations() {
   const isAdmin = S.currentUser?.role === 'administrator';
   if (!isAdmin) return viewProjects();
@@ -3325,16 +3335,12 @@ function viewLocations() {
   const cfgTab = S.configTab || 'locations';
   if (cfgTab === 'companies') return _viewConfigCompanies();
   if (cfgTab === 'users')     return _viewConfigUsers();
+  if (cfgTab === 'audit')     return _viewConfigAudit();
 
   // ── LOCATIONS TAB ──
   const locs = db.locations || [];
   const el = S.editingLoc || {};
-  const subTabs = `
-    <div class="filter-row" style="margin-bottom:.85rem">
-      <button class="filter-chip ${cfgTab==='locations'?'active':''}" data-fn="setConfigTab" data-a1="locations">Locations</button>
-      <button class="filter-chip ${cfgTab==='companies'?'active':''}" data-fn="setConfigTab" data-a1="companies">Companies</button>
-      <button class="filter-chip ${cfgTab==='users'?'active':''}" data-fn="setConfigTab" data-a1="users">Users</button>
-    </div>`;
+  const subTabs = configSubTabs(cfgTab);
   return appBar('Configuration', null) + `
     <div class="main">
       ${subTabs}
@@ -3530,12 +3536,7 @@ function setConfigTab(tab) { S.configTab = tab; go('locations'); }
 // ── CONFIG SUB-VIEW: COMPANIES ──────────────────────────────────────────────────
 function _viewConfigCompanies() {
   const cfgTab = S.configTab || 'locations';
-  const subTabs = `
-    <div class="filter-row" style="margin-bottom:.85rem">
-      <button class="filter-chip ${cfgTab==='locations'?'active':''}" data-fn="setConfigTab" data-a1="locations">Locations</button>
-      <button class="filter-chip ${cfgTab==='companies'?'active':''}" data-fn="setConfigTab" data-a1="companies">Companies</button>
-      <button class="filter-chip ${cfgTab==='users'?'active':''}" data-fn="setConfigTab" data-a1="users">Users</button>
-    </div>`;
+  const subTabs = configSubTabs(cfgTab);
   const items = db.companies.length
     ? db.companies.map(c => `
         <div class="list-item" style="cursor:default">
@@ -3561,12 +3562,7 @@ function _viewConfigCompanies() {
 // ── CONFIG SUB-VIEW: USERS ──────────────────────────────────────────────────────
 function _viewConfigUsers() {
   const cfgTab = S.configTab || 'locations';
-  const subTabs = `
-    <div class="filter-row" style="margin-bottom:.85rem">
-      <button class="filter-chip ${cfgTab==='locations'?'active':''}" data-fn="setConfigTab" data-a1="locations">Locations</button>
-      <button class="filter-chip ${cfgTab==='companies'?'active':''}" data-fn="setConfigTab" data-a1="companies">Companies</button>
-      <button class="filter-chip ${cfgTab==='users'?'active':''}" data-fn="setConfigTab" data-a1="users">Users</button>
-    </div>`;
+  const subTabs = configSubTabs(cfgTab);
   const items = db.users.length
     ? db.users.map(u => {
         const co = u.companyId ? db.companies.find(c => c.id === u.companyId) : null;
@@ -3629,6 +3625,47 @@ function _viewConfigUsers() {
           <input type="file" accept=".json" style="display:none" onchange="importData(this)" />
         </label>
       </div>
+    </div>` + navBar('locations');
+}
+
+// ── CONFIG SUB-VIEW: AUDIT LOG ────────────────────────────────────────────────────
+function _viewConfigAudit() {
+  const cfgTab = S.configTab || 'locations';
+  const subTabs = configSubTabs(cfgTab);
+
+  // Flatten every snag's history into one cross-project timeline
+  const entries = [];
+  db.snags.forEach(s => {
+    (s.history || []).forEach(h => entries.push({ ...h, snagId: s.id, snagNumber: s.number, snagTitle: s.title }));
+  });
+  entries.sort((a, b) => b.at - a.at);
+  const shown = entries.slice(0, 200); // cap for render performance on large registers
+
+  const rows = shown.length
+    ? shown.map(e => `
+        <div class="list-item" data-fn="goSnag" data-a1="${e.snagId}" style="align-items:flex-start">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.88rem;font-weight:600">${esc(e.action)}</div>
+            <div style="font-size:.78rem;color:var(--soft);margin-top:.15rem">
+              ${numStr(e.snagNumber)} — ${esc(e.snagTitle)}
+            </div>
+            ${e.note ? `<div style="font-size:.78rem;color:var(--muted);margin-top:.15rem;font-style:italic">"${esc(e.note)}"</div>` : ''}
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:.76rem;color:var(--muted)">${fmtDateTime(e.at)}</div>
+            ${e.by ? `<div style="font-size:.76rem;color:var(--soft);margin-top:.15rem">👤 ${esc(e.by)}</div>` : ''}
+          </div>
+        </div>`).join('')
+    : `<div class="empty"><div class="eico">📋</div><p>No activity recorded yet.</p></div>`;
+
+  return appBar('Configuration', null) + `
+    <div class="main">
+      ${subTabs}
+      <div style="font-size:.82rem;color:var(--soft);margin-bottom:.6rem">
+        Every status change, assignment, and rectification across all snags, most recent first.
+        ${entries.length > shown.length ? `Showing latest ${shown.length} of ${entries.length}.` : ''}
+      </div>
+      <div class="card">${rows}</div>
     </div>` + navBar('locations');
 }
 
