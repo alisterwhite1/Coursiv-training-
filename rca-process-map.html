@@ -1071,8 +1071,9 @@
       </label>
     </div>
 
-    <div class="summary-actions">
+    <div class="summary-actions" style="align-items:center;">
       <button class="save-lib-btn" id="cfgSaveBtn">Save Settings</button>
+      <span id="cfgSaveStatus" class="cfg-section-hint" style="margin:0;"></span>
     </div>
 
     <h4 class="cfg-section-title">Data Management</h4>
@@ -2174,7 +2175,7 @@
   }
   function saveProjectConfig(cfg){
     projectConfigCache = cfg;
-    syncProjectConfigToSupabase(cfg);
+    return syncProjectConfigToSupabase(cfg);
   }
   function printBrandSubHtml(){
     const cfg = loadProjectConfig();
@@ -3738,10 +3739,23 @@
   document.getElementById('ncrSettingsBtn').addEventListener('click', openNcrSettings);
   document.getElementById('closeNcrSettings').addEventListener('click', () => ncrSettingsModal.classList.remove('open'));
   ncrSettingsModal.addEventListener('click', (e) => { if (e.target === ncrSettingsModal) ncrSettingsModal.classList.remove('open'); });
-  document.getElementById('cfgSaveBtn').addEventListener('click', () => {
-    saveProjectConfig(readCfgFromForm());
-    ncrSettingsModal.classList.remove('open');
-    if (currentView === 'ncrRegister') showNcrRegister();
+  document.getElementById('cfgSaveBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('cfgSaveBtn');
+    const status = document.getElementById('cfgSaveStatus');
+    btn.disabled = true;
+    if (status) { status.textContent = 'Saving…'; status.style.color = ''; }
+    const result = await saveProjectConfig(readCfgFromForm());
+    btn.disabled = false;
+    if (result.ok) {
+      if (status) { status.textContent = ''; }
+      ncrSettingsModal.classList.remove('open');
+      if (currentView === 'ncrRegister') showNcrRegister();
+    } else {
+      if (status) {
+        status.textContent = 'Could not save — ' + (result.error || 'unknown error') + '. Check your connection and try again.';
+        status.style.color = '#c23a3a';
+      }
+    }
   });
   document.getElementById('cfgResetTaxonomyBtn').addEventListener('click', () => {
     cfgFields.reasonOptions.value = NCR_REASON_OPTIONS.join('\n');
