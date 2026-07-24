@@ -6,9 +6,15 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <!-- v6 -->
+  <!-- v7 -->
   <title>SiteSnag — Construction Inspection</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect x='20' y='24' width='80' height='11' fill='%230f2544'/%3E%3Crect x='26' y='41' width='68' height='11' fill='%230f2544'/%3E%3Crect x='32' y='58' width='56' height='11' fill='%230f2544'/%3E%3Crect x='38' y='75' width='44' height='11' fill='%230f2544'/%3E%3Crect x='44' y='92' width='32' height='11' fill='%23FFD700'/%3E%3C/svg%3E" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <meta name="theme-color" content="#0f2544" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="SiteSnag" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.2/dist/umd/supabase.min.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -3691,6 +3697,12 @@ function dismissSplash() {
   splash.style.transition = 'opacity .4s ease';
   splash.style.opacity = '0';
   setTimeout(function() { splash.style.display = 'none'; }, 420);
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW registration failed:', err));
+  });
 }
 </script>
 </body>
