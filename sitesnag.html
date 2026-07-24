@@ -570,8 +570,24 @@ function initSupabaseAuth() {
 }
 
 async function _onAuthSession(session) {
-  // Load the user's profile (name, role, companyId) from db.users by auth uid
-  await loadDB(); // ensure db is fresh
+  loadDB(); // load from localStorage
+  // If localStorage is empty (new device / cleared cache), auto-pull from Supabase
+  if (db.users.length === 0 && db.projects.length === 0) {
+    const cl = supaClient();
+    if (cl) {
+      try {
+        const { data } = await cl.from('app_data').select('data').eq('id', 'main').maybeSingle();
+        if (data?.data) {
+          db = { projects: [], companies: [], snags: [], users: [], locations: [], subsystems: [],
+                 splashConfig: { projectImage: null, logos: [] }, snagCounter: {}, ...data.data };
+          if (!db.subsystems)   db.subsystems   = [];
+          if (!db.splashConfig) db.splashConfig = { projectImage: null, logos: [] };
+          if (!db.snagCounter)  db.snagCounter  = {};
+          if (storageOK) localStorage.setItem(DB_KEY, JSON.stringify(db));
+        }
+      } catch(e) { console.warn('Auto-pull failed:', e.message); }
+    }
+  }
   let profile = db.users.find(u => u.authId === session.user.id);
   // Fallback 1: match by email field
   if (!profile) profile = db.users.find(u => u.email && u.email.toLowerCase() === session.user.email.toLowerCase());
