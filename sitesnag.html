@@ -197,6 +197,32 @@
       h2, .section-title { font-size: .95rem; }
     }
 
+    /* ── Desktop layout — sidebar nav instead of bottom nav, wider content ── */
+    @media (min-width: 1024px) {
+      body { padding-bottom: 0; padding-left: 216px; }
+      .bottom-nav {
+        position: fixed; top: 0; left: 0; bottom: auto; right: auto;
+        width: 216px; height: 100vh;
+        flex-direction: column; align-items: stretch; justify-content: flex-start;
+        border-top: none; border-right: 1px solid var(--border);
+        box-shadow: 2px 0 12px rgba(0,0,0,.05);
+        padding: 1.1rem .6rem;
+        gap: .15rem;
+        overflow-y: auto;
+      }
+      .nav-btn {
+        flex-direction: row; justify-content: flex-start; align-items: center;
+        gap: .7rem; padding: .65rem .8rem;
+        font-size: .8rem; font-weight: 700; letter-spacing: .02em; text-transform: none;
+        border-radius: 8px; flex: none; width: auto;
+      }
+      .nav-btn:hover { background: #f0f3f7; }
+      .nav-btn.active { background: var(--blue-bg); }
+      .nav-btn svg { width: 20px; height: 20px; }
+      .main { max-width: 920px; padding: 1.75rem 2.25rem; }
+      .app-bar { position: sticky; top: 0; }
+    }
+
     /* ── Cards ── */
     .card {
       background: var(--card); border-radius: var(--radius);
