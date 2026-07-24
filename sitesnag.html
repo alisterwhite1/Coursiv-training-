@@ -572,13 +572,17 @@ function initSupabaseAuth() {
 async function _onAuthSession(session) {
   // Load the user's profile (name, role, companyId) from db.users by auth uid
   await loadDB(); // ensure db is fresh
-  const profile = db.users.find(u => u.authId === session.user.id);
+  let profile = db.users.find(u => u.authId === session.user.id);
+  // Fallback: match by email for users created before Supabase Auth was added
+  if (!profile) profile = db.users.find(u => u.email && u.email.toLowerCase() === session.user.email.toLowerCase());
   if (profile) {
+    // Stamp authId onto profile so future lookups use the fast path
+    if (!profile.authId) { profile.authId = session.user.id; saveDB(); }
     S.currentUser = { id: profile.id, name: profile.name, role: profile.role, companyId: profile.companyId || null };
     S.mode = profile.role === 'contractor' ? 'contractor' : 'engineer';
     if (profile.role === 'contractor' && profile.companyId) S.contractorCompanyId = profile.companyId;
   } else {
-    // Auth account exists but no profile yet — use email as fallback
+    // Auth account exists but no profile yet — use email as fallback name
     S.currentUser = { id: session.user.id, name: session.user.email, role: 'engineer', companyId: null };
   }
   if (S.view === 'login' || !S.view) S.view = 'projects';
