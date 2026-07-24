@@ -863,80 +863,24 @@ async function pushToSupabase() {
 }
 
 // ── CLOUDFLARE R2 PHOTO UPLOAD ─────────────────────────────────────────────────
-// SECURITY: R2_ACCESS_KEY/R2_SECRET_KEY below are visible to anyone who views
-// this page's source. This is a known, temporary exposure — the fix is to
-// deploy worker/ (see worker/README.md) and set PHOTO_WORKER_URL below/in
-// Config once it's live. When PHOTO_WORKER_URL is set, uploads go through the
-// Worker instead and never touch these keys; they can then be deleted here
-// and rotated in the Cloudflare dashboard.
-const R2_ENDPOINT   = 'https://3a326bcdee249cc88cd07e68cc06b1c4.r2.cloudflarestorage.com';
-const R2_BUCKET     = 'sitesnag-photos';
-const R2_ACCESS_KEY = '4dcbbc6314ea8025f2303b94e8d103ee';
-const R2_SECRET_KEY = '6dfddb8c727c16fc45736dc53ec219965053b2869167885060c94488cd3a20db';
-let   R2_PUBLIC_URL = 'https://pub-30485994f7b944fa9be367389d82e365.r2.dev'; // hardcoded — same for all users
-let   PHOTO_WORKER_URL = ''; // set via Config → Locations once worker/ is deployed
-
-async function _sha256Hex(data) {
-  const buf = await crypto.subtle.digest('SHA-256', typeof data === 'string' ? new TextEncoder().encode(data) : data);
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-}
-async function _hmacSha256(keyData, message) {
-  const k = await crypto.subtle.importKey('raw',
-    typeof keyData === 'string' ? new TextEncoder().encode(keyData) : keyData,
-    { name:'HMAC', hash:'SHA-256' }, false, ['sign']);
-  return crypto.subtle.sign('HMAC', k, typeof message === 'string' ? new TextEncoder().encode(message) : message);
-}
-async function _hmacSha256Hex(keyData, message) {
-  return Array.from(new Uint8Array(await _hmacSha256(keyData, message))).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
+// Uploads go through a Cloudflare Worker (worker/) that holds an R2 bucket
+// binding — no access key or secret is ever present in this client-side file.
+let R2_PUBLIC_URL    = 'https://pub-30485994f7b944fa9be367389d82e365.r2.dev';
+let PHOTO_WORKER_URL = 'https://sitesnag-photo-upload.alister-white.workers.dev';
 
 async function uploadPhotoToR2(dataUrl, path) {
-  if (!R2_PUBLIC_URL) return null; // R2 not yet configured with public URL
-  const blob = await (await fetch(dataUrl)).blob();
-  const contentType = 'image/jpeg';
-
-  // Preferred path: upload via the Worker proxy, which holds no secret keys client-side.
-  if (PHOTO_WORKER_URL) {
-    try {
-      const resp = await fetch(`${PHOTO_WORKER_URL.replace(/\/$/,'')}/${path}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': contentType },
-        body: blob
-      });
-      if (!resp.ok) throw new Error(resp.status);
-      return `${R2_PUBLIC_URL}/${path}`;
-    } catch(e) {
-      console.warn('Worker upload failed, keeping base64:', e.message);
-      return null;
-    }
-  }
-
-  // Fallback: direct signed upload using the embedded access keys (see security note above).
+  if (!R2_PUBLIC_URL || !PHOTO_WORKER_URL) return null;
   try {
-    const now = new Date();
-    const dateStamp = now.toISOString().slice(0,10).replace(/-/g,'');
-    const amzDate   = now.toISOString().replace(/[:-]|\.\d{3}/g,'');
-    const payloadHash = await _sha256Hex(await blob.arrayBuffer());
-    const host = R2_ENDPOINT.replace('https://','');
-    const canonHeaders = `content-type:${contentType}\nhost:${host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${amzDate}\n`;
-    const signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
-    const canonRequest = `PUT\n/${R2_BUCKET}/${path}\n\n${canonHeaders}\n${signedHeaders}\n${payloadHash}`;
-    const credScope = `${dateStamp}/auto/s3/aws4_request`;
-    const strToSign = `AWS4-HMAC-SHA256\n${amzDate}\n${credScope}\n${await _sha256Hex(new TextEncoder().encode(canonRequest))}`;
-    const sigKey = await _hmacSha256(
-      await _hmacSha256(await _hmacSha256(await _hmacSha256('AWS4'+R2_SECRET_KEY, dateStamp), 'auto'), 's3'),
-      'aws4_request');
-    const signature = await _hmacSha256Hex(sigKey, strToSign);
-    const auth = `AWS4-HMAC-SHA256 Credential=${R2_ACCESS_KEY}/${credScope},SignedHeaders=${signedHeaders},Signature=${signature}`;
-    const resp = await fetch(`${R2_ENDPOINT}/${R2_BUCKET}/${path}`, {
+    const blob = await (await fetch(dataUrl)).blob();
+    const resp = await fetch(`${PHOTO_WORKER_URL.replace(/\/$/,'')}/${path}`, {
       method: 'PUT',
-      headers: { 'Content-Type': contentType, 'x-amz-date': amzDate, 'x-amz-content-sha256': payloadHash, 'Authorization': auth },
+      headers: { 'Content-Type': 'image/jpeg' },
       body: blob
     });
     if (!resp.ok) throw new Error(resp.status);
     return `${R2_PUBLIC_URL}/${path}`;
   } catch(e) {
-    console.warn('R2 upload failed, keeping base64:', e.message);
+    console.warn('Photo upload failed, keeping base64:', e.message);
     return null;
   }
 }
@@ -3441,33 +3385,28 @@ function viewLocations() {
     </div>
 
     <div class="card card-body" style="margin-bottom:.75rem">
-      <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">📸 Photo Storage (Cloudflare R2)</div>
+      <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">📸 Photo Storage</div>
       <div style="font-size:.82rem;color:var(--soft);margin-bottom:.75rem;line-height:1.5">
-        Paste your R2 public URL to enable direct photo uploads to Cloudflare R2.
-        Until set, photos are stored in the Supabase database.
+        Photos upload to Cloudflare R2 via a Worker proxy — no storage keys are ever present
+        in the app's source code. Only change these if you redeploy the Worker or bucket elsewhere.
       </div>
-      <div style="display:flex;gap:.5rem;align-items:center">
-        <input type="url" id="r2_public_url" placeholder="https://pub-XXXX.r2.dev"
-          value="${esc(R2_PUBLIC_URL)}" style="flex:1;padding:.5rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
-        <button class="btn btn-primary" style="white-space:nowrap" data-fn="saveR2Url">Save</button>
+      <div class="form-group" style="margin-bottom:.6rem">
+        <label class="form-label">R2 Public URL</label>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <input type="url" id="r2_public_url" placeholder="https://pub-XXXX.r2.dev"
+            value="${esc(R2_PUBLIC_URL)}" style="flex:1;padding:.5rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
+          <button class="btn btn-primary" style="white-space:nowrap" data-fn="saveR2Url">Save</button>
+        </div>
       </div>
-      ${R2_PUBLIC_URL ? `<div style="font-size:.8rem;color:var(--green);margin-top:.4rem;font-weight:600">✓ R2 photo upload active</div>` : `<div style="font-size:.8rem;color:var(--muted);margin-top:.4rem">Not yet configured — photos stored in Supabase</div>`}
-    </div>
-
-    <div class="card card-body" style="margin-bottom:.75rem">
-      <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">🔒 Photo Upload Worker (security upgrade)</div>
-      <div style="font-size:.82rem;color:var(--soft);margin-bottom:.75rem;line-height:1.5">
-        Right now photo uploads use an R2 access key embedded in the app's source code, visible to
-        anyone who views the page. Deploying the Worker in <code>worker/</code> (see <code>worker/README.md</code>)
-        removes that exposure — once its URL is set here, uploads go through it instead and the
-        embedded key is no longer used for new photos.
+      <div class="form-group">
+        <label class="form-label">Upload Worker URL</label>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <input type="url" id="photo_worker_url" placeholder="https://sitesnag-photo-upload.xxx.workers.dev"
+            value="${esc(PHOTO_WORKER_URL)}" style="flex:1;padding:.5rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
+          <button class="btn btn-primary" style="white-space:nowrap" data-fn="saveWorkerUrl">Save</button>
+        </div>
       </div>
-      <div style="display:flex;gap:.5rem;align-items:center">
-        <input type="url" id="photo_worker_url" placeholder="https://sitesnag-photo-upload.xxx.workers.dev"
-          value="${esc(PHOTO_WORKER_URL)}" style="flex:1;padding:.5rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
-        <button class="btn btn-primary" style="white-space:nowrap" data-fn="saveWorkerUrl">Save</button>
-      </div>
-      ${PHOTO_WORKER_URL ? `<div style="font-size:.8rem;color:var(--green);margin-top:.4rem;font-weight:600">✓ Uploads secured via Worker — embedded key no longer used</div>` : `<div style="font-size:.8rem;color:var(--amber);margin-top:.4rem;font-weight:600">⚠ Not yet configured — uploads still use the embedded R2 key</div>`}
+      ${(R2_PUBLIC_URL && PHOTO_WORKER_URL) ? `<div style="font-size:.8rem;color:var(--green);margin-top:.6rem;font-weight:600">✓ Secure upload path active</div>` : `<div style="font-size:.8rem;color:var(--amber);margin-top:.6rem;font-weight:600">⚠ Incomplete — both URLs are required for photo uploads to work</div>`}
     </div>
 
     <div class="card card-body" style="margin-bottom:.75rem">
