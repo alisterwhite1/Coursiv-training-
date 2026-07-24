@@ -573,11 +573,19 @@ async function _onAuthSession(session) {
   // Load the user's profile (name, role, companyId) from db.users by auth uid
   await loadDB(); // ensure db is fresh
   let profile = db.users.find(u => u.authId === session.user.id);
-  // Fallback: match by email for users created before Supabase Auth was added
+  // Fallback 1: match by email field
   if (!profile) profile = db.users.find(u => u.email && u.email.toLowerCase() === session.user.email.toLowerCase());
+  // Fallback 2: if still no match and only one administrator exists, use it (legacy accounts pre-email)
+  if (!profile) {
+    const admins = db.users.filter(u => u.role === 'administrator');
+    if (admins.length === 1) profile = admins[0];
+  }
   if (profile) {
-    // Stamp authId onto profile so future lookups use the fast path
-    if (!profile.authId) { profile.authId = session.user.id; saveDB(); }
+    // Stamp authId and email onto profile so future lookups use the fast path
+    let dirty = false;
+    if (!profile.authId) { profile.authId = session.user.id; dirty = true; }
+    if (!profile.email)  { profile.email  = session.user.email; dirty = true; }
+    if (dirty) saveDB();
     S.currentUser = { id: profile.id, name: profile.name, role: profile.role, companyId: profile.companyId || null };
     S.mode = profile.role === 'contractor' ? 'contractor' : 'engineer';
     if (profile.role === 'contractor' && profile.companyId) S.contractorCompanyId = profile.companyId;
