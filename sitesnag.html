@@ -203,75 +203,6 @@
     /* ── Main ── */
     .main { padding: .85rem; max-width: 580px; margin: 0 auto; }
 
-    /* ── Desktop tightening — mobile-first sizing reads oversized on wide screens ── */
-    @media (min-width: 768px) {
-      body { font-size: 14px; }
-      .main { max-width: 640px; padding: 1.25rem 1rem; }
-      .app-bar { padding: .6rem 1rem; }
-      .card-body { padding: .85rem; }
-      .btn { padding: .55rem 1rem; font-size: .88rem; }
-      .filter-chip { font-size: .8rem; padding: .32rem .75rem; }
-      h2, .section-title { font-size: .95rem; }
-    }
-
-    /* ── Desktop layout — sidebar nav instead of bottom nav, wider content ── */
-    @media (min-width: 1024px) {
-      body { padding-bottom: 0; padding-left: 216px; }
-      .bottom-nav {
-        position: fixed; top: 0; left: 0; bottom: auto; right: auto;
-        width: 216px; height: 100vh;
-        flex-direction: column; align-items: stretch; justify-content: flex-start;
-        border-top: none; border-right: 1px solid var(--border);
-        box-shadow: 2px 0 12px rgba(0,0,0,.05);
-        padding: 1.1rem .6rem;
-        gap: .15rem;
-        overflow-y: auto;
-      }
-      .nav-btn {
-        flex-direction: row; justify-content: flex-start; align-items: center;
-        gap: .7rem; padding: .65rem .8rem;
-        font-size: .8rem; font-weight: 700; letter-spacing: .02em; text-transform: none;
-        border-radius: 8px; flex: none; width: auto;
-      }
-      .nav-btn:hover { background: #f0f3f7; }
-      .nav-btn.active { background: var(--blue-bg); }
-      .nav-btn svg { width: 20px; height: 20px; }
-      .main { max-width: 1180px; padding: 1.75rem 2.5rem; }
-      .app-bar { position: sticky; top: 0; }
-      .fab { display: none !important; }
-      .toolbar-add-btn { display: inline-flex !important; align-items: center; }
-
-      /* Tighter, less "toy-like" proportions at desktop size */
-      .list-item { padding: .58rem .9rem; gap: .65rem; }
-      .snag-num {
-        font-size: .62rem; font-weight: 700; padding: .15rem .38rem; min-width: 0;
-        background: var(--bg); color: var(--soft); border: 1px solid var(--border);
-      }
-      .snag-title { font-size: .85rem; }
-      .snag-co { font-size: .68rem; }
-      .snag-thumb, .snag-thumb-empty { width: 34px; height: 34px; border-radius: 6px; }
-      .badge { padding: .1rem .42rem; font-size: .6rem; border-width: 1px; }
-      .role-badge { padding: .08rem .38rem; font-size: .6rem; }
-      .filter-chip { padding: .28rem .65rem; font-size: .72rem; }
-      .app-bar h1 { font-size: .92rem; }
-      .app-bar-logo { height: 30px; width: 30px; }
-
-      /* Table-like register — real header row + ruled cell borders, not a rounded card */
-      .card:has(.register-head) { border-radius: 0; border: 1px solid #333; box-shadow: none; }
-      .register-head {
-        display: flex !important; background: #e7e4d8; border-bottom: 2px solid #333;
-        font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #333;
-      }
-      .register-head > div { padding: .5rem .9rem; }
-      .rh-id    { width: 165px; flex-shrink: 0; border-right: 1px solid #999; }
-      .rh-desc  { flex: 1; border-right: 1px solid #999; }
-      .rh-photo { width: 82px; flex-shrink: 0; text-align: center; }
-      .list-item { border-radius: 0; border-bottom: 1px solid #999; }
-      .list-item:last-child { border-bottom: none; }
-      .snag-id-cell { width: 165px; flex-shrink: 0; padding-right: .9rem; margin-right: .9rem; border-right: 1px solid #999; box-sizing: border-box; }
-      .snag-info { padding-right: .9rem; margin-right: .9rem; border-right: 1px solid #999; }
-    }
-
     /* ── Cards ── */
     .card {
       background: var(--card); border-radius: var(--radius);
@@ -290,7 +221,8 @@
     .list-item:hover { background: #f5f7fa; }
     .list-item:active { background: var(--blue-bg); }
 
-    /* ── Snag list ── */
+    /* ── Snag list — mobile: cell-desc/cell-meta/cell-status/cell-date collapse into one flowing column;
+       cell-id and cell-photo bookend it. On desktop this same markup becomes a labeled block grid. ── */
     .snag-num {
       background: var(--navy); color: #fff;
       font-size: .72rem; font-weight: 700;
@@ -298,19 +230,24 @@
       min-width: 48px; text-align: center; flex-shrink: 0;
       letter-spacing: .02em;
     }
-    .snag-id-cell { display: flex; flex-direction: column; align-items: flex-start; gap: .3rem; flex-shrink: 0; }
-    .register-head { display: none; }
+    .cell-id { display: flex; flex-direction: column; align-items: flex-start; gap: .3rem; flex-shrink: 0; }
     .cat-chip {
       display: inline-flex; align-items: center; justify-content: center;
       width: 18px; height: 18px; border-radius: 4px; font-size: .62rem; font-weight: 800;
     }
-    .snag-info { flex: 1; min-width: 0; }
+    .cell-label { display: none; } /* labels only shown in the desktop block layout */
+    .cell-status, .cell-date { display: none; } /* on mobile, status is folded into cell-meta instead */
+    .cell-descwrap { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+    .cell-desc { flex: 1; min-width: 0; }
     .snag-title {
       font-weight: 600; font-size: .93rem;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
+    .cell-meta { flex: 1; min-width: 0; }
     .snag-meta { display: flex; align-items: center; gap: .45rem; margin-top: .2rem; flex-wrap: wrap; }
+    .snag-meta.desktop-only-meta { display: none; }
     .snag-co { font-size: .73rem; color: var(--soft); }
+    .cell-photo { flex-shrink: 0; }
     .snag-thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
     .snag-thumb-empty {
       width: 44px; height: 44px; border-radius: 8px;
@@ -566,6 +503,89 @@
     .modal-title { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; }
     .modal-actions { display: flex; gap: .55rem; margin-top: 1rem; }
     .modal-actions .btn { flex: 1; }
+
+    /* ── DESKTOP OVERRIDES — kept last in the stylesheet on purpose so they always
+       win over every base (mobile) rule above, regardless of source order. Never
+       move desktop-only CSS before this point; that class of bug has bitten this
+       file more than once already. ── */
+    @media (min-width: 768px) {
+      body { font-size: 14px; }
+      .main { max-width: 640px; padding: 1.25rem 1rem; }
+      .app-bar { padding: .6rem 1rem; }
+      .card-body { padding: .85rem; }
+      .btn { padding: .55rem 1rem; font-size: .88rem; }
+      .filter-chip { font-size: .8rem; padding: .32rem .75rem; }
+      h2, .section-title { font-size: .95rem; }
+    }
+
+    @media (min-width: 1024px) {
+      body { padding-bottom: 0; padding-left: 216px; }
+      .bottom-nav {
+        position: fixed; top: 0; left: 0; bottom: auto; right: auto;
+        width: 216px; height: 100vh;
+        flex-direction: column; align-items: stretch; justify-content: flex-start;
+        border-top: none; border-right: 1px solid var(--border);
+        box-shadow: 2px 0 12px rgba(0,0,0,.05);
+        padding: 1.1rem .6rem;
+        gap: .15rem;
+        overflow-y: auto;
+      }
+      .nav-btn {
+        flex-direction: row; justify-content: flex-start; align-items: center;
+        gap: .7rem; padding: .65rem .8rem;
+        font-size: .8rem; font-weight: 700; letter-spacing: .02em; text-transform: none;
+        border-radius: 8px; flex: none; width: auto;
+      }
+      .nav-btn:hover { background: #f0f3f7; }
+      .nav-btn.active { background: var(--blue-bg); }
+      .nav-btn svg { width: 20px; height: 20px; }
+      .main { max-width: 1180px; padding: 1.75rem 2.5rem; }
+      .app-bar { position: sticky; top: 0; }
+      .fab { display: none; }
+      .toolbar-add-btn { display: inline-flex; align-items: center; }
+      .snag-num {
+        font-size: .62rem; font-weight: 700; padding: .15rem .38rem; min-width: 0;
+        background: var(--bg); color: var(--soft); border: 1px solid var(--border);
+      }
+      .badge { padding: .1rem .42rem; font-size: .6rem; border-width: 1px; }
+      .role-badge { padding: .08rem .38rem; font-size: .6rem; }
+      .filter-chip { padding: .28rem .65rem; font-size: .72rem; }
+      .app-bar h1 { font-size: .92rem; }
+      .app-bar-logo { height: 30px; width: 30px; }
+
+      /* Register block layout — each snag is its own bordered form-style block:
+         Snag ID | Description  }
+         Status  | Discipline/Subsystem/Location/Assigned  } Picture (spans full block height)
+         Date    |                                          } */
+      .card:has(.list-item) { border-radius: 0; border: 1px solid #333; box-shadow: none; }
+      .list-item {
+        display: grid;
+        grid-template-columns: 165px 1fr 92px;
+        grid-template-rows: auto auto auto;
+        padding: 0; gap: 0;
+        border-bottom: 2px solid #333;
+      }
+      .list-item:last-child { border-bottom: none; }
+      .cell-label {
+        display: block; font-size: .62rem; font-weight: 800; text-transform: uppercase;
+        letter-spacing: .04em; color: #555; margin-bottom: .15rem;
+      }
+      .cell-id, .cell-status, .cell-date, .cell-desc, .cell-meta, .cell-photo {
+        padding: .5rem .8rem; border-right: 1px solid #999;
+      }
+      .cell-id     { grid-column: 1; grid-row: 1; border-bottom: 1px solid #999; display: block; }
+      .cell-status { grid-column: 1; grid-row: 2; border-bottom: 1px solid #999; display: block; }
+      .cell-date   { grid-column: 1; grid-row: 3; display: block; font-size: .82rem; }
+      .cell-descwrap { display: contents; }
+      .cell-desc   { grid-column: 2; grid-row: 1; border-bottom: 1px solid #999; }
+      .cell-meta   { grid-column: 2; grid-row: 2 / span 2; }
+      .cell-photo  { grid-column: 3; grid-row: 1 / span 3; border-right: none; display: flex; align-items: center; justify-content: center; }
+      .snag-title { white-space: normal; font-size: .85rem; }
+      .snag-co { font-size: .68rem; }
+      .snag-meta.mobile-only-meta { display: none; }
+      .snag-meta.desktop-only-meta { display: flex; margin-top: 0; }
+      .snag-thumb, .snag-thumb-empty { width: 100%; max-width: 76px; height: 76px; border-radius: 4px; }
+    }
   </style>
 </head>
 <body>
@@ -1597,23 +1617,34 @@ function viewSnagList() {
     </button>`).join('');
 
   const items = snags.length
-    ? snags.map(s => `
+    ? snags.map(s => {
+        const metaLine = `
+              ${s.discipline ? `<span class="snag-co" style="color:var(--blue)">${esc(s.discipline)}${s.subsystem?` › ${esc(s.subsystem)}`:''}</span>` : ''}
+              ${s.building||s.floor||s.room ? `<span class="snag-co">${[s.building?`${esc(s.building)}${s.buildingName?` (${esc(s.buildingName)})`:''}`:'',s.floor?`Fl ${esc(s.floor)}`:'',s.room?`Rm ${esc(s.room)}`:''].filter(Boolean).join(' · ')}</span>` : ''}
+              <span class="snag-co">${esc(coName(s.assignedTo))}</span>`;
+        const photoInner = s.photo
+          ? `<img class="snag-thumb" src="${s.photo}" onerror="this.outerHTML='&lt;div class=&quot;snag-thumb-empty&quot; title=&quot;Photo unavailable&quot;&gt;⚠️&lt;/div&gt;'" />`
+          : `<div class="snag-thumb-empty">📷</div>`;
+        return `
         <div class="list-item" data-fn="goSnag" data-a1="${s.id}">
-          <div class="snag-id-cell">
+          <div class="cell-id">
+            <span class="cell-label">Snag ID</span>
             <div class="snag-num">${numStr(s.number)}</div>
             ${s.category ? `<div class="cat-chip" style="background:${SNAG_CATEGORIES[s.category].bg};color:${SNAG_CATEGORIES[s.category].color}" title="${esc(SNAG_CATEGORIES[s.category].label)}">${s.category}</div>` : ''}
           </div>
-          <div class="snag-info">
-            <div class="snag-title">${esc(s.title)}</div>
-            <div class="snag-meta">
-              ${badge(s.status)}
-              ${s.discipline ? `<span class="snag-co" style="color:var(--blue)">${esc(s.discipline)}${s.subsystem?` › ${esc(s.subsystem)}`:''}</span>` : ''}
-              ${s.building||s.floor||s.room ? `<span class="snag-co">${[s.building?`${esc(s.building)}${s.buildingName?` (${esc(s.buildingName)})`:''}`:'',s.floor?`Fl ${esc(s.floor)}`:'',s.room?`Rm ${esc(s.room)}`:''].filter(Boolean).join(' · ')}</span>` : ''}
-              <span class="snag-co">${esc(coName(s.assignedTo))}</span>
+          <div class="cell-status"><span class="cell-label">Status</span>${badge(s.status)}</div>
+          <div class="cell-date"><span class="cell-label">Date</span><span>${fmtDate(s.createdAt)}</span></div>
+          <div class="cell-descwrap">
+            <div class="cell-desc"><span class="cell-label">Description</span><div class="snag-title">${esc(s.title)}</div></div>
+            <div class="cell-meta">
+              <span class="cell-label">Discipline / Subsystem / Location / Assigned To</span>
+              <div class="snag-meta mobile-only-meta">${badge(s.status)}${metaLine}</div>
+              <div class="snag-meta desktop-only-meta">${metaLine}</div>
             </div>
           </div>
-          ${s.photo ? `<img class="snag-thumb" src="${s.photo}" onerror="this.outerHTML='&lt;div class=&quot;snag-thumb-empty&quot; title=&quot;Photo unavailable&quot;&gt;⚠️&lt;/div&gt;'" />` : `<div class="snag-thumb-empty">📷</div>`}
-        </div>`).join('')
+          <div class="cell-photo">${photoInner}</div>
+        </div>`;
+      }).join('')
     : `<div class="empty"><div class="eico">✅</div><p>No snags${S.filter!=='all'?' with this filter':''}.</p></div>`;
 
   return appBar(esc(p.name), 'projects') + `
@@ -1623,14 +1654,7 @@ function viewSnagList() {
         <div class="filter-row">${chips}</div>
         ${!isContractor ? `<button class="btn btn-primary toolbar-add-btn" data-fn="fabNewSnag">+ Add Snag</button>` : ''}
       </div>
-      <div class="card">
-        <div class="register-head">
-          <div class="rh-id">Snag ID</div>
-          <div class="rh-desc">Description / Status / Location / Assigned To</div>
-          <div class="rh-photo">Photo</div>
-        </div>
-        ${items}
-      </div>
+      <div class="card">${items}</div>
     </div>
     ${!isContractor ? `<button class="fab" data-fn="fabNewSnag">+</button>` : ''}
     ` + navBar('snag-list');
