@@ -73,6 +73,17 @@
       font-size: 1.4rem; cursor: pointer; padding: 0 .2rem; line-height: 1;
     }
     .back-btn:hover { color: #fff; }
+    .bell-btn {
+      position: relative; background: none; border: none; color: rgba(255,255,255,.85);
+      font-size: 1.1rem; cursor: pointer; padding: .3rem; line-height: 1; flex-shrink: 0;
+    }
+    .bell-btn:hover { color: #fff; }
+    .bell-badge {
+      position: absolute; top: -2px; right: -2px; background: var(--red); color: #fff;
+      font-size: .58rem; font-weight: 800; min-width: 15px; height: 15px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; padding: 0 3px;
+      border: 1.5px solid var(--navy);
+    }
     .user-chip {
       display: flex; align-items: center; gap: .35rem;
       background: rgba(255,255,255,.12); border-radius: 6px;
@@ -221,6 +232,8 @@
       .nav-btn svg { width: 20px; height: 20px; }
       .main { max-width: 920px; padding: 1.75rem 2.25rem; }
       .app-bar { position: sticky; top: 0; }
+      .fab { display: none; }
+      .toolbar-add-btn { display: inline-flex; align-items: center; }
     }
 
     /* ── Cards ── */
@@ -437,6 +450,9 @@
     .del-btn:hover { color: var(--red); }
 
     /* ── Filters ── */
+    .filter-toolbar { display: flex; align-items: center; gap: .6rem; }
+    .filter-toolbar .filter-row { flex: 1; margin-bottom: .75rem; }
+    .toolbar-add-btn { display: none; white-space: nowrap; margin-bottom: .75rem; }
     .filter-row {
       display: flex; gap: .3rem; overflow-x: auto; margin-bottom: .75rem;
       scrollbar-width: none; padding-bottom: 2px;
@@ -1519,7 +1535,10 @@ function viewSnagList() {
   return appBar(esc(p.name), 'projects') + `
     <div class="main">
       ${isContractor ? `<div class="alert alert-info">Showing snags assigned to <strong>${esc(coName(S.currentUser.companyId))}</strong></div>` : ''}
-      <div class="filter-row">${chips}</div>
+      <div class="filter-toolbar">
+        <div class="filter-row">${chips}</div>
+        ${!isContractor ? `<button class="btn btn-primary toolbar-add-btn" data-fn="fabNewSnag">+ Add Snag</button>` : ''}
+      </div>
       <div class="card">${items}</div>
     </div>
     ${!isContractor ? `<button class="fab" data-fn="fabNewSnag">+</button>` : ''}
@@ -2139,8 +2158,36 @@ const SITEASSURE_MARK = `<svg viewBox="0 0 120 120" fill="none" xmlns="http://ww
   <rect x="44" y="92" width="32" height="11" fill="#FFD700"/>
 </svg>`;
 
+// Snags relevant to the current user that changed since they last checked notifications
+function getNotifSnags() {
+  if (!S.currentUser) return [];
+  const profile = db.users.find(u => u.id === S.currentUser.id);
+  const seenAt = profile?.notifSeenAt || 0;
+  const isContractor = S.currentUser.role === 'contractor';
+  return db.snags.filter(s => {
+    const lastAt = (s.history && s.history.length) ? s.history[s.history.length-1].at : s.createdAt;
+    if (!lastAt || lastAt <= seenAt) return false;
+    return isContractor
+      ? s.assignedTo === S.currentUser.companyId && (s.status === 'assigned' || s.status === 'rejected')
+      : s.status === 'pending';
+  });
+}
+function openNotifications() {
+  const profile = db.users.find(u => u.id === S.currentUser.id);
+  if (profile) { profile.notifSeenAt = Date.now(); saveDB(); }
+  const isContractor = S.currentUser.role === 'contractor';
+  setFilter(isContractor ? 'assigned' : 'pending');
+  go('snag-list');
+}
+
 function appBar(title, backView, sub) {
   const back = backView ? `<button class="back-btn" data-fn="goView" data-a1="${backView}">&#8592;</button>` : '';
+  const notifCount = getNotifSnags().length;
+  const bell = S.currentUser && S.currentUser.id !== '__setup__'
+    ? `<button class="bell-btn" data-fn="openNotifications" title="Snags needing your attention">
+         🔔${notifCount ? `<span class="bell-badge">${notifCount > 9 ? '9+' : notifCount}</span>` : ''}
+       </button>`
+    : '';
   const user = S.currentUser && S.currentUser.id !== '__setup__'
     ? `<div class="user-chip">
          <div class="avatar" style="background:${avatarColour(S.currentUser.name)}">${S.currentUser.name.charAt(0).toUpperCase()}</div>
@@ -2149,7 +2196,7 @@ function appBar(title, backView, sub) {
        <button class="logout-btn" data-fn="logout">Log out</button>`
     : '';
   const logo = `<span class="app-bar-logo">${SITEASSURE_MARK}</span>`;
-  return `<div class="app-bar">${back}<h1><span>${title}</span>${logo}${sub?`<small>${sub}</small>`:''}</h1>${user}</div>`;
+  return `<div class="app-bar">${back}<h1><span>${title}</span>${logo}${sub?`<small>${sub}</small>`:''}</h1>${bell}${user}</div>`;
 }
 
 function navBar(active) {
