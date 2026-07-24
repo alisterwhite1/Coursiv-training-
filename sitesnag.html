@@ -983,6 +983,151 @@ function removePhoto()     { snap(); S.fd.photo = null; render(); }
 function removeRectPhoto() { snap(); S.fd.rectPhoto = null; render(); }
 function cancelSnagForm()  { go(S.snagId ? 'snag-detail' : 'snag-list'); }
 
+// ── PHOTO ANNOTATION ──────────────────────────────────────────────────────────
+// Built as a standalone overlay appended directly to document.body (not part of
+// the app's render() tree) so continuous pointer drawing survives untouched
+// even if unrelated app state changes trigger a re-render elsewhere.
+let _anno = null;
+
+function _annoDrawArrow(ctx, x1, y1, x2, y2) {
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  const angle = Math.atan2(y2 - y1, x2 - x1);
+  const headLen = Math.max(14, ctx.lineWidth * 4.5);
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - headLen * Math.cos(angle - Math.PI / 6), y2 - headLen * Math.sin(angle - Math.PI / 6));
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - headLen * Math.cos(angle + Math.PI / 6), y2 - headLen * Math.sin(angle + Math.PI / 6));
+  ctx.stroke();
+}
+
+function openAnnotator(target) {
+  const src = target === 'rectPhoto' ? S.fd.rectPhoto : S.fd.photo;
+  if (!src) return;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'anno-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99990;background:rgba(10,10,15,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;gap:.7rem';
+  overlay.innerHTML = `
+    <canvas id="anno-canvas" style="max-width:88vw;max-height:58vh;touch-action:none;border-radius:8px;background:#000;box-shadow:0 4px 24px rgba(0,0,0,.5)"></canvas>
+    <div style="display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center;max-width:420px">
+      <button type="button" class="anno-tool-btn active" data-tool="pen" style="padding:.5rem .8rem;border-radius:8px;border:2px solid #555;background:#2a2a2a;color:#fff;font-size:.85rem;cursor:pointer">✏️ Pen</button>
+      <button type="button" class="anno-tool-btn" data-tool="circle" style="padding:.5rem .8rem;border-radius:8px;border:2px solid #555;background:#2a2a2a;color:#fff;font-size:.85rem;cursor:pointer">⭕ Circle</button>
+      <button type="button" class="anno-tool-btn" data-tool="arrow" style="padding:.5rem .8rem;border-radius:8px;border:2px solid #555;background:#2a2a2a;color:#fff;font-size:.85rem;cursor:pointer">➡️ Arrow</button>
+      <button type="button" class="anno-color-btn active" data-color="#ff3b30" style="width:34px;height:34px;border-radius:50%;border:2px solid #fff;background:#ff3b30;cursor:pointer"></button>
+      <button type="button" class="anno-color-btn" data-color="#ffd700" style="width:34px;height:34px;border-radius:50%;border:2px solid transparent;background:#ffd700;cursor:pointer"></button>
+      <button type="button" class="anno-color-btn" data-color="#ffffff" style="width:34px;height:34px;border-radius:50%;border:2px solid transparent;background:#ffffff;cursor:pointer"></button>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center">
+      <button type="button" id="anno-undo" class="btn btn-outline btn-sm" style="background:#2a2a2a;color:#fff;border-color:#555">↩ Undo</button>
+      <button type="button" id="anno-clear" class="btn btn-outline btn-sm" style="background:#2a2a2a;color:#fff;border-color:#555">Clear</button>
+      <button type="button" id="anno-cancel" class="btn btn-outline btn-sm" style="background:#2a2a2a;color:#fff;border-color:#555">Cancel</button>
+      <button type="button" id="anno-save" class="btn btn-primary btn-sm">✓ Save</button>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const canvas = overlay.querySelector('#anno-canvas');
+  const ctx = canvas.getContext('2d');
+  _anno = { canvas, ctx, tool: 'pen', color: '#ff3b30', drawing: false, startX: 0, startY: 0, history: [], preSnapshot: null, target };
+
+  const img = new Image();
+  img.onload = () => {
+    const maxDim = 1400;
+    let w = img.naturalWidth, h = img.naturalHeight;
+    if (w > maxDim || h > maxDim) { const sc = maxDim / Math.max(w, h); w = Math.round(w * sc); h = Math.round(h * sc); }
+    canvas.width = w; canvas.height = h;
+    ctx.drawImage(img, 0, 0, w, h);
+    _anno.history = [ctx.getImageData(0, 0, w, h)];
+  };
+  img.src = src;
+
+  overlay.querySelectorAll('.anno-tool-btn').forEach(b => b.addEventListener('click', () => {
+    _anno.tool = b.dataset.tool;
+    overlay.querySelectorAll('.anno-tool-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+  }));
+  overlay.querySelectorAll('.anno-color-btn').forEach(b => b.addEventListener('click', () => {
+    _anno.color = b.dataset.color;
+    overlay.querySelectorAll('.anno-color-btn').forEach(x => x.style.border = '2px solid transparent');
+    b.style.border = '2px solid #fff';
+  }));
+
+  function pos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
+    return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+  }
+  function snapshot() {
+    _anno.history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+    if (_anno.history.length > 20) _anno.history.shift();
+  }
+  function start(e) {
+    e.preventDefault();
+    canvas.setPointerCapture?.(e.pointerId);
+    _anno.drawing = true;
+    const p = pos(e);
+    _anno.startX = p.x; _anno.startY = p.y;
+    _anno.preSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = _anno.color;
+    ctx.lineWidth = Math.max(3, canvas.width * 0.006);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (_anno.tool === 'pen') { ctx.beginPath(); ctx.moveTo(p.x, p.y); }
+  }
+  function move(e) {
+    if (!_anno.drawing) return;
+    e.preventDefault();
+    const p = pos(e);
+    if (_anno.tool === 'pen') {
+      ctx.lineTo(p.x, p.y); ctx.stroke();
+    } else {
+      ctx.putImageData(_anno.preSnapshot, 0, 0);
+      ctx.strokeStyle = _anno.color;
+      ctx.lineWidth = Math.max(3, canvas.width * 0.006);
+      if (_anno.tool === 'circle') {
+        const rx = Math.abs(p.x - _anno.startX), ry = Math.abs(p.y - _anno.startY);
+        ctx.beginPath();
+        ctx.ellipse((_anno.startX + p.x) / 2, (_anno.startY + p.y) / 2, rx / 2, ry / 2, 0, 0, 2 * Math.PI);
+        ctx.stroke();
+      } else if (_anno.tool === 'arrow') {
+        _annoDrawArrow(ctx, _anno.startX, _anno.startY, p.x, p.y);
+      }
+    }
+  }
+  function end() {
+    if (!_anno.drawing) return;
+    _anno.drawing = false;
+    snapshot();
+  }
+  canvas.addEventListener('pointerdown', start);
+  canvas.addEventListener('pointermove', move);
+  canvas.addEventListener('pointerup', end);
+  canvas.addEventListener('pointercancel', end);
+
+  overlay.querySelector('#anno-undo').addEventListener('click', () => {
+    if (_anno.history.length > 1) {
+      _anno.history.pop();
+      ctx.putImageData(_anno.history[_anno.history.length - 1], 0, 0);
+    }
+  });
+  overlay.querySelector('#anno-clear').addEventListener('click', () => {
+    ctx.putImageData(_anno.history[0], 0, 0);
+    _anno.history = [_anno.history[0]];
+  });
+  overlay.querySelector('#anno-cancel').addEventListener('click', closeAnnotator);
+  overlay.querySelector('#anno-save').addEventListener('click', () => {
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    if (_anno.target === 'rectPhoto') S.fd.rectPhoto = dataUrl; else S.fd.photo = dataUrl;
+    closeAnnotator();
+    render();
+  });
+}
+
+function closeAnnotator() {
+  const el = document.getElementById('anno-overlay');
+  if (el) el.remove();
+  _anno = null;
+}
+
 // ── STATE ──────────────────────────────────────────────────────────────────────
 let S = {
   view: 'login',
@@ -1829,7 +1974,8 @@ function viewSnagForm() {
           <label class="form-label">Photo</label>
           ${photo
             ? `<div class="photo-wrap"><img src="${photo}" />
-               <button class="photo-remove" data-fn="removePhoto">×</button></div>`
+               <button class="photo-remove" data-fn="removePhoto">×</button></div>
+               <button type="button" class="btn btn-outline btn-sm btn-block" style="margin-top:.5rem" data-fn="openAnnotator" data-a1="photo">✏️ Annotate Photo</button>`
             : `<label class="photo-trigger" for="photoIn">📷 Take / Choose Photo</label>
                <input type="file" id="photoIn" accept="image/*" capture="environment" style="display:none"
                       onchange="handlePhoto(this)" />`}
@@ -1888,7 +2034,8 @@ function viewContractorRespond() {
           <label class="form-label">Rectification Photo *</label>
           ${photo
             ? `<div class="photo-wrap"><img src="${photo}" />
-               <button class="photo-remove" data-fn="removeRectPhoto">×</button></div>`
+               <button class="photo-remove" data-fn="removeRectPhoto">×</button></div>
+               <button type="button" class="btn btn-outline btn-sm btn-block" style="margin-top:.5rem" data-fn="openAnnotator" data-a1="rectPhoto">✏️ Annotate Photo</button>`
             : `<label class="photo-trigger" for="rectPhotoIn">📷 Photograph Completed Work</label>
                <input type="file" id="rectPhotoIn" accept="image/*" capture="environment" style="display:none"
                       onchange="handleRectPhoto(this)" />`}
