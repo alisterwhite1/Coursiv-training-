@@ -6,8 +6,9 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <!-- v5 -->
+  <!-- v6 -->
   <title>SiteSnag — Construction Inspection</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect x='20' y='24' width='80' height='11' fill='%230f2544'/%3E%3Crect x='26' y='41' width='68' height='11' fill='%230f2544'/%3E%3Crect x='32' y='58' width='56' height='11' fill='%230f2544'/%3E%3Crect x='38' y='75' width='44' height='11' fill='%230f2544'/%3E%3Crect x='44' y='92' width='32' height='11' fill='%23FFD700'/%3E%3C/svg%3E" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.2/dist/umd/supabase.min.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -54,6 +55,7 @@
       background: var(--navy);
       color: #fff;
       padding: .75rem 1rem;
+      min-height: 52px;
       display: flex;
       align-items: center;
       gap: .6rem;
@@ -62,8 +64,10 @@
       z-index: 90;
       box-shadow: 0 2px 8px rgba(0,0,0,.18);
     }
-    .app-bar h1 { font-size: 1.05rem; font-weight: 600; flex: 1; line-height: 1.2; letter-spacing: .01em; }
-    .app-bar h1 small { display: block; font-size: .68rem; font-weight: 400; opacity: .5; letter-spacing: .06em; text-transform: uppercase; }
+    .app-bar h1 { font-size: 1.05rem; font-weight: 600; flex: 1; line-height: 1.2; letter-spacing: .01em; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+    .app-bar h1 small { display: block; font-size: .68rem; font-weight: 400; opacity: .5; letter-spacing: .06em; text-transform: uppercase; flex-basis: 100%; }
+    .app-bar-logo { height: 39px; width: 39px; flex-shrink: 0; display: inline-flex; }
+    .app-bar-logo svg { width: 100%; height: 100%; display: block; }
     .back-btn {
       background: none; border: none; color: rgba(255,255,255,.7);
       font-size: 1.4rem; cursor: pointer; padding: 0 .2rem; line-height: 1;
@@ -181,6 +185,17 @@
 
     /* ── Main ── */
     .main { padding: .85rem; max-width: 580px; margin: 0 auto; }
+
+    /* ── Desktop tightening — mobile-first sizing reads oversized on wide screens ── */
+    @media (min-width: 768px) {
+      body { font-size: 14px; }
+      .main { max-width: 640px; padding: 1.25rem 1rem; }
+      .app-bar { padding: .6rem 1rem; }
+      .card-body { padding: .85rem; }
+      .btn { padding: .55rem 1rem; font-size: .88rem; }
+      .filter-chip { font-size: .8rem; padding: .32rem .75rem; }
+      h2, .section-title { font-size: .95rem; }
+    }
 
     /* ── Cards ── */
     .card {
@@ -474,6 +489,15 @@
 <!-- ── SPLASH SCREEN ─────────────────────────────────────────────────────────── -->
 <div id="splash" style="position:fixed;inset:0;z-index:99999;background:#002366;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer" onclick="dismissSplash()">
   <div id="splash-app-name" style="opacity:0;transition:opacity .9s ease;text-align:center">
+    <div style="width:64px;height:64px;margin:0 auto .7rem">
+      <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block">
+        <rect x="20" y="24" width="80" height="11" fill="#fff" opacity="0.85"/>
+        <rect x="26" y="41" width="68" height="11" fill="#fff" opacity="0.85"/>
+        <rect x="32" y="58" width="56" height="11" fill="#fff" opacity="0.85"/>
+        <rect x="38" y="75" width="44" height="11" fill="#fff" opacity="0.85"/>
+        <rect x="44" y="92" width="32" height="11" fill="#FFD700"/>
+      </svg>
+    </div>
     <div style="font-size:2.6rem;font-weight:900;color:#FFD700;letter-spacing:.08em;font-family:inherit">SiteSnag</div>
     <div style="font-size:.85rem;color:rgba(255,215,0,.65);letter-spacing:.18em;text-transform:uppercase;margin-top:.35rem">Construction Quality Inspection</div>
   </div>
@@ -490,7 +514,15 @@
 <!-- ── Static login screen — event listeners attached in JS, never injected via innerHTML ── -->
 <div id="login-screen">
   <div class="login-wrap">
-    <div class="login-logo">🏗</div>
+    <div class="login-logo" style="width:56px;height:56px;margin:0 auto">
+      <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block">
+        <rect x="20" y="24" width="80" height="11" fill="var(--navy)" opacity="0.85"/>
+        <rect x="26" y="41" width="68" height="11" fill="var(--navy)" opacity="0.85"/>
+        <rect x="32" y="58" width="56" height="11" fill="var(--navy)" opacity="0.85"/>
+        <rect x="38" y="75" width="44" height="11" fill="var(--navy)" opacity="0.85"/>
+        <rect x="44" y="92" width="32" height="11" fill="var(--blue)"/>
+      </svg>
+    </div>
     <div class="login-title">SiteSnag</div>
     <div class="login-sub">Construction Quality Inspection</div>
     <div style="font-size:.7rem;color:var(--muted);margin-top:-.5rem;margin-bottom:.5rem">v2026.07.23</div>
@@ -2006,6 +2038,14 @@ function viewReports() {
 }
 
 // ── CHROME ─────────────────────────────────────────────────────────────────────
+const SITEASSURE_MARK = `<svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="20" y="24" width="80" height="11" fill="#fff" opacity="0.85"/>
+  <rect x="26" y="41" width="68" height="11" fill="#fff" opacity="0.85"/>
+  <rect x="32" y="58" width="56" height="11" fill="#fff" opacity="0.85"/>
+  <rect x="38" y="75" width="44" height="11" fill="#fff" opacity="0.85"/>
+  <rect x="44" y="92" width="32" height="11" fill="#FFD700"/>
+</svg>`;
+
 function appBar(title, backView, sub) {
   const back = backView ? `<button class="back-btn" data-fn="goView" data-a1="${backView}">&#8592;</button>` : '';
   const user = S.currentUser && S.currentUser.id !== '__setup__'
@@ -2015,7 +2055,8 @@ function appBar(title, backView, sub) {
        </div>
        <button class="logout-btn" data-fn="logout">Log out</button>`
     : '';
-  return `<div class="app-bar">${back}<h1>${title}${sub?`<small>${sub}</small>`:''}</h1>${user}</div>`;
+  const logo = `<span class="app-bar-logo">${SITEASSURE_MARK}</span>`;
+  return `<div class="app-bar">${back}<h1><span>${title}</span>${logo}${sub?`<small>${sub}</small>`:''}</h1>${user}</div>`;
 }
 
 function navBar(active) {
