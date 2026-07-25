@@ -815,7 +815,7 @@ function _scheduleRetry() {
 
 // Re-attempt R2 upload for any photo still stored as base64 (captured while offline/R2 unreachable)
 async function _tryUploadPendingPhotos() {
-  if (!navigator.onLine || !R2_PUBLIC_URL) return;
+  if (!navigator.onLine || !PHOTO_WORKER_URL) return;
   let changed = false;
   for (const s of db.snags) {
     if (s.photo && s.photo.startsWith('data:')) {
@@ -871,14 +871,16 @@ async function pushToSupabase() {
   }
 }
 
-// ── CLOUDFLARE R2 PHOTO UPLOAD ─────────────────────────────────────────────────
-// Uploads go through a Cloudflare Worker (worker/) that holds an R2 bucket
-// binding — no access key or secret is ever present in this client-side file.
-let R2_PUBLIC_URL    = 'https://pub-30485994f7b944fa9be367389d82e365.r2.dev';
+// ── CLOUDFLARE R2 PHOTO UPLOAD/SERVE ────────────────────────────────────────────
+// Both uploads AND reads go through a Cloudflare Worker (worker/) that holds an
+// R2 bucket binding — no access key/secret ever lives in this client-side file,
+// and photo URLs never touch R2's public pub-*.r2.dev domain, which Cloudflare
+// explicitly rate-limits and does not support for production traffic.
+const OLD_R2_PUBLIC_URL = 'https://pub-30485994f7b944fa9be367389d82e365.r2.dev'; // legacy — used only to detect/migrate old links
 let PHOTO_WORKER_URL = 'https://sitesnag-photo-upload.alister-white.workers.dev';
 
 async function uploadPhotoToR2(dataUrl, path) {
-  if (!R2_PUBLIC_URL || !PHOTO_WORKER_URL) return null;
+  if (!PHOTO_WORKER_URL) return null;
   try {
     const blob = await (await fetch(dataUrl)).blob();
     const resp = await fetch(`${PHOTO_WORKER_URL.replace(/\/$/,'')}/${path}`, {
@@ -887,7 +889,7 @@ async function uploadPhotoToR2(dataUrl, path) {
       body: blob
     });
     if (!resp.ok) throw new Error(resp.status);
-    return `${R2_PUBLIC_URL}/${path}`;
+    return `${PHOTO_WORKER_URL.replace(/\/$/,'')}/${path}`;
   } catch(e) {
     console.warn('Photo upload failed, keeping base64:', e.message);
     return null;
@@ -908,7 +910,6 @@ async function pullFromSupabase() {
     if (!db.subsystems) db.subsystems = [];
     if (!db.splashConfig) db.splashConfig = { projectImage: null, logos: [] };
     if (!db.disciplines || !db.disciplines.length) db.disciplines = [...DEFAULT_DISCIPLINES];
-    if (db.settings?.r2PublicUrl) R2_PUBLIC_URL = db.settings.r2PublicUrl;
     if (db.settings?.photoWorkerUrl) PHOTO_WORKER_URL = db.settings.photoWorkerUrl;
     if (storageOK) localStorage.setItem(DB_KEY, JSON.stringify(db));
     _syncStatus = 'ok';
@@ -3160,17 +3161,6 @@ function _pdfPageHeader(doc, projName, W, NAVY, WHITE) {
 }
 
 // ── ACTIONS ────────────────────────────────────────────────────────────────────
-function saveR2Url() {
-  const v = document.getElementById('r2_public_url')?.value.trim().replace(/\/+$/,'');
-  if (v && !v.startsWith('https://')) { alert('URL must start with https://'); return; }
-  R2_PUBLIC_URL = v || '';
-  if (storageOK) localStorage.setItem('sitesnag_r2url', R2_PUBLIC_URL);
-  if (!db.settings) db.settings = {};
-  db.settings.r2PublicUrl = R2_PUBLIC_URL;
-  saveDB();
-  render();
-  alert(R2_PUBLIC_URL ? '✓ R2 photo upload enabled. New photos will upload to Cloudflare.' : 'R2 URL cleared — photos will store in Supabase.');
-}
 function saveWorkerUrl() {
   const v = document.getElementById('photo_worker_url')?.value.trim().replace(/\/+$/,'');
   if (v && !v.startsWith('https://')) { alert('URL must start with https://'); return; }
@@ -3180,7 +3170,28 @@ function saveWorkerUrl() {
   db.settings.photoWorkerUrl = PHOTO_WORKER_URL;
   saveDB();
   render();
-  alert(PHOTO_WORKER_URL ? '✓ Uploads now go through the Worker — R2 keys are no longer used for new photos.' : 'Worker URL cleared — uploads will use the direct R2 keys again.');
+  alert(PHOTO_WORKER_URL ? '✓ Photo uploads and viewing now go through the Worker.' : 'Worker URL cleared — photo uploads/viewing will not work until it is set again.');
+}
+
+// One-time fix for snags whose photo links still point at the old rate-limited
+// pub-*.r2.dev URL (the original cause of "broken photo" reports) — rewrites
+// them to the Worker URL, which serves the same underlying files reliably.
+function migrateOldPhotoUrls() {
+  if (!PHOTO_WORKER_URL) { alert('Set the Photo Upload Worker URL first.'); return; }
+  const base = PHOTO_WORKER_URL.replace(/\/$/, '');
+  let count = 0;
+  db.snags.forEach(s => {
+    if (s.photo && s.photo.startsWith(OLD_R2_PUBLIC_URL)) {
+      s.photo = base + s.photo.slice(OLD_R2_PUBLIC_URL.length);
+      count++;
+    }
+    if (s.rectification?.photo && s.rectification.photo.startsWith(OLD_R2_PUBLIC_URL)) {
+      s.rectification.photo = base + s.rectification.photo.slice(OLD_R2_PUBLIC_URL.length);
+      count++;
+    }
+  });
+  if (count) { saveDB(); render(); }
+  alert(count ? `✓ Fixed ${count} photo link(s).` : 'No old-style photo links found — nothing to fix.');
 }
 
 function saveSlaTargets() {
@@ -3576,26 +3587,20 @@ function viewLocations() {
     <div class="card card-body" style="margin-bottom:.75rem">
       <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">📸 Photo Storage</div>
       <div style="font-size:.82rem;color:var(--soft);margin-bottom:.75rem;line-height:1.5">
-        Photos upload to Cloudflare R2 via a Worker proxy — no storage keys are ever present
-        in the app's source code. Only change these if you redeploy the Worker or bucket elsewhere.
-      </div>
-      <div class="form-group" style="margin-bottom:.6rem">
-        <label class="form-label">R2 Public URL</label>
-        <div style="display:flex;gap:.5rem;align-items:center">
-          <input type="url" id="r2_public_url" placeholder="https://pub-XXXX.r2.dev"
-            value="${esc(R2_PUBLIC_URL)}" style="flex:1;padding:.5rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
-          <button class="btn btn-primary" style="white-space:nowrap" data-fn="saveR2Url">Save</button>
-        </div>
+        Both uploading and viewing photos go through this Worker, which reads/writes Cloudflare R2
+        via a bucket binding — no storage keys live in the app's source, and R2's rate-limited
+        public dev URL is never used. Only change this if you redeploy the Worker elsewhere.
       </div>
       <div class="form-group">
-        <label class="form-label">Upload Worker URL</label>
+        <label class="form-label">Photo Worker URL</label>
         <div style="display:flex;gap:.5rem;align-items:center">
           <input type="url" id="photo_worker_url" placeholder="https://sitesnag-photo-upload.xxx.workers.dev"
             value="${esc(PHOTO_WORKER_URL)}" style="flex:1;padding:.5rem .7rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
           <button class="btn btn-primary" style="white-space:nowrap" data-fn="saveWorkerUrl">Save</button>
         </div>
       </div>
-      ${(R2_PUBLIC_URL && PHOTO_WORKER_URL) ? `<div style="font-size:.8rem;color:var(--green);margin-top:.6rem;font-weight:600">✓ Secure upload path active</div>` : `<div style="font-size:.8rem;color:var(--amber);margin-top:.6rem;font-weight:600">⚠ Incomplete — both URLs are required for photo uploads to work</div>`}
+      ${PHOTO_WORKER_URL ? `<div style="font-size:.8rem;color:var(--green);margin-top:.6rem;font-weight:600">✓ Photo storage active</div>` : `<div style="font-size:.8rem;color:var(--amber);margin-top:.6rem;font-weight:600">⚠ Not set — photo uploads/viewing won't work</div>`}
+      <button class="btn btn-outline btn-block" style="margin-top:.75rem" data-fn="migrateOldPhotoUrls">🔧 Fix any old broken photo links</button>
     </div>
 
     <div class="card card-body" style="margin-bottom:.75rem">
@@ -3997,7 +4002,6 @@ function importData(input) {
 // ── INIT ───────────────────────────────────────────────────────────────────────
 loadDB();
 // Allow admin override via db.settings (Config → Photo Storage), otherwise use hardcoded default
-if (db.settings?.r2PublicUrl) R2_PUBLIC_URL = db.settings.r2PublicUrl;
 if (db.settings?.photoWorkerUrl) PHOTO_WORKER_URL = db.settings.photoWorkerUrl;
 loadState();
 if (!storageOK) showStorageWarning();
