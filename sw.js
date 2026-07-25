@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sitesnag-v12';
+const CACHE_NAME = 'sitesnag-v13';
 const APP_SHELL = [
   './sitesnag.html',
   './manifest.json',
@@ -29,6 +29,13 @@ self.addEventListener('fetch', event => {
   if (req.method !== 'GET') return;
 
   const isAppHtml = req.mode === 'navigate' || req.url.includes('sitesnag.html');
+  const isKnownCDN = APP_SHELL.includes(req.url);
+
+  // Only manage the app's own HTML and the explicitly pinned CDN libraries above.
+  // Everything else (R2 photos, Supabase API calls, etc.) is left completely alone —
+  // routing it through this service worker's fetch() forces CORS enforcement that
+  // breaks plain cross-origin <img> loads even when they'd work fine natively.
+  if (!isAppHtml && !isKnownCDN) return;
 
   if (isAppHtml) {
     // Network-first for the app itself — always get the latest version when online,
@@ -43,7 +50,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Cache-first for pinned CDN libraries and icons — they don't change under a fixed URL.
+  // Cache-first for pinned CDN libraries — they don't change under a fixed URL.
   event.respondWith(
     caches.match(req).then(cached => cached || fetch(req).then(res => {
       const copy = res.clone();
