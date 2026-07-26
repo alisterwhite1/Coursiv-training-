@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0" />
   <!-- v7 -->
   <title>SiteSnag — Construction Inspection</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect x='12' y='44' width='80' height='32' rx='16' fill='%230f2544'/%3E%3Ccircle cx='94' cy='60' r='16' fill='%23FFD700'/%3E%3Cpath d='M87 60 L92 65 L101 53' stroke='%230f2544' stroke-width='6' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='8 40 106 40'%3E%3Crect x='12' y='44' width='80' height='32' rx='16' fill='%230f2544'/%3E%3Ccircle cx='94' cy='60' r='16' fill='%23FFD700'/%3E%3Cpath d='M87 60 L92 65 L101 53' stroke='%230f2544' stroke-width='6' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E" />
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icons/icon-180.png" />
   <meta name="theme-color" content="#0f2544" />
@@ -72,7 +72,7 @@
     }
     .app-bar h1 { font-size: 1.05rem; font-weight: 600; flex: 1; line-height: 1.2; letter-spacing: .01em; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
     .app-bar h1 small { display: block; font-size: .68rem; font-weight: 400; opacity: .5; letter-spacing: .06em; text-transform: uppercase; flex-basis: 100%; }
-    .app-bar-logo { height: 29px; width: 43px; flex-shrink: 0; display: inline-flex; }
+    .app-bar-logo { height: 27px; width: 72px; flex-shrink: 0; display: inline-flex; }
     .app-bar-logo svg { width: 100%; height: 100%; display: block; }
     .back-btn {
       background: none; border: none; color: rgba(255,255,255,.7);
@@ -551,7 +551,7 @@
       .role-badge { padding: .08rem .38rem; font-size: .6rem; }
       .filter-chip { padding: .28rem .65rem; font-size: .72rem; }
       .app-bar h1 { font-size: .92rem; }
-      .app-bar-logo { height: 22px; width: 33px; }
+      .app-bar-logo { height: 21px; width: 56px; }
 
       /* Register block layout — each snag is its own bordered form-style block:
          Snag ID | Description  }
@@ -590,8 +590,8 @@
 <!-- ── SPLASH SCREEN ─────────────────────────────────────────────────────────── -->
 <div id="splash" style="position:fixed;inset:0;z-index:99999;background:#002366;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer" onclick="dismissSplash()">
   <div id="splash-app-name" style="opacity:0;transition:opacity .9s ease;text-align:center">
-    <div style="width:88px;height:36px;margin:0 auto .9rem">
-      <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block">
+    <div style="width:132px;height:50px;margin:0 auto .9rem">
+      <svg viewBox="8 40 106 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block">
         <rect x="12" y="44" width="80" height="32" rx="16" fill="#fff" opacity="0.92"/>
         <circle cx="94" cy="60" r="16" fill="#FFD700"/>
         <path d="M87 60 L92 65 L101 53" stroke="#002366" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -613,8 +613,8 @@
 <!-- ── Static login screen — event listeners attached in JS, never injected via innerHTML ── -->
 <div id="login-screen">
   <div class="login-wrap">
-    <div class="login-logo" style="width:78px;height:32px;margin:0 auto">
-      <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block">
+    <div class="login-logo" style="width:106px;height:40px;margin:0 auto">
+      <svg viewBox="8 40 106 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block">
         <rect x="12" y="44" width="80" height="32" rx="16" fill="var(--navy)" opacity="0.92"/>
         <circle cx="94" cy="60" r="16" fill="#FFD700"/>
         <path d="M87 60 L92 65 L101 53" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -2404,7 +2404,7 @@ function viewReports() {
 
 // ── CHROME ─────────────────────────────────────────────────────────────────────
 // "Snag Badge" mark — the app's own rounded snag-number pill, standing alone as the icon.
-const SNAG_BADGE_MARK = `<svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+const SNAG_BADGE_MARK = `<svg viewBox="8 40 106 40" fill="none" xmlns="http://www.w3.org/2000/svg">
   <rect x="12" y="44" width="80" height="32" rx="16" fill="#fff" opacity="0.92"/>
   <circle cx="94" cy="60" r="16" fill="#FFD700"/>
   <path d="M87 60 L92 65 L101 53" stroke="#0f2544" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
