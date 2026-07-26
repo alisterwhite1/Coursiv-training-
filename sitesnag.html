@@ -3434,6 +3434,7 @@ function configSubTabs(cfgTab) {
       <button class="filter-chip ${cfgTab==='companies'?'active':''}" data-fn="setConfigTab" data-a1="companies">Companies</button>
       <button class="filter-chip ${cfgTab==='users'?'active':''}" data-fn="setConfigTab" data-a1="users">Users</button>
       <button class="filter-chip ${cfgTab==='audit'?'active':''}" data-fn="setConfigTab" data-a1="audit">Audit Log</button>
+      <button class="filter-chip ${cfgTab==='sla'?'active':''}" data-fn="setConfigTab" data-a1="sla">SLA Targets</button>
     </div>`;
 }
 
@@ -3446,6 +3447,7 @@ function viewLocations() {
   if (cfgTab === 'companies') return _viewConfigCompanies();
   if (cfgTab === 'users')     return _viewConfigUsers();
   if (cfgTab === 'audit')     return _viewConfigAudit();
+  if (cfgTab === 'sla')       return _viewConfigSLA();
 
   // ── LOCATIONS TAB ──
   const locs = db.locations || [];
@@ -3527,22 +3529,6 @@ function viewLocations() {
                style="flex:1;padding:.4rem .6rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;font-family:inherit" />
         <button class="btn btn-primary" style="padding:.4rem .7rem;font-size:.85rem" data-fn="addDiscipline">+ Add</button>
       </div>
-    </div>
-
-    <div class="card card-body" style="margin-bottom:.75rem">
-      <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">⏱️ SLA Targets</div>
-      <div style="font-size:.82rem;color:var(--soft);margin-bottom:.6rem;line-height:1.5">
-        Days allowed to close a snag before it's flagged overdue, by classification. Leave blank for no target.
-      </div>
-      ${Object.entries(SNAG_CATEGORIES).map(([k, c]) => `
-        <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem">
-          <span class="badge" style="background:${c.bg};color:${c.color};flex-shrink:0;min-width:26px;text-align:center">${k}</span>
-          <span style="flex:1;font-size:.87rem">${esc(c.label.split(' / ')[0])}</span>
-          <input type="number" min="0" id="sla_${k}" placeholder="days"
-                 value="${(db.settings?.slaDays ?? DEFAULT_SLA_DAYS)[k] ?? ''}"
-                 style="width:80px;padding:.4rem .5rem;border:2px solid var(--border);border-radius:8px;font-size:.87rem;font-family:inherit" />
-        </div>`).join('')}
-      <button class="btn btn-primary btn-block" style="margin-top:.5rem" data-fn="saveSlaTargets">Save SLA Targets</button>
     </div>
 
     <div class="card card-body" style="margin-bottom:.75rem">
@@ -3796,6 +3782,31 @@ function _viewConfigAudit() {
         ${entries.length > shown.length ? `Showing latest ${shown.length} of ${entries.length}.` : ''}
       </div>
       <div class="card">${rows}</div>
+    </div>` + navBar('locations');
+}
+
+// ── CONFIG SUB-VIEW: SLA TARGETS ──────────────────────────────────────────────────
+function _viewConfigSLA() {
+  const cfgTab = S.configTab || 'locations';
+  const subTabs = configSubTabs(cfgTab);
+  return appBar('Configuration', null) + `
+    <div class="main">
+      ${subTabs}
+      <div class="card card-body" style="margin-bottom:.75rem">
+        <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">⏱️ SLA Targets</div>
+        <div style="font-size:.82rem;color:var(--soft);margin-bottom:.6rem;line-height:1.5">
+          Days allowed to close a snag before it's flagged overdue, by classification. Leave blank for no target.
+        </div>
+        ${Object.entries(SNAG_CATEGORIES).map(([k, c]) => `
+          <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem">
+            <span class="badge" style="background:${c.bg};color:${c.color};flex-shrink:0;min-width:26px;text-align:center">${k}</span>
+            <span style="flex:1;font-size:.87rem">${esc(c.label.split(' / ')[0])}</span>
+            <input type="number" min="0" id="sla_${k}" placeholder="days"
+                   value="${(db.settings?.slaDays ?? DEFAULT_SLA_DAYS)[k] ?? ''}"
+                   style="width:80px;padding:.4rem .5rem;border:2px solid var(--border);border-radius:8px;font-size:.87rem;font-family:inherit" />
+          </div>`).join('')}
+        <button class="btn btn-primary btn-block" style="margin-top:.5rem" data-fn="saveSlaTargets">Save SLA Targets</button>
+      </div>
     </div>` + navBar('locations');
 }
 
