@@ -3627,10 +3627,12 @@ function viewLocations() {
       <button class="btn btn-primary btn-block" data-fn="exportData">⬇ Export Backup</button>
     </div>
 
+    ${isSuperAdmin() ? `
     <div class="card card-body" style="margin-bottom:.75rem">
       <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">🎬 Splash Screen Config</div>
       <div style="font-size:.82rem;color:var(--soft);margin-bottom:.75rem;line-height:1.5">
-        Images shown on the opening splash after the SiteSnag name fades out.
+        Per-client branding on the opening splash — set up as part of onboarding once a contract is agreed,
+        not self-service for client admins.
       </div>
       <div class="form-group">
         <label class="form-label">Project Image</label>
@@ -3655,7 +3657,7 @@ function viewLocations() {
             : ''}
         </div>
       </div>
-    </div>
+    </div>` : ''}
     </div>` + navBar('locations');
 }
 
