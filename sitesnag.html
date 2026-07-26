@@ -680,6 +680,16 @@ function isOverdue(snag) {
   return (Date.now() - snag.createdAt) > slaDays * 86400000;
 }
 
+// Owner-only gate for infrastructure config (photo storage wiring, whole-database
+// push/pull) — a client's site administrator should never see or touch these;
+// they're operational tools for whoever runs the app itself, not app data config.
+const OWNER_EMAIL = 'alister.white@hotmail.com';
+function isSuperAdmin() {
+  if (S.currentUser?.role !== 'administrator') return false;
+  const profile = db.users.find(u => u.id === S.currentUser.id);
+  return (profile?.email || '').toLowerCase() === OWNER_EMAIL;
+}
+
 var storageOK = (function() {
   try { localStorage.setItem('__test__', '1'); localStorage.removeItem('__test__'); return true; } catch(e) { return false; }
 })();
@@ -1569,29 +1579,6 @@ function exportData() {
   a.download = 'sitesnag-backup-' + new Date().toISOString().slice(0, 10) + '.json';
   a.click();
   URL.revokeObjectURL(a.href);
-}
-
-function importData(input) {
-  const file = input.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (!data.projects || !data.snags) {
-        document.getElementById('nu_err') && (document.getElementById('nu_err').textContent = 'Invalid backup file.', document.getElementById('nu_err').style.display = 'block');
-        return;
-      }
-      if (!confirm('Replace ALL current data with this backup?\n\nProjects: ' + data.projects.length + '  Snags: ' + data.snags.length + '  Users: ' + (data.users||[]).length + '\n\nThis cannot be undone.')) return;
-      db = { projects: [], companies: [], snags: [], users: [], loginLog: [], ...data };
-      saveDB();
-      S.currentUser = null;
-      saveState();
-      render();
-    } catch(err) {
-      alert('Could not read the file — make sure it is a SiteSnag backup (.json).');
-    }
-  };
-  reader.readAsText(file);
 }
 
 function toggleCoField() {
@@ -3579,9 +3566,15 @@ function viewLocations() {
       }).join('')}
     </div>
 
+    ${isSuperAdmin() ? `
     <div class="card card-body" style="margin-bottom:.75rem">
-      <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">📸 Photo Storage</div>
-      <div style="font-size:.82rem;color:var(--soft);margin-bottom:.75rem;line-height:1.5">
+      <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">🔐 Operator Tools</div>
+      <div style="font-size:.82rem;color:var(--soft);margin-bottom:.9rem;line-height:1.5">
+        Infrastructure-level settings — visible only to the app operator, never to a client's site admin.
+      </div>
+
+      <div style="font-weight:700;font-size:.9rem;margin-bottom:.4rem">📸 Photo Storage</div>
+      <div style="font-size:.8rem;color:var(--soft);margin-bottom:.6rem;line-height:1.5">
         Both uploading and viewing photos go through this Worker, which reads/writes Cloudflare R2
         via a bucket binding — no storage keys live in the app's source, and R2's rate-limited
         public dev URL is never used. Only change this if you redeploy the Worker elsewhere.
@@ -3596,13 +3589,14 @@ function viewLocations() {
       </div>
       ${PHOTO_WORKER_URL ? `<div style="font-size:.8rem;color:var(--green);margin-top:.6rem;font-weight:600">✓ Photo storage active</div>` : `<div style="font-size:.8rem;color:var(--amber);margin-top:.6rem;font-weight:600">⚠ Not set — photo uploads/viewing won't work</div>`}
       <button class="btn btn-outline btn-block" style="margin-top:.75rem" data-fn="migrateOldPhotoUrls">🔧 Fix any old broken photo links</button>
-    </div>
 
-    <div class="card card-body" style="margin-bottom:.75rem">
-      <div style="font-weight:700;font-size:1rem;margin-bottom:.75rem">☁️ Cloud Sync</div>
-      <div style="font-size:.82rem;color:var(--soft);margin-bottom:.75rem;line-height:1.5">
-        Push your data to the cloud so all users on all devices share the same snags, companies, and configuration.
-        Pull to load the latest cloud data onto this device.
+      <div class="divider" style="margin:1.1rem 0"></div>
+
+      <div style="font-weight:700;font-size:.9rem;margin-bottom:.4rem">☁️ Cloud Sync (manual override)</div>
+      <div style="font-size:.8rem;color:var(--soft);margin-bottom:.6rem;line-height:1.5">
+        Data syncs to the cloud automatically now — these are emergency recovery tools only.
+        <strong>Push overwrites the cloud with this device's data; Pull overwrites this device with the cloud's.</strong>
+        Either can discard other users' changes if used carelessly.
       </div>
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.6rem">
         <button class="btn btn-primary" style="flex:1;min-width:130px" data-fn="pushToSupabase">⬆ Push to Cloud</button>
@@ -3612,19 +3606,25 @@ function viewLocations() {
         _syncStatus === 'error' ? `<div style="font-size:.8rem;color:var(--red);font-weight:600">✗ Sync error — ${esc(_syncMsg)}</div>` :
         _syncStatus === 'syncing' ? `<div style="font-size:.8rem;color:var(--blue)">↻ Syncing…</div>` :
         `<div style="font-size:.8rem;color:var(--muted)">Not yet synced to cloud on this device</div>`}
-    </div>
+
+      <div class="divider" style="margin:1.1rem 0"></div>
+
+      <div style="font-weight:700;font-size:.9rem;margin-bottom:.4rem">⬆ Restore from Backup File</div>
+      <div style="font-size:.8rem;color:var(--soft);margin-bottom:.6rem;line-height:1.5">
+        Replaces ALL data — local and cloud — with a backup file. This immediately overwrites what every
+        user sees on every device. Only ever use this for genuine disaster recovery.
+      </div>
+      <label class="btn btn-outline btn-block" style="text-align:center;cursor:pointer" for="importFile">⬆ Import Backup</label>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(this)" />
+    </div>` : ''}
 
     <div class="card card-body" style="margin-bottom:.75rem">
-      <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">💾 Data Backup &amp; Restore</div>
+      <div style="font-weight:700;font-size:1rem;margin-bottom:.5rem">💾 Data Backup</div>
       <div style="font-size:.82rem;color:var(--soft);margin-bottom:.75rem;line-height:1.5">
-        Export saves all snags, locations, companies, users and configuration to a JSON file on your device.
-        Import replaces all current data with the backup file. <strong>Always export before clearing browser data.</strong>
+        Saves all snags, locations, companies, users and configuration to a JSON file on your device —
+        a personal copy independent of the cloud. Safe to run any time.
       </div>
-      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-        <button class="btn btn-primary" style="flex:1;min-width:120px" data-fn="exportData">⬇ Export Backup</button>
-        <label class="btn btn-outline" style="flex:1;min-width:120px;text-align:center;cursor:pointer" for="importFile">⬆ Import Backup</label>
-        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(this)" />
-      </div>
+      <button class="btn btn-primary btn-block" data-fn="exportData">⬇ Export Backup</button>
     </div>
 
     <div class="card card-body" style="margin-bottom:.75rem">
