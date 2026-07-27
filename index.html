@@ -77,6 +77,18 @@
     .report-body .tag-pass { color:var(--green); font-weight:700; }
     .reset-btn { margin-top:1.5rem; background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:var(--radius); padding:.65rem; width:100%; font-size:.85rem; cursor:pointer; transition:background .2s; }
     .reset-btn:hover { background:var(--border); }
+    .action-row { display:flex; gap:.75rem; margin-top:1.5rem; }
+    .action-row .reset-btn { margin-top:0; flex:1; }
+    .print-btn { flex:1; padding:.65rem; background:var(--blue-dark); color:#fff; border:none; border-radius:var(--radius); font-size:.85rem; font-weight:600; cursor:pointer; transition:background .2s; }
+    .print-btn:hover { background:var(--blue); }
+    @media print {
+      body { background:white; padding:.5rem; }
+      #keySection, .upload-grid, .btn, #status, #errorBox, .action-row { display:none !important; }
+      header { margin-bottom:1rem; }
+      .report-body { border:none; padding:0; }
+      .result-header { border:1px solid #ccc; }
+      #result { display:block !important; margin-top:0; }
+    }
   </style>
 </head>
 <body>
@@ -133,7 +145,10 @@
       </div>
     </div>
     <div class="report-body" id="reportBody"></div>
-    <button class="reset-btn" onclick="resetForm()">Start a new comparison</button>
+    <div class="action-row">
+      <button class="print-btn" onclick="window.print()">&#128438; Print / Save as PDF</button>
+      <button class="reset-btn" onclick="resetForm()">Start a new comparison</button>
+    </div>
   </div>
 </div>
 <script>
