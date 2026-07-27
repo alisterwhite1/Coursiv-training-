@@ -56,16 +56,25 @@
     .score-ring svg { transform:rotate(-90deg); }
     .score-text { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.85rem; }
     .verdict-badge { padding:.4rem 1rem; border-radius:99px; font-weight:700; font-size:.9rem; }
-    .verdict-compliant { background:var(--green-light); color:var(--green); }
-    .verdict-partial { background:var(--amber-light); color:var(--amber); }
-    .verdict-noncompliant { background:var(--red-light); color:var(--red); }
+    .verdict-compliant    { background:var(--green-light); color:var(--green); }
+    .verdict-partial      { background:var(--amber-light); color:var(--amber); }
+    .verdict-noncompliant { background:var(--red-light);   color:var(--red); }
+    .verdict-reject       { background:var(--red-light);   color:var(--red); }
     .report-body { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:1.5rem; line-height:1.7; font-size:.92rem; }
-    .report-body h2 { font-size:1.1rem; margin:1.25rem 0 .5rem; color:var(--blue-dark); }
+    .report-body h2 { font-size:1.1rem; margin:1.25rem 0 .5rem; color:var(--blue-dark); border-bottom:1px solid var(--border); padding-bottom:.3rem; }
     .report-body h2:first-child { margin-top:0; }
-    .report-body h3 { font-size:1rem; margin:1rem 0 .4rem; }
+    .report-body h3 { font-size:1rem; margin:1rem 0 .4rem; color:var(--text); }
     .report-body ul { padding-left:1.4rem; }
     .report-body li { margin-bottom:.35rem; }
     .report-body p { margin-bottom:.6rem; }
+    .report-body table { width:100%; border-collapse:collapse; margin:1rem 0; font-size:.85rem; overflow-x:auto; display:block; }
+    .report-body th { background:var(--blue-xlight); color:var(--blue-dark); font-weight:600; font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; padding:.45rem .7rem; text-align:left; border-bottom:2px solid var(--blue-light); white-space:nowrap; }
+    .report-body td { padding:.45rem .7rem; border-bottom:1px solid var(--border); vertical-align:top; }
+    .report-body tr:nth-child(even) td { background:var(--bg); }
+    .report-body strong { color:var(--text); }
+    .report-body .tag-crit { color:var(--red); font-weight:700; }
+    .report-body .tag-warn { color:var(--amber); font-weight:700; }
+    .report-body .tag-pass { color:var(--green); font-weight:700; }
     .reset-btn { margin-top:1.5rem; background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:var(--radius); padding:.65rem; width:100%; font-size:.85rem; cursor:pointer; transition:background .2s; }
     .reset-btn:hover { background:var(--border); }
   </style>
@@ -170,13 +179,13 @@
     if(name.endsWith('.pdf')){
       const buf=await file.arrayBuffer();
       const pdf=await pdfjsLib.getDocument({data:buf}).promise;
-      let text='';
+      let pages=[];
       for(let i=1;i<=pdf.numPages;i++){
         const page=await pdf.getPage(i);
         const content=await page.getTextContent();
-        text+=content.items.map(s=>s.str).join(' ')+'\n';
+        pages.push('[Page '+i+']\n'+content.items.map(s=>s.str).join(' '));
       }
-      return text;
+      return pages.join('\n\n');
     }
     if(name.endsWith('.docx')||name.endsWith('.doc')){
       const buf=await file.arrayBuffer();
@@ -201,18 +210,87 @@
     setStatus('<span class="spinner"></span> Reading documents…');
     let submittedText,specText;
     try{
-      [submittedText,specText]=await Promise.all([extractText(submittedInput.files[0]),extractText(specInput.files[0])]);
+      [submittedText,specText]=await Promise.all([
+        extractText(submittedInput.files[0]),
+        extractText(specInput.files[0])
+      ]);
     }catch(err){showError('Could not read a file: '+err.message);return;}
-    const MAX=40000;
-    if(submittedText.length>MAX)submittedText=submittedText.slice(0,MAX)+'\n[truncated]';
-    if(specText.length>MAX)specText=specText.slice(0,MAX)+'\n[truncated]';
-    setStatus('<span class="spinner"></span> Analysing compliance with AI…');
-    const prompt=`You are a compliance auditor. Compare a submitted document against a specification and produce a detailed compliance report.\n\n## Specification Document\n${specText}\n\n## Submitted Document\n${submittedText}\n\n## Your Task\nAnalyse the submitted document against every requirement in the specification. Produce a structured report with:\n\n1. **Overall Compliance Summary** — Verdict (Compliant / Partially Compliant / Non-Compliant) with a short paragraph.\n2. **Compliance Score** — A percentage (0–100%) with brief justification.\n3. **Requirements Met** — Bullet list of satisfied requirements, referencing relevant sections.\n4. **Requirements Not Met** — Bullet list of missing or inadequate requirements, explaining what is missing.\n5. **Partial Compliance** — Requirements partially addressed, with guidance on what needs to change.\n6. **Recommendations** — Prioritised action items to reach full compliance.\n\nBe specific, referencing actual content from both documents.`;
+    const MAX=50000;
+    if(submittedText.length>MAX)submittedText=submittedText.slice(0,MAX)+'\n[truncated — document exceeded limit]';
+    if(specText.length>MAX)specText=specText.slice(0,MAX)+'\n[truncated — document exceeded limit]';
+    setStatus('<span class="spinner"></span> Analysing compliance with AI… (this may take 30–60 seconds)');
+
+    const prompt=`You are a senior compliance engineer reviewing a technical submittal against a project specification. Your job is to produce a rigorous, traceable compliance report that a design engineer or contractor can act on directly.
+
+## Specification
+${specText}
+
+## Submitted Document
+${submittedText}
+
+---
+
+## Instructions
+
+Work through every requirement in the specification methodically. For each requirement:
+
+1. **Find the actual value** — Do not just check whether the requirement is acknowledged. Go to the relevant section, table, or technical data sheet in the submitted document and retrieve the actual numeric value, material description, test result, or stated parameter.
+
+2. **Compare numerically** — Compare the retrieved value against the specification limit. Flag any case where the submitted value falls outside the specified range, even if the compliance matrix in the submittal is marked "compliant" or "N/A".
+
+3. **Check for internal contradictions** — If the submittal contains inconsistent data (e.g., two different values for the same parameter on different pages, or a compliance matrix that marks a requirement N/A when it clearly applies), flag this explicitly.
+
+4. **Assess consequence** — For each failure, note whether it is a critical failure (safety system, structural integrity, or cannot be resolved by substitution) or a minor gap (documentation, formatting, missing data that can be provided).
+
+5. **Flag human-review items** — If a requirement cannot be assessed from the document text alone (e.g., a physical test result not included, a certification not attached, or a value that is ambiguous), flag it explicitly so a human reviewer knows what to verify.
+
+---
+
+## Required Output Format
+
+### 1. Overall Verdict
+State one of: **Approved** / **Approved with Comments** / **Reject — Resubmit**.
+Assign a compliance score (0–100%). Weight critical safety requirements more heavily than administrative ones. Explain the score in one sentence.
+
+### 2. Priority Action Table
+A table with columns: Requirement | Spec Clause | Spec Requirement | Submitted Value | Submittal Page/Ref | Severity | Status
+- Severity: CRITICAL / MAJOR / MINOR
+- Status: FAIL / PASS / MISSING / CONTRADICTED / NEEDS HUMAN REVIEW
+List only items that are not straightforwardly compliant. Sort by severity (CRITICAL first).
+
+### 3. Critical Failures (if any)
+For each CRITICAL item: explain what the failure is, why it matters (what goes wrong if this product is installed), and what the manufacturer must provide to resolve it.
+
+### 4. Major Non-Conformances
+Items that must be resolved before approval but are not safety-critical. Specific corrective action required for each.
+
+### 5. Minor Gaps and Comments
+Items that need attention but do not prevent approval. List briefly.
+
+### 6. Items Requiring Human Verification
+List any requirements where the available document text is insufficient to make a determination. State exactly what a human reviewer needs to check or obtain.
+
+### 7. Compliant Requirements
+Brief summary of requirements that are satisfactorily met. Do not list every clause — group by subject area.
+
+---
+
+Be specific. Cite actual values from both documents. If a value is not present in the submittal, say so explicitly rather than assuming compliance. Never mark a requirement as compliant based solely on the submittal's own compliance matrix.`;
+
     try{
       const res=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
-        headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({model:'claude-opus-4-8',max_tokens:4096,messages:[{role:'user',content:prompt}]})
+        headers:{
+          'Content-Type':'application/json',
+          'x-api-key':apiKey,
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body:JSON.stringify({
+          model:'claude-opus-4-8',
+          max_tokens:8192,
+          messages:[{role:'user',content:prompt}]
+        })
       });
       if(!res.ok){
         const err=await res.json().catch(()=>({}));
@@ -246,9 +324,10 @@
     const score=scoreMatch?Math.min(100,parseInt(scoreMatch[1])):null;
     const lower=text.toLowerCase();
     let verdict='Unknown',cls='';
-    if(lower.includes('non-compliant')||lower.includes('noncompliant')){verdict='Non-Compliant';cls='verdict-noncompliant';}
-    else if(lower.includes('partially compliant')||lower.includes('partial compliance')){verdict='Partially Compliant';cls='verdict-partial';}
-    else if(lower.includes('compliant')){verdict='Compliant';cls='verdict-compliant';}
+    if(lower.includes('reject')){verdict='Reject — Resubmit';cls='verdict-reject';}
+    else if(lower.includes('non-compliant')||lower.includes('noncompliant')){verdict='Non-Compliant';cls='verdict-noncompliant';}
+    else if(lower.includes('approved with comments')||lower.includes('partially compliant')||lower.includes('partial compliance')){verdict='Approved with Comments';cls='verdict-partial';}
+    else if(lower.includes('approved')||lower.includes('compliant')){verdict='Approved';cls='verdict-compliant';}
     const badge=document.getElementById('verdictBadge');
     badge.textContent=verdict;
     badge.className='verdict-badge '+cls;
@@ -269,18 +348,65 @@
     result.scrollIntoView({behavior:'smooth',block:'start'});
   }
   function mdToHtml(md){
-    return md
-      .replace(/^## (.+)$/gm,'<h2>$1</h2>')
-      .replace(/^### (.+)$/gm,'<h3>$1</h3>')
-      .replace(/^# (.+)$/gm,'<h2>$1</h2>')
+    const lines=md.split('\n');
+    let html='';
+    let inTable=false;
+    let inUl=false;
+    let headerDone=false;
+
+    function closeUl(){if(inUl){html+='</ul>\n';inUl=false;}}
+    function closeTable(){if(inTable){html+='</tbody></table>\n';inTable=false;headerDone=false;}}
+
+    for(let i=0;i<lines.length;i++){
+      let line=lines[i];
+
+      // Detect table rows
+      if(line.trim().startsWith('|')){
+        closeUl();
+        const cols=line.split('|').slice(1,-1).map(c=>c.trim());
+        // separator row
+        if(cols.every(c=>/^[-:]+$/.test(c))){
+          headerDone=true;
+          continue;
+        }
+        if(!inTable){html+='<table><thead><tr>';cols.forEach(c=>{html+='<th>'+inline(c)+'</th>';});html+='</tr></thead><tbody>\n';inTable=true;headerDone=false;}
+        else if(!headerDone){html+='<tr>';cols.forEach(c=>{html+='<td>'+inline(c)+'</td>';});html+='</tr>\n';}
+        else{html+='<tr>';cols.forEach(c=>{html+='<td>'+inline(c)+'</td>';});html+='</tr>\n';}
+        continue;
+      } else {
+        closeTable();
+      }
+
+      if(/^### /.test(line)){closeUl();html+='<h3>'+inline(line.slice(4))+'</h3>\n';continue;}
+      if(/^## /.test(line)){closeUl();html+='<h2>'+inline(line.slice(3))+'</h2>\n';continue;}
+      if(/^# /.test(line)){closeUl();html+='<h2>'+inline(line.slice(2))+'</h2>\n';continue;}
+
+      if(/^[-*]\s/.test(line)){
+        if(!inUl){html+='<ul>';inUl=true;}
+        html+='<li>'+inline(line.slice(2))+'</li>\n';
+        continue;
+      } else {
+        closeUl();
+      }
+
+      if(line.trim()===''){html+='<br>\n';continue;}
+      html+='<p>'+inline(line)+'</p>\n';
+    }
+    closeUl();
+    closeTable();
+    return html;
+  }
+  function inline(t){
+    return t
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/\*\*CRITICAL\*\*/g,'<strong class="tag-crit">CRITICAL</strong>')
+      .replace(/\*\*MAJOR\*\*/g,'<strong class="tag-warn">MAJOR</strong>')
+      .replace(/\*\*MINOR\*\*/g,'<strong>MINOR</strong>')
+      .replace(/\*\*FAIL\*\*/g,'<strong class="tag-crit">FAIL</strong>')
+      .replace(/\*\*PASS\*\*/g,'<strong class="tag-pass">PASS</strong>')
       .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
       .replace(/\*(.+?)\*/g,'<em>$1</em>')
-      .replace(/^[\-\*]\s+(.+)$/gm,'<li>$1</li>')
-      .replace(/(<li>.*<\/li>\n?)+/g,m=>'<ul>'+m+'</ul>')
-      .replace(/<\/ul>\s*<ul>/g,'')
-      .replace(/\n\n+/g,'</p><p>')
-      .replace(/^(?!<[hul\/])(.*\S.*)$/gm,'<p>$1</p>')
-      .replace(/<p>\s*<\/p>/g,'');
+      .replace(/`(.+?)`/g,'<code style="background:#f1f5f9;padding:.1em .35em;border-radius:3px;font-size:.9em">$1</code>');
   }
 </script>
 </body>
