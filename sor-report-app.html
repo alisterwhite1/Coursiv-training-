@@ -465,7 +465,7 @@ textarea{min-height:110px;resize:vertical;font-family:inherit;}
   </div>
 
   <div class="footer-ref">Form Reference No.: DMBL-PAJV-FORM-1030 Rev. 1, Site Observation Report (SOR) Form, 02-Feb-2026</div>
-  <div class="footer-ref" style="border-top:none;color:#999;">App build: 2026-07-23-r7</div>
+  <div class="footer-ref" style="border-top:none;color:#999;">App build: 2026-07-23-r8</div>
 </div>
 
 <div class="action-bar">
@@ -661,8 +661,8 @@ const XlsxBuilder = (function () {
     mergeRange(rowStart, colStart, rowEnd, colEnd) {
       this.merges.push(`${colName(colStart)}${rowStart + 1}:${colName(colEnd)}${rowEnd + 1}`);
     }
-    addImage(rowIdx, colIdx, widthEmu, heightEmu, data, ext) {
-      this.images.push({ rowIdx, colIdx, widthEmu, heightEmu, data, ext });
+    addImage(rowIdx, colIdx, widthEmu, heightEmu, data, ext, srcRect) {
+      this.images.push({ rowIdx, colIdx, widthEmu, heightEmu, data, ext, srcRect });
     }
     toSheetXml() {
       const lastCol = colName(this.numCols - 1);
@@ -830,28 +830,55 @@ function buildSorWorkbook(XB, JSZip, data, logos) {
     return { cx: Math.round(w * scale * EMU_PER_PX), cy: Math.round(h * scale * EMU_PER_PX), dispW: w * scale, dispH: h * scale };
   }
 
+  // The on-screen/print view crops every photo to a uniform card via CSS
+  // object-fit:cover. Excel has no such CSS, so sizing each image to a
+  // fixed width but a height derived from its own aspect ratio (as before)
+  // made portrait photos far taller than landscape ones - overflowing past
+  // the row into whatever came next. Instead, crop every photo to the same
+  // fixed card box (center-crop, like object-fit:cover) via the picture's
+  // srcRect, so all photos share one uniform footprint regardless of the
+  // orientation they were taken in.
+  const CARD_W_PX = 260;
+  const CARD_H_PX = Math.round(CARD_W_PX * 3 / 4); // 4:3 card, matches the app's thumbnail proportions
+  const CARD_RATIO = CARD_W_PX / CARD_H_PX;
+  const cardCx = CARD_W_PX * EMU_PER_PX;
+  const cardCy = CARD_H_PX * EMU_PER_PX;
+  function coverCrop(nativeW, nativeH) {
+    const nativeRatio = nativeW / nativeH;
+    let l = 0, t = 0, r = 0, b = 0;
+    if (nativeRatio > CARD_RATIO) {
+      const keepFrac = CARD_RATIO / nativeRatio;
+      const cropFrac = Math.round((1 - keepFrac) / 2 * 100000);
+      l = r = cropFrac;
+    } else if (nativeRatio < CARD_RATIO) {
+      const keepFrac = nativeRatio / CARD_RATIO;
+      const cropFrac = Math.round((1 - keepFrac) / 2 * 100000);
+      t = b = cropFrac;
+    }
+    return { l, t, r, b };
+  }
+
   const photos = data.section1.photos || [];
   if (photos.length === 0) {
     fullRow('(no photographs attached)', sBody, 24);
   } else {
+    const rowHeightPt = Math.ceil(CARD_H_PX * 0.75) + 10;
     for (let i = 0; i < photos.length; i += 2) {
       const rowIdx = sheet.rows.length;
-      const rr = sheet.addRow([{ col: 0, value: '' }], 175);
+      const rr = sheet.addRow([{ col: 0, value: '' }], rowHeightPt);
       for (let c = 1; c < NUM_COLS; c++) sheet.rows[rr].cells.push({ col: c, value: '' });
       sheet.merge(rr, 0, 2);
       sheet.merge(rr, 3, 5);
 
       const p1 = photos[i];
-      const sz1 = emuFor(p1.width, p1.height, 260);
-      sheet.addImage(rowIdx, 0, sz1.cx, sz1.cy, p1.bytes, p1.ext);
+      sheet.addImage(rowIdx, 0, cardCx, cardCy, p1.bytes, p1.ext, coverCrop(p1.width, p1.height));
 
       const capRow = sheet.addRow([{ col: 0, value: p1.caption || '', styleId: sCaption }], 16);
       sheet.merge(capRow, 0, 2);
 
       if (photos[i + 1]) {
         const p2 = photos[i + 1];
-        const sz2 = emuFor(p2.width, p2.height, 260);
-        sheet.addImage(rowIdx, 3, sz2.cx, sz2.cy, p2.bytes, p2.ext);
+        sheet.addImage(rowIdx, 3, cardCx, cardCy, p2.bytes, p2.ext, coverCrop(p2.width, p2.height));
         sheet.rows[capRow].cells.push({ col: 3, value: p2.caption || '', styleId: sCaption });
         for (let c = 4; c < NUM_COLS; c++) sheet.rows[capRow].cells.push({ col: c, value: '', styleId: sCaption });
         sheet.merge(capRow, 3, 5);
@@ -1027,6 +1054,9 @@ function buildSorWorkbook(XB, JSZip, data, logos) {
     const mediaName = `image${i + 1}.${img.ext}`;
     zip.file(`xl/media/${mediaName}`, img.data);
     drawingRels += `<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${mediaName}"/>`;
+    const srcRectXml = img.srcRect
+      ? `<a:srcRect l="${img.srcRect.l}" t="${img.srcRect.t}" r="${img.srcRect.r}" b="${img.srcRect.b}"/>`
+      : '';
     drawingXml += `<xdr:oneCellAnchor>
       <xdr:from><xdr:col>${img.colIdx}</xdr:col><xdr:colOff>19050</xdr:colOff><xdr:row>${img.rowIdx}</xdr:row><xdr:rowOff>19050</xdr:rowOff></xdr:from>
       <xdr:ext cx="${img.widthEmu}" cy="${img.heightEmu}"/>
@@ -1037,6 +1067,7 @@ function buildSorWorkbook(XB, JSZip, data, logos) {
         </xdr:nvPicPr>
         <xdr:blipFill>
           <a:blip r:embed="${rid}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/>
+          ${srcRectXml}
           <a:stretch><a:fillRect/></a:stretch>
         </xdr:blipFill>
         <xdr:spPr>
@@ -1084,7 +1115,7 @@ if (typeof module !== 'undefined') module.exports = { buildSorWorkbook };
   // Bump this on every fix so a screenshot or an exported file can be
   // matched to a specific build when troubleshooting "it still looks the
   // same" reports - printed in the app footer and the Excel export.
-  var APP_BUILD = '2026-07-23-r7';
+  var APP_BUILD = '2026-07-23-r8';
 
   function fmtDateStr(yyyy_mm_dd) {
     if (!yyyy_mm_dd) return '';
