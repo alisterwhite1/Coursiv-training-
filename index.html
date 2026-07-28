@@ -77,6 +77,21 @@
     .report-body .tag-pass { color:var(--green); font-weight:700; }
     .reset-btn { margin-top:1.5rem; background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:var(--radius); padding:.65rem; width:100%; font-size:.85rem; cursor:pointer; transition:background .2s; }
     .reset-btn:hover { background:var(--border); }
+    .action-row { display:flex; gap:.75rem; margin-top:1.5rem; }
+    .action-row .reset-btn { margin-top:0; flex:1; }
+    .print-btn { flex:1; padding:.65rem; background:var(--blue-dark); color:#fff; border:none; border-radius:var(--radius); font-size:.85rem; font-weight:600; cursor:pointer; transition:background .2s; }
+    .print-btn:hover { background:var(--blue); }
+    .app-footer { text-align:center; margin-top:2.5rem; padding-top:1rem; border-top:1px solid var(--border); font-size:.72rem; color:var(--muted); font-family:monospace; }
+    .app-footer a { color:var(--muted); text-decoration:none; }
+    .app-footer a:hover { color:var(--blue); }
+    @media print {
+      body { background:white; padding:.5rem; }
+      #keySection, .upload-grid, .btn, #status, #errorBox, .action-row { display:none !important; }
+      header { margin-bottom:1rem; }
+      .report-body { border:none; padding:0; }
+      .result-header { border:1px solid #ccc; }
+      #result { display:block !important; margin-top:0; }
+    }
   </style>
 </head>
 <body>
@@ -133,10 +148,22 @@
       </div>
     </div>
     <div class="report-body" id="reportBody"></div>
-    <button class="reset-btn" onclick="resetForm()">Start a new comparison</button>
+    <div class="action-row">
+      <button class="print-btn" onclick="openPrintReport()">&#128438; Open Print / PDF Report</button>
+      <button class="reset-btn" onclick="resetForm()">Start a new comparison</button>
+    </div>
   </div>
 </div>
+<footer class="app-footer">
+  <a href="https://github.com/alisterwhite1/Coursiv-training-/commit/__APP_VERSION__" target="_blank" title="View this commit on GitHub">
+    commit&nbsp;<strong>__APP_VERSION__</strong>
+  </a>
+  &nbsp;&middot;&nbsp;built&nbsp;__BUILD_DATE__
+  &nbsp;&middot;&nbsp;<a href="https://github.com/alisterwhite1/Coursiv-training-" target="_blank">source</a>
+</footer>
 <script>
+  const APP_VERSION='__APP_VERSION__';
+  const BUILD_DATE='__BUILD_DATE__';
   pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   const keyInput=document.getElementById('apiKeyInput');
   const saved=localStorage.getItem('anthropic_api_key');
@@ -302,7 +329,19 @@ Be specific. Cite actual values from both documents. If a value is not present i
       const report=data.content[0].text;
       setStatus('');
       renderReport(report);
-    }catch(err){showError(err.message);}
+    }catch(err){
+      if(err.message==='Failed to fetch'||err.name==='TypeError'){
+        showError(
+          'Network error — could not reach api.anthropic.com. Most likely causes:<br><br>'+
+          '<strong>1. Ad blocker or browser extension</strong> — try disabling it for this page (uBlock Origin, Privacy Badger, etc. often block Anthropic\'s API domain).<br>'+
+          '<strong>2. Firewall / corporate network</strong> — api.anthropic.com may be blocked on your network. Try a personal hotspot.<br>'+
+          '<strong>3. Files too large</strong> — very large PDFs can cause a timeout. Try with smaller documents first.<br><br>'+
+          'Open browser DevTools (F12) → Network tab → re-run to see the blocked request.'
+        );
+      } else {
+        showError(err.message);
+      }
+    }
   }
   function setStatus(html){document.getElementById('status').innerHTML=html;}
   function showError(msg){
@@ -407,6 +446,115 @@ Be specific. Cite actual values from both documents. If a value is not present i
       .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
       .replace(/\*(.+?)\*/g,'<em>$1</em>')
       .replace(/`(.+?)`/g,'<code style="background:#f1f5f9;padding:.1em .35em;border-radius:3px;font-size:.9em">$1</code>');
+  }
+  function openPrintReport(){
+    const score=document.getElementById('scoreText').textContent;
+    const verdict=document.getElementById('verdictBadge').textContent;
+    const verdictClass=document.getElementById('verdictBadge').className.replace('verdict-badge ','');
+    const sub=document.getElementById('verdictSub').textContent;
+    const arc=document.getElementById('scoreArc');
+    const arcOffset=arc.style.strokeDashoffset||'163.4';
+    const arcColor=arc.style.stroke||'#2563eb';
+    const body=document.getElementById('reportBody').innerHTML;
+    const submittedFileName=document.getElementById('submittedName').textContent||'Submitted document';
+    const specFileName=document.getElementById('specName').textContent||'Specification';
+    const date=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+
+    const verdictColors={
+      'verdict-compliant':'#16a34a','verdict-partial':'#d97706',
+      'verdict-noncompliant':'#dc2626','verdict-reject':'#dc2626'
+    };
+    const vColor=verdictColors[verdictClass]||'#64748b';
+
+    const html=`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Compliance Report — ${submittedFileName}</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:10pt;color:#0f172a;background:#fff;padding:0;}
+  .page{max-width:210mm;margin:0 auto;padding:15mm 14mm 18mm;}
+  .report-header{display:flex;align-items:flex-start;gap:16px;border-bottom:2px solid #2563eb;padding-bottom:14px;margin-bottom:18px;}
+  .score-ring{flex-shrink:0;width:64px;height:64px;position:relative;}
+  .score-ring svg{transform:rotate(-90deg);}
+  .score-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11pt;color:${arcColor};}
+  .header-text h1{font-size:14pt;font-weight:700;color:#1d4ed8;margin-bottom:4px;}
+  .header-text .meta{font-size:8pt;color:#64748b;margin-bottom:6px;}
+  .verdict-pill{display:inline-block;padding:3px 10px;border-radius:99px;font-weight:700;font-size:9pt;background:${vColor}22;color:${vColor};border:1px solid ${vColor}66;}
+  .print-btn-bar{text-align:right;margin-bottom:12px;}
+  .print-btn-bar button{background:#1d4ed8;color:#fff;border:none;padding:6px 18px;border-radius:6px;font-size:9pt;font-weight:600;cursor:pointer;}
+  .print-btn-bar button:hover{background:#2563eb;}
+  h2{font-size:11pt;font-weight:700;color:#1d4ed8;margin:16px 0 6px;padding-bottom:3px;border-bottom:1px solid #e2e8f0;}
+  h2:first-child{margin-top:0;}
+  h3{font-size:10pt;font-weight:700;margin:10px 0 4px;}
+  p{margin-bottom:6px;line-height:1.55;}
+  ul{padding-left:16px;margin-bottom:6px;}
+  li{margin-bottom:3px;line-height:1.5;}
+  /* ── Tables ── */
+  table{width:100%;border-collapse:collapse;font-size:8pt;table-layout:fixed;margin:8px 0 12px;page-break-inside:auto;}
+  thead{display:table-header-group;}
+  th{background:#eff6ff;color:#1d4ed8;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:5px 6px;border:1px solid #bfdbfe;text-align:left;word-break:break-word;}
+  td{padding:5px 6px;border:1px solid #e2e8f0;vertical-align:top;word-break:break-word;line-height:1.4;}
+  tr:nth-child(even) td{background:#f8fafc;}
+  tr{page-break-inside:avoid;}
+  /* 7-column layout: Req 17%, Clause 9%, Spec Req 19%, Submitted 19%, Page 11%, Severity 9%, Status 11% = 95% + 5% gap */
+  table th:nth-child(1),table td:nth-child(1){width:17%;}
+  table th:nth-child(2),table td:nth-child(2){width:9%;}
+  table th:nth-child(3),table td:nth-child(3){width:19%;}
+  table th:nth-child(4),table td:nth-child(4){width:19%;}
+  table th:nth-child(5),table td:nth-child(5){width:11%;}
+  table th:nth-child(6),table td:nth-child(6){width:9%;}
+  table th:nth-child(7),table td:nth-child(7){width:16%;}
+  .tag-crit{color:#dc2626;font-weight:700;}
+  .tag-warn{color:#d97706;font-weight:700;}
+  .tag-pass{color:#16a34a;font-weight:700;}
+  strong{font-weight:600;}
+  code{background:#f1f5f9;padding:1px 4px;border-radius:3px;font-size:8pt;}
+  .footer{margin-top:18px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:7.5pt;color:#94a3b8;display:flex;justify-content:space-between;}
+  @media print{
+    body{padding:0;}
+    .page{padding:10mm 12mm 14mm;max-width:none;}
+    .print-btn-bar{display:none;}
+    table{font-size:7.5pt;}
+    th,td{padding:4px 5px;}
+  }
+  @page{size:A4 landscape;margin:10mm 12mm;}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="print-btn-bar"><button onclick="window.print()">&#128438; Print / Save as PDF</button></div>
+  <div class="report-header">
+    <div class="score-ring">
+      <svg width="64" height="64" viewBox="0 0 64 64">
+        <circle cx="32" cy="32" r="26" fill="none" stroke="#e2e8f0" stroke-width="6"/>
+        <circle cx="32" cy="32" r="26" fill="none" stroke="${arcColor}" stroke-width="6" stroke-linecap="round" stroke-dasharray="163.4" stroke-dashoffset="${arcOffset}"/>
+      </svg>
+      <div class="score-label">${score}</div>
+    </div>
+    <div class="header-text">
+      <h1>Compliance Report</h1>
+      <div class="meta">Submitted: ${submittedFileName} &nbsp;|&nbsp; Specification: ${specFileName} &nbsp;|&nbsp; ${date}</div>
+      <span class="verdict-pill">${verdict}</span>
+      ${sub?'<span style="font-size:8pt;color:#64748b;margin-left:10px;">'+sub+'</span>':''}
+    </div>
+  </div>
+  ${body}
+  <div class="footer">
+    <span>Compliance Checker &mdash; alisterwhite1.github.io/Coursiv-training- &nbsp;|&nbsp; commit&nbsp;<strong>${APP_VERSION}</strong> &nbsp;|&nbsp; built&nbsp;${BUILD_DATE}</span>
+    <span>${date}</span>
+  </div>
+</div>
+</body>
+</html>`;
+
+    const blob=new Blob([html],{type:'text/html'});
+    const url=URL.createObjectURL(blob);
+    const win=window.open(url,'_blank');
+    if(!win){alert('Pop-up blocked. Please allow pop-ups for this site and try again.');}
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
   }
 </script>
 </body>
