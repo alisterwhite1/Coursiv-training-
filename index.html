@@ -81,6 +81,9 @@
     .action-row .reset-btn { margin-top:0; flex:1; }
     .print-btn { flex:1; padding:.65rem; background:var(--blue-dark); color:#fff; border:none; border-radius:var(--radius); font-size:.85rem; font-weight:600; cursor:pointer; transition:background .2s; }
     .print-btn:hover { background:var(--blue); }
+    .app-footer { text-align:center; margin-top:2.5rem; padding-top:1rem; border-top:1px solid var(--border); font-size:.72rem; color:var(--muted); font-family:monospace; }
+    .app-footer a { color:var(--muted); text-decoration:none; }
+    .app-footer a:hover { color:var(--blue); }
     @media print {
       body { background:white; padding:.5rem; }
       #keySection, .upload-grid, .btn, #status, #errorBox, .action-row { display:none !important; }
@@ -151,7 +154,16 @@
     </div>
   </div>
 </div>
+<footer class="app-footer">
+  <a href="https://github.com/alisterwhite1/Coursiv-training-/commit/__APP_VERSION__" target="_blank" title="View this commit on GitHub">
+    commit&nbsp;<strong>__APP_VERSION__</strong>
+  </a>
+  &nbsp;&middot;&nbsp;built&nbsp;__BUILD_DATE__
+  &nbsp;&middot;&nbsp;<a href="https://github.com/alisterwhite1/Coursiv-training-" target="_blank">source</a>
+</footer>
 <script>
+  const APP_VERSION='__APP_VERSION__';
+  const BUILD_DATE='__BUILD_DATE__';
   pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   const keyInput=document.getElementById('apiKeyInput');
   const saved=localStorage.getItem('anthropic_api_key');
@@ -531,7 +543,7 @@ Be specific. Cite actual values from both documents. If a value is not present i
   </div>
   ${body}
   <div class="footer">
-    <span>Compliance Checker &mdash; alisterwhite1.github.io/Coursiv-training-</span>
+    <span>Compliance Checker &mdash; alisterwhite1.github.io/Coursiv-training- &nbsp;|&nbsp; commit&nbsp;<strong>${APP_VERSION}</strong> &nbsp;|&nbsp; built&nbsp;${BUILD_DATE}</span>
     <span>${date}</span>
   </div>
 </div>
