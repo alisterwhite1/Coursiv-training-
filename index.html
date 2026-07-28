@@ -317,7 +317,19 @@ Be specific. Cite actual values from both documents. If a value is not present i
       const report=data.content[0].text;
       setStatus('');
       renderReport(report);
-    }catch(err){showError(err.message);}
+    }catch(err){
+      if(err.message==='Failed to fetch'||err.name==='TypeError'){
+        showError(
+          'Network error — could not reach api.anthropic.com. Most likely causes:<br><br>'+
+          '<strong>1. Ad blocker or browser extension</strong> — try disabling it for this page (uBlock Origin, Privacy Badger, etc. often block Anthropic\'s API domain).<br>'+
+          '<strong>2. Firewall / corporate network</strong> — api.anthropic.com may be blocked on your network. Try a personal hotspot.<br>'+
+          '<strong>3. Files too large</strong> — very large PDFs can cause a timeout. Try with smaller documents first.<br><br>'+
+          'Open browser DevTools (F12) → Network tab → re-run to see the blocked request.'
+        );
+      } else {
+        showError(err.message);
+      }
+    }
   }
   function setStatus(html){document.getElementById('status').innerHTML=html;}
   function showError(msg){
