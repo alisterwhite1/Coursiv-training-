@@ -200,32 +200,58 @@
     const hasFiles=submittedInput.files.length&&specInput.files.length;
     document.getElementById('submitBtn').disabled=!(hasKey&&hasFiles);
   }
-  async function extractText(file){
+  // Returns {text, imageBlocks} where imageBlocks are Anthropic content blocks
+  // for pages that had too little extractable text (scanned / image-based pages).
+  async function extractContent(file, label){
     const name=file.name.toLowerCase();
-    if(name.endsWith('.txt'))return file.text();
+    if(name.endsWith('.txt')){
+      const text=await file.text();
+      return {text, imageBlocks:[]};
+    }
     if(name.endsWith('.pdf')){
       const buf=await file.arrayBuffer();
       const pdf=await pdfjsLib.getDocument({data:buf}).promise;
       let pages=[];
+      let imageBlocks=[];
+      const MAX_IMG_PAGES=20; // cap to keep API cost reasonable
       for(let i=1;i<=pdf.numPages;i++){
         const page=await pdf.getPage(i);
         const content=await page.getTextContent();
-        pages.push('[Page '+i+']\n'+content.items.map(s=>s.str).join(' '));
+        const pageText=content.items.map(s=>s.str).join(' ').trim();
+        pages.push('[Page '+i+']\n'+(pageText||'(image-based page — rendered below)'));
+        // Pages with fewer than 80 chars of text are likely scanned images
+        if(pageText.length<80 && imageBlocks.length<MAX_IMG_PAGES*2){
+          try{
+            // Render at 1.5x scale — good balance between readability and file size
+            const vp=page.getViewport({scale:1.5});
+            const canvas=document.createElement('canvas');
+            canvas.width=vp.width;
+            canvas.height=vp.height;
+            await page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise;
+            const b64=canvas.toDataURL('image/jpeg',0.82).split(',')[1];
+            imageBlocks.push({type:'text',text:'['+label+' — Page '+i+' (scanned image):]'});
+            imageBlocks.push({type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}});
+          }catch(e){
+            // If rendering fails, note it in text and continue
+            pages[pages.length-1]+=' (could not render image: '+e.message+')';
+          }
+        }
       }
-      return pages.join('\n\n');
+      return {text:pages.join('\n\n'), imageBlocks};
     }
     if(name.endsWith('.docx')||name.endsWith('.doc')){
       const buf=await file.arrayBuffer();
       const result=await mammoth.extractRawText({arrayBuffer:buf});
-      return result.value;
+      return {text:result.value, imageBlocks:[]};
     }
     if(name.endsWith('.xlsx')||name.endsWith('.xls')){
       const buf=await file.arrayBuffer();
       const wb=XLSX.read(buf,{type:'array'});
-      return wb.SheetNames.map(sn=>{
+      const text=wb.SheetNames.map(sn=>{
         const ws=wb.Sheets[sn];
         return '[Sheet: '+sn+']\n'+XLSX.utils.sheet_to_csv(ws);
       }).join('\n\n');
+      return {text, imageBlocks:[]};
     }
     throw new Error('Unsupported file type: '+file.name);
   }
@@ -235,33 +261,33 @@
     document.getElementById('result').style.display='none';
     document.getElementById('submitBtn').disabled=true;
     setStatus('<span class="spinner"></span> Reading documents…');
-    let submittedText,specText;
+    let submittedContent,specContent;
     try{
-      [submittedText,specText]=await Promise.all([
-        extractText(submittedInput.files[0]),
-        extractText(specInput.files[0])
+      [submittedContent,specContent]=await Promise.all([
+        extractContent(submittedInput.files[0],'Submitted document'),
+        extractContent(specInput.files[0],'Specification')
       ]);
     }catch(err){showError('Could not read a file: '+err.message);return;}
     const MAX=50000;
+    let submittedText=submittedContent.text;
+    let specText=specContent.text;
     if(submittedText.length>MAX)submittedText=submittedText.slice(0,MAX)+'\n[truncated — document exceeded limit]';
     if(specText.length>MAX)specText=specText.slice(0,MAX)+'\n[truncated — document exceeded limit]';
-    setStatus('<span class="spinner"></span> Analysing compliance with AI… (this may take 30–60 seconds)');
 
-    const prompt=`You are a senior compliance engineer reviewing a technical submittal against a project specification. Your job is to produce a rigorous, traceable compliance report that a design engineer or contractor can act on directly.
+    const totalImagePages=(submittedContent.imageBlocks.length+specContent.imageBlocks.length)/2;
+    if(totalImagePages>0){
+      setStatus('<span class="spinner"></span> Detected '+totalImagePages+' scanned page'+(totalImagePages>1?'s':'')+' — sending as images for visual reading… (may take up to 90 seconds)');
+    } else {
+      setStatus('<span class="spinner"></span> Analysing compliance with AI… (this may take 30–60 seconds)');
+    }
 
-## Specification
-${specText}
-
-## Submitted Document
-${submittedText}
-
----
+    const instructions=`---
 
 ## Instructions
 
 Work through every requirement in the specification methodically. For each requirement:
 
-1. **Find the actual value** — Do not just check whether the requirement is acknowledged. Go to the relevant section, table, or technical data sheet in the submitted document and retrieve the actual numeric value, material description, test result, or stated parameter.
+1. **Find the actual value** — Do not just check whether the requirement is acknowledged. Go to the relevant section, table, or technical data sheet in the submitted document and retrieve the actual numeric value, material description, test result, or stated parameter. For image-based pages, read the images directly.
 
 2. **Compare numerically** — Compare the retrieved value against the specification limit. Flag any case where the submitted value falls outside the specified range, even if the compliance matrix in the submittal is marked "compliant" or "N/A".
 
@@ -304,6 +330,41 @@ Brief summary of requirements that are satisfactorily met. Do not list every cla
 
 Be specific. Cite actual values from both documents. If a value is not present in the submittal, say so explicitly rather than assuming compliance. Never mark a requirement as compliant based solely on the submittal's own compliance matrix.`;
 
+    // Build mixed-content message: text + any scanned-page images
+    const allImageBlocks=[...specContent.imageBlocks,...submittedContent.imageBlocks];
+    let messageContent;
+    if(allImageBlocks.length===0){
+      // All text — single string is fine
+      messageContent=`You are a senior compliance engineer reviewing a technical submittal against a project specification. Your job is to produce a rigorous, traceable compliance report that a design engineer or contractor can act on directly.
+
+## Specification
+${specText}
+
+## Submitted Document
+${submittedText}
+
+${instructions}`;
+    } else {
+      // Mixed content: text blocks interleaved with scanned page images
+      messageContent=[
+        {type:'text',text:`You are a senior compliance engineer reviewing a technical submittal against a project specification. Your job is to produce a rigorous, traceable compliance report that a design engineer or contractor can act on directly.
+
+## Specification (text)
+${specText}`}
+      ];
+      if(specContent.imageBlocks.length>0){
+        messageContent.push({type:'text',text:'## Specification (scanned pages follow)'});
+        messageContent.push(...specContent.imageBlocks);
+      }
+      messageContent.push({type:'text',text:`## Submitted Document (text)
+${submittedText}`});
+      if(submittedContent.imageBlocks.length>0){
+        messageContent.push({type:'text',text:'## Submitted Document (scanned pages follow)'});
+        messageContent.push(...submittedContent.imageBlocks);
+      }
+      messageContent.push({type:'text',text:instructions});
+    }
+
     try{
       const res=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
@@ -316,7 +377,7 @@ Be specific. Cite actual values from both documents. If a value is not present i
         body:JSON.stringify({
           model:'claude-opus-4-8',
           max_tokens:8192,
-          messages:[{role:'user',content:prompt}]
+          messages:[{role:'user',content:messageContent}]
         })
       });
       if(!res.ok){
