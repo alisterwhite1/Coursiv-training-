@@ -404,9 +404,10 @@ State one of: **Approved** / **Approved with Comments** / **Reject — Resubmit*
 Assign a compliance score (0–100%). Weight critical safety requirements more heavily than administrative ones. Explain the score in one sentence.
 
 ### 2. Priority Action Table
-A table with columns: Requirement | Spec Clause | Spec Requirement | Submitted Value | Submittal Page/Ref | Severity | Status
-- Severity: CRITICAL / MAJOR / MINOR
-- Status: FAIL / PASS / MISSING / CONTRADICTED / NEEDS HUMAN REVIEW
+A markdown table with exactly these 8 columns in this order: # | Requirement | Spec Clause | Spec Requirement | Submitted Value | Submittal Page/Ref | Severity | Status
+- # is a simple row counter (1, 2, 3…) — keep this cell short
+- Severity values: CRITICAL / MAJOR / MINOR
+- Status values: FAIL / MISSING / CONTRADICTED / NEEDS HUMAN REVIEW / PASS
 List only items that are not straightforwardly compliant. Sort by severity (CRITICAL first).
 
 ### 3. Critical Failures (if any)
@@ -646,20 +647,22 @@ ${submittedText}`});
   ul{padding-left:16px;margin-bottom:6px;}
   li{margin-bottom:3px;line-height:1.5;}
   /* ── Tables ── */
-  table{width:100%;border-collapse:collapse;font-size:8pt;table-layout:fixed;margin:8px 0 12px;page-break-inside:auto;}
+  table{width:100%;border-collapse:collapse;font-size:7.5pt;table-layout:fixed;margin:8px 0 12px;page-break-inside:auto;}
   thead{display:table-header-group;}
-  th{background:#eff6ff;color:#1d4ed8;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:5px 6px;border:1px solid #bfdbfe;text-align:left;word-break:break-word;}
-  td{padding:5px 6px;border:1px solid #e2e8f0;vertical-align:top;word-break:break-word;line-height:1.4;}
+  th{background:#eff6ff;color:#1d4ed8;font-size:6.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:4px 5px;border:1px solid #bfdbfe;text-align:left;word-break:break-word;overflow-wrap:break-word;}
+  td{padding:4px 5px;border:1px solid #e2e8f0;vertical-align:top;word-break:break-word;overflow-wrap:break-word;line-height:1.35;}
   tr:nth-child(even) td{background:#f8fafc;}
   tr{page-break-inside:avoid;}
-  /* 7-column layout: Req 17%, Clause 9%, Spec Req 19%, Submitted 19%, Page 11%, Severity 9%, Status 11% = 95% + 5% gap */
-  table th:nth-child(1),table td:nth-child(1){width:17%;}
-  table th:nth-child(2),table td:nth-child(2){width:9%;}
-  table th:nth-child(3),table td:nth-child(3){width:19%;}
-  table th:nth-child(4),table td:nth-child(4){width:19%;}
-  table th:nth-child(5),table td:nth-child(5){width:11%;}
-  table th:nth-child(6),table td:nth-child(6){width:9%;}
-  table th:nth-child(7),table td:nth-child(7){width:16%;}
+  /* 8-column layout (# + 7 data cols) fitted to A4 landscape 273mm usable width.
+     #: 4%, Req: 13%, Clause: 9%, Spec Req: 17%, Submitted: 18%, Page: 10%, Severity: 8%, Status: 10% */
+  table th:nth-child(1),table td:nth-child(1){width:4%;text-align:center;}
+  table th:nth-child(2),table td:nth-child(2){width:13%;}
+  table th:nth-child(3),table td:nth-child(3){width:9%;}
+  table th:nth-child(4),table td:nth-child(4){width:17%;}
+  table th:nth-child(5),table td:nth-child(5){width:18%;}
+  table th:nth-child(6),table td:nth-child(6){width:10%;}
+  table th:nth-child(7),table td:nth-child(7){width:8%;}
+  table th:nth-child(8),table td:nth-child(8){width:10%;}
   .tag-crit{color:#dc2626;font-weight:700;}
   .tag-warn{color:#d97706;font-weight:700;}
   .tag-pass{color:#16a34a;font-weight:700;}
@@ -670,8 +673,9 @@ ${submittedText}`});
     body{padding:0;}
     .page{padding:10mm 12mm 14mm;max-width:none;}
     .print-btn-bar{display:none;}
-    table{font-size:7.5pt;}
-    th,td{padding:4px 5px;}
+    table{font-size:7pt;}
+    th{font-size:6pt;padding:3px 4px;}
+    td{padding:3px 4px;}
   }
   @page{size:A4 landscape;margin:10mm 12mm;}
 </style>
