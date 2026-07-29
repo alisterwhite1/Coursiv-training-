@@ -81,6 +81,8 @@
     .action-row .reset-btn { margin-top:0; flex:1; }
     .print-btn { flex:1; padding:.65rem; background:var(--blue-dark); color:#fff; border:none; border-radius:var(--radius); font-size:.85rem; font-weight:600; cursor:pointer; transition:background .2s; }
     .print-btn:hover { background:var(--blue); }
+    .html-btn { flex:1; padding:.65rem; background:var(--green); color:#fff; border:none; border-radius:var(--radius); font-size:.85rem; font-weight:600; cursor:pointer; transition:background .2s; }
+    .html-btn:hover { background:#15803d; }
     /* ── Scan approval panel ── */
     .scan-panel { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:1.25rem 1.5rem; margin-top:1rem; }
     .scan-panel h3 { font-size:1rem; font-weight:700; margin-bottom:.4rem; color:var(--amber); }
@@ -169,8 +171,9 @@
     </div>
     <div class="report-body" id="reportBody"></div>
     <div class="action-row">
-      <button class="print-btn" onclick="openPrintReport()">&#128438; Open Print / PDF Report</button>
-      <button class="reset-btn" onclick="resetForm()">Start a new comparison</button>
+      <button class="print-btn" onclick="openPrintReport()">&#128438; Print / PDF Report</button>
+      <button class="html-btn" onclick="downloadHtmlReport()">&#128190; Save HTML Report</button>
+      <button class="reset-btn" onclick="resetForm()">New comparison</button>
     </div>
   </div>
 </div>
@@ -602,7 +605,7 @@ ${submittedText}`});
       .replace(/\*(.+?)\*/g,'<em>$1</em>')
       .replace(/`(.+?)`/g,'<code style="background:#f1f5f9;padding:.1em .35em;border-radius:3px;font-size:.9em">$1</code>');
   }
-  function openPrintReport(){
+  function buildReportHtml(){
     const score=document.getElementById('scoreText').textContent;
     const verdict=document.getElementById('verdictBadge').textContent;
     const verdictClass=document.getElementById('verdictBadge').className.replace('verdict-badge ','');
@@ -614,14 +617,9 @@ ${submittedText}`});
     const submittedFileName=document.getElementById('submittedName').textContent||'Submitted document';
     const specFileName=document.getElementById('specName').textContent||'Specification';
     const date=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
-
-    const verdictColors={
-      'verdict-compliant':'#16a34a','verdict-partial':'#d97706',
-      'verdict-noncompliant':'#dc2626','verdict-reject':'#dc2626'
-    };
+    const verdictColors={'verdict-compliant':'#16a34a','verdict-partial':'#d97706','verdict-noncompliant':'#dc2626','verdict-reject':'#dc2626'};
     const vColor=verdictColors[verdictClass]||'#64748b';
-
-    const html=`<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -705,11 +703,27 @@ ${submittedText}`});
 </body>
 </html>`;
 
+  }
+  function openPrintReport(){
+    const html=buildReportHtml();
     const blob=new Blob([html],{type:'text/html'});
     const url=URL.createObjectURL(blob);
     const win=window.open(url,'_blank');
     if(!win){alert('Pop-up blocked. Please allow pop-ups for this site and try again.');}
     setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }
+  function downloadHtmlReport(){
+    const html=buildReportHtml();
+    const blob=new Blob([html],{type:'text/html'});
+    const url=URL.createObjectURL(blob);
+    const submittedFileName=document.getElementById('submittedName').textContent||'report';
+    const safeName=submittedFileName.replace(/\.[^.]+$/,'').replace(/[^a-z0-9_\-]/gi,'-').slice(0,60);
+    const date=new Date().toISOString().slice(0,10);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download='compliance-report-'+safeName+'-'+date+'.html';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
   }
 </script>
 </body>
