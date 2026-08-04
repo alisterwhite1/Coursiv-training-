@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dubai Metro Site HSE Observation Report</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy:         #0f2c46;
+    --navy-soft:    #1c5d8f;
+    --blue:         #2478c4;
+    --blue-light:   #e6f1fb;
+    --bg:           #f4f6f9;
+    --card:         #ffffff;
+    --line:         #e2e7ee;
+    --input-bg:     #f7f9fb;
+    --text:         #172433;
+    --text-soft:    #4d5f74;
+    --muted:        #8494a8;
+    --radius-lg:    18px;
+    --radius-md:    12px;
+    --radius-sm:    8px;
+    --shadow:       0 2px 16px rgba(15,44,70,.07), 0 1px 3px rgba(0,0,0,.04);
+
+    --extreme:      #b91c1c;
+    --high:         #ea580c;
+    --medium:       #d97706;
+    --low:          #65a30d;
+    --compliant:    #0891b2;
+    --commendable:  #16a34a;
+
+    --open:         #d97706;
+    --closed:       #16a34a;
+    --na:           #8494a8;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    padding-bottom: 4rem;
+  }
+
+  /* ── Header ── */
+  header.app-header {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-soft) 100%);
+    color: #fff;
+    padding: 1.7rem 1.2rem 1.4rem;
+    text-align: center;
+  }
+  header.app-header .icon { font-size: 2rem; margin-bottom: .3rem; }
+  header.app-header h1 { font-size: 1.4rem; font-weight: 800; letter-spacing: -.3px; line-height: 1.25; }
+  header.app-header h1 span { color: #8fd0ff; }
+  header.app-header p { font-size: .82rem; opacity: .85; margin-top: .35rem; }
+
+  .wrap { max-width: 900px; margin: 0 auto; padding: 1.1rem .9rem 0; }
+
+  /* ── Summary bar ── */
+  .summary-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: .6rem;
+    margin-bottom: 1.1rem;
+  }
+  @media (max-width: 560px) { .summary-bar { grid-template-columns: repeat(2, 1fr); } }
+  .summary-tile {
+    background: var(--card);
+    border-radius: var(--radius-md);
+    padding: .75rem .5rem;
+    text-align: center;
+    box-shadow: var(--shadow);
+  }
+  .summary-tile .num { font-size: 1.5rem; font-weight: 800; color: var(--navy); line-height: 1; }
+  .summary-tile .lbl { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-top: .3rem; font-weight: 700; }
+
+  /* ── Card / section ── */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    margin-bottom: 1.1rem;
+    overflow: hidden;
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.2rem;
+    cursor: pointer;
+    user-select: none;
+  }
+  .card-head h2 {
+    font-size: .98rem;
+    font-weight: 800;
+    color: var(--navy);
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .card-head .chev { color: var(--muted); transition: transform .2s; font-size: .8rem; }
+  .card.collapsed .chev { transform: rotate(-90deg); }
+  .card-body { padding: 0 1.2rem 1.2rem; }
+  .card.collapsed .card-body { display: none; }
+  .card-note {
+    font-size: .78rem;
+    color: var(--muted);
+    margin: -.2rem 0 .9rem;
+  }
+
+  .field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .8rem;
+  }
+  @media (max-width: 560px) { .field-grid { grid-template-columns: 1fr; } }
+  .field-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 700px) { .field-grid.cols-3 { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 460px) { .field-grid.cols-3 { grid-template-columns: 1fr; } }
+
+  .field { display: flex; flex-direction: column; gap: .35rem; }
+  .field.span-2 { grid-column: span 2; }
+  @media (max-width: 560px) { .field.span-2 { grid-column: span 1; } }
+  .field label {
+    font-size: .72rem;
+    font-weight: 700;
+    color: var(--text-soft);
+    text-transform: uppercase;
+    letter-spacing: .03em;
+  }
+  .field .hint { font-size: .7rem; color: var(--muted); font-weight: 500; text-transform: none; letter-spacing: 0; }
+
+  input[type="text"], input[type="date"], select, textarea {
+    width: 100%;
+    padding: .6rem .75rem;
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius-sm);
+    font-size: .88rem;
+    color: var(--text);
+    background: var(--input-bg);
+    outline: none;
+    font-family: inherit;
+    transition: border-color .15s, background .15s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--blue); background: #fff; }
+  textarea { resize: vertical; min-height: 60px; }
+
+  .doc-ref-row { display: flex; gap: .5rem; }
+  .doc-ref-row input { flex: 1; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    padding: .6rem 1.2rem;
+    border: none;
+    border-radius: 999px;
+    font-size: .85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: filter .15s, transform .1s;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+  .btn:active { transform: scale(.96); }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-ghost { background: var(--blue-light); color: var(--navy-soft); }
+  .btn-ghost:hover { background: #d5e9fa; }
+  .btn-outline { background: #fff; color: var(--text-soft); border: 1.5px solid var(--line); }
+  .btn-outline:hover { border-color: var(--blue); color: var(--blue); }
+  .btn-danger { background: #fdecec; color: #c0392b; }
+  .btn-danger:hover { background: #fbdada; }
+  .btn-sm { padding: .4rem .85rem; font-size: .78rem; }
+  .btn-block { width: 100%; }
+
+  .btn-row { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .9rem; }
+
+  /* ── Risk legend ── */
+  .risk-legend { display: flex; flex-direction: column; gap: .55rem; }
+  .risk-row {
+    display: flex;
+    align-items: flex-start;
+    gap: .6rem;
+    padding: .55rem .7rem;
+    border-radius: var(--radius-sm);
+    background: var(--input-bg);
+  }
+  .risk-dot { width: 11px; height: 11px; border-radius: 50%; margin-top: .28rem; flex-shrink: 0; }
+  .risk-row strong { font-size: .82rem; }
+  .risk-row p { font-size: .78rem; color: var(--text-soft); margin-top: .1rem; }
+  .timeframe-strip {
+    display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .9rem;
+  }
+  .tf-chip {
+    font-size: .72rem; font-weight: 700; padding: .3rem .7rem;
+    border-radius: 999px; background: var(--blue-light); color: var(--navy-soft);
+  }
+
+  /* ── Photo picker ── */
+  .photo-picker { display: flex; flex-wrap: wrap; gap: .55rem; margin-top: .3rem; }
+  .photo-thumb {
+    position: relative; width: 68px; height: 68px; border-radius: var(--radius-sm);
+    overflow: hidden; border: 1.5px solid var(--line);
+  }
+  .photo-thumb img { width: 100%; height: 100%; object-fit: cover; cursor: pointer; }
+  .photo-thumb .rm {
+    position: absolute; top: 2px; right: 2px; width: 18px; height: 18px;
+    background: rgba(0,0,0,.6); color: #fff; border: none; border-radius: 50%;
+    font-size: .7rem; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .photo-add {
+    width: 68px; height: 68px; border-radius: var(--radius-sm);
+    border: 1.5px dashed var(--line); background: var(--input-bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; color: var(--muted); cursor: pointer;
+  }
+  .photo-add:hover { border-color: var(--blue); color: var(--blue); }
+  .photo-add input { display: none; }
+
+  /* ── Observation list ── */
+  .filter-row { display: flex; gap: .5rem; margin-bottom: .9rem; flex-wrap: wrap; align-items: center; }
+  .filter-row select { width: auto; flex: 1; min-width: 130px; }
+  .empty-state {
+    text-align: center; color: var(--muted); font-size: .88rem;
+    padding: 2rem 1rem; background: var(--card); border-radius: var(--radius-lg); box-shadow: var(--shadow);
+  }
+
+  .obs-card {
+    background: var(--card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    margin-bottom: .8rem;
+    border-left: 5px solid var(--muted);
+    overflow: hidden;
+  }
+  .obs-summary {
+    display: flex; align-items: center; gap: .7rem;
+    padding: .85rem 1rem; cursor: pointer;
+  }
+  .obs-sn {
+    width: 30px; height: 30px; border-radius: 50%; background: var(--blue-light); color: var(--navy-soft);
+    font-weight: 800; font-size: .8rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .obs-main { flex: 1; min-width: 0; }
+  .obs-title { font-size: .87rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .obs-sub { font-size: .76rem; color: var(--muted); margin-top: .12rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .badge {
+    font-size: .68rem; font-weight: 800; padding: .25rem .6rem; border-radius: 999px;
+    color: #fff; text-transform: uppercase; letter-spacing: .03em; flex-shrink: 0;
+  }
+  .status-chip {
+    font-size: .68rem; font-weight: 800; padding: .25rem .6rem; border-radius: 999px;
+    flex-shrink: 0; text-transform: uppercase; letter-spacing: .03em;
+  }
+  .obs-detail { padding: 0 1.1rem 1.1rem; display: none; border-top: 1px solid var(--line); }
+  .obs-card.open .obs-detail { display: block; }
+  .obs-card.open .obs-summary { border-bottom: 1px solid var(--line); }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem 1rem; margin: 1rem 0; }
+  @media (max-width: 560px) { .detail-grid { grid-template-columns: 1fr; } }
+  .detail-item .k { font-size: .68rem; font-weight: 700; text-transform: uppercase; color: var(--muted); letter-spacing: .03em; }
+  .detail-item .v { font-size: .84rem; color: var(--text); margin-top: .1rem; white-space: pre-wrap; }
+  .detail-photos { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .3rem; }
+  .detail-photos img { width: 60px; height: 60px; object-fit: cover; border-radius: var(--radius-sm); cursor: pointer; border: 1.5px solid var(--line); }
+
+  /* ── Lightbox ── */
+  .lightbox {
+    position: fixed; inset: 0; background: rgba(10,20,30,.88);
+    display: none; align-items: center; justify-content: center; z-index: 100; padding: 2rem;
+  }
+  .lightbox.show { display: flex; }
+  .lightbox img { max-width: 100%; max-height: 100%; border-radius: var(--radius-md); }
+  .lightbox-close {
+    position: absolute; top: 1.2rem; right: 1.2rem; background: rgba(255,255,255,.15); color: #fff;
+    border: none; width: 38px; height: 38px; border-radius: 50%; font-size: 1.2rem; cursor: pointer;
+  }
+
+  .toast {
+    position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--navy); color: #fff; padding: .7rem 1.3rem; border-radius: 999px;
+    font-size: .82rem; font-weight: 600; box-shadow: 0 6px 24px rgba(0,0,0,.25);
+    opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 200;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  footer.app-footer { text-align: center; padding: 1.5rem 1rem 0; color: var(--muted); font-size: .72rem; }
+
+  /* ── Print ── */
+  #printArea { display: none; }
+  @media print {
+    header.app-header, .wrap > .summary-bar, #reportCard .card-head, #riskCard, #obsFormCard,
+    .filter-row, .btn-row, footer.app-footer, .obs-summary .chev { display: none !important; }
+    body { background: #fff; padding: 0; }
+    .card { box-shadow: none; border: 1px solid #ccc; }
+    .obs-detail { display: block !important; }
+    #printArea { display: block; }
+    .no-print { display: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="icon">🚇</div>
+  <h1><span>Site HSE</span> Observation Report</h1>
+  <p>Dubai Metro Blue Line — mobile field form</p>
+</header>
+
+<div class="wrap">
+
+  <!-- ── Summary ── -->
+  <div class="summary-bar">
+    <div class="summary-tile"><div class="num" id="sumTotal">0</div><div class="lbl">Total</div></div>
+    <div class="summary-tile"><div class="num" id="sumOpen">0</div><div class="lbl">Open</div></div>
+    <div class="summary-tile"><div class="num" id="sumClosed">0</div><div class="lbl">Closed</div></div>
+    <div class="summary-tile"><div class="num" id="sumHigh">0</div><div class="lbl">High+ Risk</div></div>
+  </div>
+
+  <!-- ── Report Details ── -->
+  <section class="card" id="reportCard">
+    <div class="card-head" data-toggle="reportCard">
+      <h2>📋 Report Details</h2>
+      <span class="chev">▾</span>
+    </div>
+    <div class="card-body">
+      <div class="field-grid">
+        <div class="field"><label>Client</label><input type="text" id="rClient" /></div>
+        <div class="field"><label>Contractor</label><input type="text" id="rContractor" /></div>
+        <div class="field span-2"><label>Project</label><input type="text" id="rProject" /></div>
+        <div class="field span-2"><label>Engineer</label><input type="text" id="rEngineer" /></div>
+        <div class="field"><label>Site Location</label><input type="text" id="rSiteLocation" placeholder="e.g. BR09" /></div>
+        <div class="field"><label>Inspection Date</label><input type="date" id="rDate" /></div>
+        <div class="field"><label>Inspected By</label><input type="text" id="rInspectedBy" /></div>
+        <div class="field"><label>Reviewed By</label><input type="text" id="rReviewedBy" /></div>
+        <div class="field"><label>Corrective Action Closeout Status</label>
+          <select id="rCloseoutStatus"><option>OPEN</option><option>CLOSED</option></select>
+        </div>
+        <div class="field"><label>Attendees on Walk</label><input type="text" id="rAttendees" placeholder="Names, comma separated" /></div>
+      </div>
+      <div class="field" style="margin-top:.8rem;">
+        <label>Doc Ref <span class="hint">— org / date / location / initials, e.g. PAJV-2026-02-14-BR09-JP</span></label>
+        <div class="doc-ref-row">
+          <input type="text" id="rDocRef" placeholder="PAJV-2026-08-04-BR09-JP" />
+          <button class="btn btn-ghost btn-sm" id="genDocRefBtn" type="button">Generate</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Risk Guide ── -->
+  <section class="card collapsed" id="riskCard">
+    <div class="card-head" data-toggle="riskCard">
+      <h2>⚠️ Risk &amp; Timeframe Guide</h2>
+      <span class="chev">▾</span>
+    </div>
+    <div class="card-body">
+      <div class="risk-legend" id="riskLegend"></div>
+      <div class="timeframe-strip" id="timeframeStrip"></div>
+    </div>
+  </section>
+
+  <!-- ── Add Observation ── -->
+  <section class="card" id="obsFormCard">
+    <div class="card-head" data-toggle="obsFormCard">
+      <h2>➕ <span id="obsFormTitle">New Observation</span></h2>
+      <span class="chev">▾</span>
+    </div>
+    <div class="card-body">
+      <p class="card-note">Add as many observations as this site visit needs — each one gets its own serial number automatically and appears in the report below.</p>
+      <div class="field-grid">
+        <div class="field"><label>Inspected By</label><input type="text" id="fInspectedBy" /></div>
+        <div class="field"><label>Specific Location</label><input type="text" id="fLocation" placeholder="e.g. BB05" /></div>
+        <div class="field"><label>Observation Category</label><select id="fCategory"></select></div>
+        <div class="field"><label>Observation Sub Category</label><select id="fSubCategory"></select></div>
+      </div>
+
+      <div class="field" style="margin-top:.8rem;">
+        <label>Observations Description and any Actions Required</label>
+        <textarea id="fDescription" placeholder="Describe the finding and the corrective action required..."></textarea>
+      </div>
+      <div class="field" style="margin-top:.8rem;">
+        <label>Remarks</label>
+        <textarea id="fRemarks" placeholder="Additional remarks (optional)"></textarea>
+      </div>
+
+      <div class="field" style="margin-top:.8rem;">
+        <label>Images</label>
+        <div class="photo-picker" id="fImages"></div>
+      </div>
+
+      <div class="field-grid cols-3" style="margin-top:.8rem;">
+        <div class="field"><label>Risk Level</label><select id="fRiskLevel"></select></div>
+        <div class="field"><label>Action Time</label><select id="fActionTime"></select></div>
+        <div class="field"><label>Current Status</label>
+          <select id="fStatus"><option>OPEN</option><option>CLOSED</option><option>NA</option></select>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:.8rem;">
+        <label>Who Responsible</label>
+        <input type="text" id="fWhoResponsible" placeholder="Name this was raised to" />
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="saveObsBtn" type="button">Add Observation</button>
+        <button class="btn btn-outline" id="cancelObsBtn" type="button" style="display:none;">Cancel Edit</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Observation List ── -->
+  <div class="filter-row">
+    <select id="filterStatus">
+      <option value="">All statuses</option>
+      <option value="OPEN">Open</option>
+      <option value="CLOSED">Closed</option>
+      <option value="NA">NA</option>
+    </select>
+    <select id="filterRisk">
+      <option value="">All risk levels</option>
+    </select>
+  </div>
+  <div id="obsListWrap"></div>
+
+  <div class="btn-row" style="margin-bottom:1.5rem;">
+    <button class="btn btn-ghost" id="exportCsvBtn" type="button">⬇ Export CSV</button>
+    <button class="btn btn-ghost" id="printBtn" type="button">🖨 Print / PDF Report</button>
+    <button class="btn btn-danger" id="clearAllBtn" type="button">🗑 Clear All Data</button>
+  </div>
+
+  <footer class="app-footer">
+    Data is stored locally on this device only. Dubai Metro Blue Line — Site HSE Observation Report.
+  </footer>
+</div>
+
+<!-- ── Printable report (populated at print time) ── -->
+<div id="printArea"></div>
+
+<!-- ── Lightbox ── -->
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" id="lightboxClose">✕</button>
+  <img id="lightboxImg" src="" alt="Photo" />
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Reference data ─────────────────────────────────────────────────────────
+const CATEGORIES = [
+  'General Safety and Wellness',
+  'Housekeeping / Stacking / Storage / Assets',
+  'Emergencies',
+  'Hazardous Materials (HAZMAT)',
+  'Power Tools & Electrical Equipment',
+  'Vehicles / Fuel Powered Plant & Equipment',
+  'Hand Tools & Portable Tools (Non-Powered)',
+  'HSE (Documentation)',
+  'General Work Requirement',
+  'Positive Observation',
+  'Workspace Checkpoints',
+  'Fire & Life Safety (FLS) System',
+  'Fire Protection and Hot Works',
+  'Working at Height',
+  'Energized Systems',
+  'Scaffolds',
+  'Confined Spaces (CS)',
+  'Working in the Heat',
+  'Environmental',
+  'Others'
+];
+
+const SUB_CATEGORIES = [
+  'Good Practice',
+  'PTW Violation',
+  'Unauthorized Entry',
+  'Housekeeping / Sanitation',
+  'PPE Related',
+  'Working at Height',
+  'Excavations',
+  'Compliant',
+  'Commendable',
+  'Scaffolds / Ladders / Stairways / Platforms',
+  'Hoisting and Lifting Equipment / MEWP',
+  'Vehicles and Mobile Equipment / Plant',
+  'Tools and Equipment',
+  'Working in Heat / Summer Working',
+  'Permits to Work / Pre Task Plans',
+  'Confined Spaces',
+  'Electrical Works',
+  'Legal Requirements',
+  'Environmental Observation',
+  'Traffic Safety Management',
+  'General Site Safety',
+  'Ergonomics / Manual Handling',
+  'Unsafe Storage / Stacking',
+  'Slip, Trip & Falls',
+  'Procedural Breach',
+  'Property Damage',
+  'Unsafe Act / Condition',
+  'Sharp Edge',
+  'Lighting',
+  'Behavior',
+  'Signage',
+  'Ventilation',
+  'Electrical Safety',
+  'Poor Supervision',
+  'Water / Chemical Spillage',
+  'Welfare',
+  'FACP Related',
+  'Competency',
+  'Covid-19 Related',
+  'Others'
+];
+
+const RISK_LEVELS = [
+  { key: 'Commendable', color: 'var(--commendable)', desc: 'Controls are above what is required — excellent practice.' },
+  { key: 'Compliant',   color: 'var(--compliant)',   desc: 'Controls implemented to meet requirements.' },
+  { key: 'Low',         color: 'var(--low)',         desc: 'Issues to be resolved.' },
+  { key: 'Medium',      color: 'var(--medium)',      desc: 'Activities suspended and control measures implemented.' },
+  { key: 'High',        color: 'var(--high)',        desc: 'Activities suspended, control measures to be done.' },
+  { key: 'Extreme',     color: 'var(--extreme)',     desc: 'Activities suspended and control measures implemented immediately.' }
+];
+
+const ACTION_TIMES = ['Immediate', '1-2 Days', '3-4 Days', '5-7 Days', '8-14 Days', 'NA'];
+
+function riskColorVar(level) {
+  const map = { Commendable: '--commendable', Compliant: '--compliant', Low: '--low', Medium: '--medium', High: '--high', Extreme: '--extreme' };
+  return `var(${map[level] || '--na'})`;
+}
+function statusColorVar(status) {
+  const map = { OPEN: '--open', CLOSED: '--closed', NA: '--na' };
+  return `var(${map[status] || '--na'})`;
+}
+
+// ── Storage ───────────────────────────────────────────────────────────────
+const KEY = 'dubai_metro_hse_sor_v1';
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; }
+}
+function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
+
+function defaultState() {
+  return {
+    report: {
+      client: 'RTA',
+      contractor: 'MLCC',
+      project: 'Dubai Metro Blue Line - RA/RPD/23-9571',
+      engineer: 'Parsons / AtkinsRealis JV',
+      siteLocation: '',
+      date: today(),
+      inspectedBy: '',
+      reviewedBy: '',
+      closeoutStatus: 'OPEN',
+      attendees: '',
+      docRef: ''
+    },
+    observations: [],
+    nextSn: 1
+  };
+}
+
+function today() {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+function pad(n) { return String(n).padStart(2, '0'); }
+
+let state = { ...defaultState(), ...load() };
+state.report = { ...defaultState().report, ...(state.report || {}) };
+
+let editingId = null;
+let draftImages = [];
+let openObsId = null;
+
+// ── Toast ─────────────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ── Collapsible cards ─────────────────────────────────────────────────────
+document.querySelectorAll('[data-toggle]').forEach(head => {
+  head.addEventListener('click', () => {
+    document.getElementById(head.dataset.toggle).classList.toggle('collapsed');
+  });
+});
+
+// ── Populate selects ──────────────────────────────────────────────────────
+function fillSelect(el, items, includeBlank) {
+  el.innerHTML = (includeBlank ? ['— Select —', ...items] : items)
+    .map((v, i) => `<option value="${esc(includeBlank && i === 0 ? '' : v)}">${esc(v)}</option>`)
+    .join('');
+}
+fillSelect(document.getElementById('fCategory'), CATEGORIES, true);
+fillSelect(document.getElementById('fSubCategory'), SUB_CATEGORIES, true);
+fillSelect(document.getElementById('fRiskLevel'), RISK_LEVELS.map(r => r.key), true);
+fillSelect(document.getElementById('fActionTime'), ACTION_TIMES, true);
+
+const filterRisk = document.getElementById('filterRisk');
+RISK_LEVELS.forEach(r => {
+  const opt = document.createElement('option');
+  opt.value = r.key; opt.textContent = r.key;
+  filterRisk.appendChild(opt);
+});
+
+// ── Risk legend ───────────────────────────────────────────────────────────
+document.getElementById('riskLegend').innerHTML = RISK_LEVELS.slice().reverse().map(r => `
+  <div class="risk-row">
+    <span class="risk-dot" style="background:${r.color}"></span>
+    <div><strong>${esc(r.key)}</strong><p>${esc(r.desc)}</p></div>
+  </div>
+`).join('');
+document.getElementById('timeframeStrip').innerHTML = ACTION_TIMES.map(t => `<span class="tf-chip">${esc(t)}</span>`).join('');
+
+// ── Report details binding ───────────────────────────────────────────────
+const reportFields = {
+  rClient: 'client', rContractor: 'contractor', rProject: 'project', rEngineer: 'engineer',
+  rSiteLocation: 'siteLocation', rDate: 'date', rInspectedBy: 'inspectedBy', rReviewedBy: 'reviewedBy',
+  rCloseoutStatus: 'closeoutStatus', rAttendees: 'attendees', rDocRef: 'docRef'
+};
+function loadReportForm() {
+  Object.entries(reportFields).forEach(([id, key]) => {
+    document.getElementById(id).value = state.report[key] || '';
+  });
+}
+Object.entries(reportFields).forEach(([id, key]) => {
+  document.getElementById(id).addEventListener('input', () => {
+    state.report[key] = document.getElementById(id).value;
+    save();
+    renderSummary();
+  });
+});
+loadReportForm();
+
+document.getElementById('genDocRefBtn').addEventListener('click', () => {
+  const initials = (state.report.inspectedBy || '')
+    .split(/\s+/).filter(Boolean).map(w => w[0].toUpperCase()).join('') || 'XX';
+  const loc = (state.report.siteLocation || 'SITE').replace(/\s+/g, '').toUpperCase();
+  const ref = `PAJV-${state.report.date || today()}-${loc}-${initials}`;
+  state.report.docRef = ref;
+  document.getElementById('rDocRef').value = ref;
+  save();
+});
+
+// ── Image handling ───────────────────────────────────────────────────────
+function resizeImage(file, maxDim = 900, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height && width > maxDim) { height *= maxDim / width; width = maxDim; }
+        else if (height > maxDim) { width *= maxDim / height; height = maxDim; }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderPhotoPicker(containerId, arr) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = arr.map((src, i) => `
+    <div class="photo-thumb">
+      <img src="${src}" data-idx="${i}" data-target="${containerId}" class="photo-view" />
+      <button class="rm" data-idx="${i}" data-target="${containerId}" type="button">✕</button>
+    </div>
+  `).join('') + `
+    <label class="photo-add">
+      +
+      <input type="file" accept="image/*" capture="environment" multiple data-target="${containerId}" />
+    </label>
+  `;
+}
+renderPhotoPicker('fImages', draftImages);
+
+document.body.addEventListener('change', async e => {
+  if (e.target.matches('.photo-add input')) {
+    const target = e.target.dataset.target;
+    const files = Array.from(e.target.files);
+    for (const f of files) {
+      try {
+        const dataUrl = await resizeImage(f);
+        draftImages.push(dataUrl);
+      } catch { /* skip unreadable file */ }
+    }
+    renderPhotoPicker(target, draftImages);
+  }
+});
+
+document.body.addEventListener('click', e => {
+  if (e.target.matches('.photo-thumb .rm')) {
+    const target = e.target.dataset.target;
+    const idx = Number(e.target.dataset.idx);
+    draftImages.splice(idx, 1);
+    renderPhotoPicker(target, draftImages);
+  }
+  if (e.target.matches('.photo-view, .detail-photos img')) {
+    document.getElementById('lightboxImg').src = e.target.src;
+    document.getElementById('lightbox').classList.add('show');
+  }
+});
+document.getElementById('lightboxClose').addEventListener('click', () => document.getElementById('lightbox').classList.remove('show'));
+document.getElementById('lightbox').addEventListener('click', e => { if (e.target.id === 'lightbox') e.currentTarget.classList.remove('show'); });
+
+// ── Observation form ──────────────────────────────────────────────────────
+const obsFields = [
+  'fInspectedBy', 'fLocation', 'fCategory', 'fSubCategory', 'fDescription', 'fRemarks',
+  'fRiskLevel', 'fActionTime', 'fStatus', 'fWhoResponsible'
+];
+
+function resetObsForm() {
+  obsFields.forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('fStatus').value = 'OPEN';
+  draftImages = [];
+  renderPhotoPicker('fImages', draftImages);
+  editingId = null;
+  document.getElementById('obsFormTitle').textContent = 'New Observation';
+  document.getElementById('saveObsBtn').textContent = 'Add Observation';
+  document.getElementById('cancelObsBtn').style.display = 'none';
+}
+
+function fillObsForm(obs) {
+  document.getElementById('fInspectedBy').value = obs.inspectedBy || '';
+  document.getElementById('fLocation').value = obs.location || '';
+  document.getElementById('fCategory').value = obs.category || '';
+  document.getElementById('fSubCategory').value = obs.subCategory || '';
+  document.getElementById('fDescription').value = obs.description || '';
+  document.getElementById('fRemarks').value = obs.remarks || '';
+  document.getElementById('fRiskLevel').value = obs.riskLevel || '';
+  document.getElementById('fActionTime').value = obs.actionTime || '';
+  document.getElementById('fStatus').value = obs.status || 'OPEN';
+  document.getElementById('fWhoResponsible').value = obs.whoResponsible || '';
+  draftImages = [...(obs.images || [])];
+  renderPhotoPicker('fImages', draftImages);
+}
+
+document.getElementById('saveObsBtn').addEventListener('click', () => {
+  const description = document.getElementById('fDescription').value.trim();
+  const category = document.getElementById('fCategory').value;
+  if (!description || !category) {
+    toast('Category and Description are required');
+    return;
+  }
+  const data = {
+    inspectedBy: document.getElementById('fInspectedBy').value.trim(),
+    location: document.getElementById('fLocation').value.trim(),
+    category,
+    subCategory: document.getElementById('fSubCategory').value,
+    description,
+    remarks: document.getElementById('fRemarks').value.trim(),
+    riskLevel: document.getElementById('fRiskLevel').value,
+    actionTime: document.getElementById('fActionTime').value,
+    status: document.getElementById('fStatus').value,
+    whoResponsible: document.getElementById('fWhoResponsible').value.trim(),
+    images: [...draftImages]
+  };
+
+  if (editingId) {
+    const obs = state.observations.find(o => o.id === editingId);
+    Object.assign(obs, data);
+    toast('Observation updated');
+  } else {
+    state.observations.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+      sn: state.nextSn++,
+      createdAt: new Date().toISOString(),
+      ...data
+    });
+    toast('Observation added');
+  }
+  save();
+  resetObsForm();
+  renderObservations();
+  renderSummary();
+});
+
+document.getElementById('cancelObsBtn').addEventListener('click', resetObsForm);
+
+// ── Observation list ──────────────────────────────────────────────────────
+function editObservation(id) {
+  const obs = state.observations.find(o => o.id === id);
+  if (!obs) return;
+  editingId = id;
+  fillObsForm(obs);
+  document.getElementById('obsFormTitle').textContent = `Editing Observation #${obs.sn}`;
+  document.getElementById('saveObsBtn').textContent = 'Save Changes';
+  document.getElementById('cancelObsBtn').style.display = 'inline-flex';
+  document.getElementById('obsFormCard').classList.remove('collapsed');
+  document.getElementById('obsFormCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function deleteObservation(id) {
+  if (!confirm('Delete this observation? This cannot be undone.')) return;
+  state.observations = state.observations.filter(o => o.id !== id);
+  save();
+  renderObservations();
+  renderSummary();
+  toast('Observation deleted');
+}
+
+document.getElementById('filterStatus').addEventListener('change', renderObservations);
+document.getElementById('filterRisk').addEventListener('change', renderObservations);
+
+function renderObservations() {
+  const wrap = document.getElementById('obsListWrap');
+  const statusFilter = document.getElementById('filterStatus').value;
+  const riskFilter = document.getElementById('filterRisk').value;
+
+  let list = [...state.observations].sort((a, b) => b.sn - a.sn);
+  if (statusFilter) list = list.filter(o => o.status === statusFilter);
+  if (riskFilter) list = list.filter(o => o.riskLevel === riskFilter);
+
+  if (!list.length) {
+    wrap.innerHTML = `<div class="empty-state">No observations ${state.observations.length ? 'match this filter' : 'yet'} — add one above.</div>`;
+    return;
+  }
+
+  wrap.innerHTML = list.map(o => {
+    const isOpen = o.id === openObsId;
+    return `
+    <div class="obs-card ${isOpen ? 'open' : ''}" style="border-left-color:${riskColorVar(o.riskLevel)}">
+      <div class="obs-summary" data-open="${o.id}">
+        <div class="obs-sn">${o.sn}</div>
+        <div class="obs-main">
+          <div class="obs-title">${esc(o.category || 'Uncategorized')}${o.location ? ' — ' + esc(o.location) : ''}</div>
+          <div class="obs-sub">${esc(truncate(o.description, 70))}</div>
+        </div>
+        ${o.riskLevel ? `<span class="badge" style="background:${riskColorVar(o.riskLevel)}">${esc(o.riskLevel)}</span>` : ''}
+        <span class="status-chip" style="background:${statusColorVar(o.status)};color:#fff">${esc(o.status)}</span>
+      </div>
+      <div class="obs-detail">
+        <div class="detail-grid">
+          <div class="detail-item"><div class="k">Inspected By</div><div class="v">${esc(o.inspectedBy || '—')}</div></div>
+          <div class="detail-item"><div class="k">Sub Category</div><div class="v">${esc(o.subCategory || '—')}</div></div>
+          <div class="detail-item"><div class="k">Action Time</div><div class="v">${esc(o.actionTime || '—')}</div></div>
+          <div class="detail-item"><div class="k">Who Responsible</div><div class="v">${esc(o.whoResponsible || '—')}</div></div>
+          <div class="detail-item"><div class="k">Remarks</div><div class="v">${esc(o.remarks || '—')}</div></div>
+        </div>
+        <div class="detail-item" style="margin-bottom:.7rem;"><div class="k">Observations Description and any Actions Required</div><div class="v">${esc(o.description)}</div></div>
+        ${o.images && o.images.length ? `<div class="detail-item" style="margin-bottom:.7rem;"><div class="k">Images</div><div class="detail-photos">${o.images.map(s => `<img src="${s}" />`).join('')}</div></div>` : ''}
+        <div class="btn-row">
+          <button class="btn btn-outline btn-sm" data-edit="${o.id}" type="button">Edit</button>
+          <button class="btn btn-danger btn-sm" data-del="${o.id}" type="button">Delete</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('obsListWrap').addEventListener('click', e => {
+  const openEl = e.target.closest('[data-open]');
+  if (openEl && !e.target.closest('[data-edit], [data-del]')) {
+    const id = openEl.dataset.open;
+    openObsId = openObsId === id ? null : id;
+    renderObservations();
+    return;
+  }
+  const editEl = e.target.closest('[data-edit]');
+  if (editEl) { editObservation(editEl.dataset.edit); return; }
+  const delEl = e.target.closest('[data-del]');
+  if (delEl) { deleteObservation(delEl.dataset.del); }
+});
+
+function truncate(s, n) { return (s || '').length > n ? s.slice(0, n) + '…' : (s || ''); }
+
+// ── Summary ───────────────────────────────────────────────────────────────
+function renderSummary() {
+  const total = state.observations.length;
+  const open = state.observations.filter(o => o.status === 'OPEN').length;
+  const closed = state.observations.filter(o => o.status === 'CLOSED').length;
+  const high = state.observations.filter(o => o.riskLevel === 'High' || o.riskLevel === 'Extreme').length;
+  document.getElementById('sumTotal').textContent = total;
+  document.getElementById('sumOpen').textContent = open;
+  document.getElementById('sumClosed').textContent = closed;
+  document.getElementById('sumHigh').textContent = high;
+}
+
+// ── CSV export ────────────────────────────────────────────────────────────
+function csvCell(v) { return `"${String(v == null ? '' : v).replace(/"/g, '""')}"`; }
+
+document.getElementById('exportCsvBtn').addEventListener('click', () => {
+  const headers = [
+    'S№', 'Inspected By', 'Specific Location', 'Observation Category', 'Observation Sub Category',
+    'Remarks', 'Observations Description and any Actions Required', 'Images', 'Risk Level',
+    'Action Time', 'Who Responsible', 'Current Status'
+  ];
+  const rows = [...state.observations].sort((a, b) => a.sn - b.sn).map(o => [
+    o.sn, o.inspectedBy, o.location, o.category, o.subCategory, o.remarks, o.description,
+    (o.images || []).length, o.riskLevel, o.actionTime, o.whoResponsible, o.status
+  ]);
+  const meta = [
+    ['Client', state.report.client], ['Contractor', state.report.contractor], ['Project', state.report.project],
+    ['Engineer', state.report.engineer], ['Site Location', state.report.siteLocation], ['Inspection Date', state.report.date],
+    ['Inspected By', state.report.inspectedBy], ['Reviewed By', state.report.reviewedBy],
+    ['Doc Ref', state.report.docRef], ['Corrective Action Closeout Status', state.report.closeoutStatus],
+    ['Attendees on Walk', state.report.attendees]
+  ];
+  let csv = meta.map(r => r.map(csvCell).join(',')).join('\n');
+  csv += '\n\nIssuer\'s Part\n' + headers.map(csvCell).join(',') + '\n';
+  csv += rows.map(r => r.map(csvCell).join(',')).join('\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `SiteHSE_ObservationReport_${(state.report.docRef || state.report.date || 'report').replace(/[^a-z0-9-_]/gi, '_')}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+// ── Print / PDF ───────────────────────────────────────────────────────────
+document.getElementById('printBtn').addEventListener('click', () => {
+  buildPrintArea();
+  window.print();
+});
+
+function buildPrintArea() {
+  const r = state.report;
+  const rows = [...state.observations].sort((a, b) => a.sn - b.sn).map(o => `
+    <tr>
+      <td>${o.sn}</td>
+      <td>${esc(o.inspectedBy)}</td>
+      <td>${esc(o.location)}</td>
+      <td>${esc(o.category)}<br><small>${esc(o.subCategory)}</small></td>
+      <td>${esc(o.remarks)}</td>
+      <td>${esc(o.description)}</td>
+      <td>${(o.images || []).map(s => `<img src="${s}" style="width:38px;height:38px;object-fit:cover;border-radius:3px;margin:1px;" />`).join('') || '—'}</td>
+      <td>${esc(o.riskLevel)}</td>
+      <td>${esc(o.actionTime)}</td>
+      <td>${esc(o.whoResponsible)}</td>
+      <td>${esc(o.status)}</td>
+    </tr>`).join('');
+
+  document.getElementById('printArea').innerHTML = `
+    <div style="font-family:'Segoe UI',sans-serif;padding:1rem;">
+      <h1 style="text-align:center;font-size:1.3rem;margin-bottom:.8rem;">SITE HSE OBSERVATION REPORT</h1>
+      <table style="width:100%;border-collapse:collapse;font-size:.78rem;margin-bottom:1rem;">
+        <tr><td style="font-weight:700;padding:3px;">Client</td><td style="padding:3px;">${esc(r.client)}</td>
+            <td style="font-weight:700;padding:3px;">Contractor</td><td style="padding:3px;">${esc(r.contractor)}</td></tr>
+        <tr><td style="font-weight:700;padding:3px;">Project</td><td colspan="3" style="padding:3px;">${esc(r.project)}</td></tr>
+        <tr><td style="font-weight:700;padding:3px;">Engineer</td><td colspan="3" style="padding:3px;">${esc(r.engineer)}</td></tr>
+        <tr><td style="font-weight:700;padding:3px;">Site Location</td><td style="padding:3px;">${esc(r.siteLocation)}</td>
+            <td style="font-weight:700;padding:3px;">Inspection Date</td><td style="padding:3px;">${esc(r.date)}</td></tr>
+        <tr><td style="font-weight:700;padding:3px;">Inspected By</td><td style="padding:3px;">${esc(r.inspectedBy)}</td>
+            <td style="font-weight:700;padding:3px;">Reviewed By</td><td style="padding:3px;">${esc(r.reviewedBy)}</td></tr>
+        <tr><td style="font-weight:700;padding:3px;">Doc Ref</td><td style="padding:3px;">${esc(r.docRef)}</td>
+            <td style="font-weight:700;padding:3px;">Closeout Status</td><td style="padding:3px;">${esc(r.closeoutStatus)}</td></tr>
+        <tr><td style="font-weight:700;padding:3px;">Attendees</td><td colspan="3" style="padding:3px;">${esc(r.attendees)}</td></tr>
+      </table>
+      <div style="background:#e6f1fb;border:1px solid #999;border-bottom:none;font-weight:700;padding:5px 8px;font-size:.85rem;">Issuer's Part</div>
+      <table style="width:100%;border-collapse:collapse;font-size:.68rem;" border="1">
+        <thead>
+          <tr style="background:#eee;">
+            <th style="padding:4px;">S№</th><th style="padding:4px;">Inspected By</th><th style="padding:4px;">Location</th>
+            <th style="padding:4px;">Category</th><th style="padding:4px;">Remarks</th>
+            <th style="padding:4px;">Observations Description and any Actions Required</th><th style="padding:4px;">Images</th>
+            <th style="padding:4px;">Risk Level</th><th style="padding:4px;">Action Time</th>
+            <th style="padding:4px;">Who Responsible</th><th style="padding:4px;">Current Status</th>
+          </tr>
+        </thead>
+        <tbody>${rows || '<tr><td colspan="11" style="padding:8px;text-align:center;">No observations recorded</td></tr>'}</tbody>
+      </table>
+    </div>`;
+}
+
+// ── Clear all ─────────────────────────────────────────────────────────────
+document.getElementById('clearAllBtn').addEventListener('click', () => {
+  if (!confirm('This will permanently delete all report details and observations from this device. Continue?')) return;
+  state = defaultState();
+  save();
+  loadReportForm();
+  resetObsForm();
+  renderObservations();
+  renderSummary();
+  toast('All data cleared');
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+resetObsForm();
+renderObservations();
+renderSummary();
+</script>
+</body>
+</html>
