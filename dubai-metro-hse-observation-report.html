@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Dubai Metro SOR — Site HSE Observation Report</title>
+<title>Dubai Metro Site HSE Observation Report</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -52,9 +52,9 @@
     text-align: center;
   }
   header.app-header .icon { font-size: 2rem; margin-bottom: .3rem; }
-  header.app-header h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -.3px; }
+  header.app-header h1 { font-size: 1.4rem; font-weight: 800; letter-spacing: -.3px; line-height: 1.25; }
   header.app-header h1 span { color: #8fd0ff; }
-  header.app-header p { font-size: .82rem; opacity: .85; margin-top: .3rem; }
+  header.app-header p { font-size: .82rem; opacity: .85; margin-top: .35rem; }
 
   .wrap { max-width: 900px; margin: 0 auto; padding: 1.1rem .9rem 0; }
 
@@ -104,6 +104,11 @@
   .card.collapsed .chev { transform: rotate(-90deg); }
   .card-body { padding: 0 1.2rem 1.2rem; }
   .card.collapsed .card-body { display: none; }
+  .card-note {
+    font-size: .78rem;
+    color: var(--muted);
+    margin: -.2rem 0 .9rem;
+  }
 
   .field-grid {
     display: grid;
@@ -300,8 +305,8 @@
 
 <header class="app-header">
   <div class="icon">🚇</div>
-  <h1>Dubai Metro <span>SOR</span></h1>
-  <p>Site HSE Observation Report — mobile field form</p>
+  <h1><span>Site HSE</span> Observation Report</h1>
+  <p>Dubai Metro Blue Line — mobile field form</p>
 </header>
 
 <div class="wrap">
@@ -364,6 +369,7 @@
       <span class="chev">▾</span>
     </div>
     <div class="card-body">
+      <p class="card-note">Add as many observations as this site visit needs — each one gets its own serial number automatically and appears in the report below.</p>
       <div class="field-grid">
         <div class="field"><label>Inspected By</label><input type="text" id="fInspectedBy" /></div>
         <div class="field"><label>Specific Location</label><input type="text" id="fLocation" placeholder="e.g. BB05" /></div>
@@ -372,7 +378,7 @@
       </div>
 
       <div class="field" style="margin-top:.8rem;">
-        <label>Observation Description &amp; Actions Required</label>
+        <label>Observations Description and any Actions Required</label>
         <textarea id="fDescription" placeholder="Describe the finding and the corrective action required..."></textarea>
       </div>
       <div class="field" style="margin-top:.8rem;">
@@ -393,20 +399,9 @@
         </div>
       </div>
 
-      <div class="field-grid" style="margin-top:.8rem;">
-        <div class="field"><label>Who Responsible</label><input type="text" id="fWhoResponsible" placeholder="Name raised to" /></div>
-        <div class="field"><label>Action Owner</label><input type="text" id="fActionOwner" placeholder="Owner of the fix" /></div>
-        <div class="field"><label>Person Responsible for H&amp;S (on walk)</label><input type="text" id="fPersonResponsible" /></div>
-        <div class="field"><label>Close Out Date</label><input type="date" id="fCloseoutDate" /></div>
-      </div>
-
       <div class="field" style="margin-top:.8rem;">
-        <label>After Rectification Images</label>
-        <div class="photo-picker" id="fAfterImages"></div>
-      </div>
-      <div class="field" style="margin-top:.8rem;">
-        <label>Closeout Remarks</label>
-        <textarea id="fCloseoutRemarks" placeholder="e.g. this is a temporary fix until the permanent solution is implemented"></textarea>
+        <label>Who Responsible</label>
+        <input type="text" id="fWhoResponsible" placeholder="Name this was raised to" />
       </div>
 
       <div class="btn-row">
@@ -437,7 +432,7 @@
   </div>
 
   <footer class="app-footer">
-    Data is stored locally on this device only. &copy; Dubai Metro Blue Line HSE Site Form.
+    Data is stored locally on this device only. Dubai Metro Blue Line — Site HSE Observation Report.
   </footer>
 </div>
 
@@ -531,10 +526,6 @@ const RISK_LEVELS = [
 
 const ACTION_TIMES = ['Immediate', '1-2 Days', '3-4 Days', '5-7 Days', '8-14 Days', 'NA'];
 
-function riskColor(level) {
-  const found = RISK_LEVELS.find(r => r.key === level);
-  return found ? found.color.replace('var(', '').replace(')', '') : '--na';
-}
 function riskColorVar(level) {
   const map = { Commendable: '--commendable', Compliant: '--compliant', Low: '--low', Medium: '--medium', High: '--high', Extreme: '--extreme' };
   return `var(${map[level] || '--na'})`;
@@ -545,7 +536,7 @@ function statusColorVar(status) {
 }
 
 // ── Storage ───────────────────────────────────────────────────────────────
-const KEY = 'dubai_metro_sor_v1';
+const KEY = 'dubai_metro_hse_sor_v1';
 
 function load() {
   try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; }
@@ -583,7 +574,6 @@ state.report = { ...defaultState().report, ...(state.report || {}) };
 
 let editingId = null;
 let draftImages = [];
-let draftAfterImages = [];
 let openObsId = null;
 
 // ── Toast ─────────────────────────────────────────────────────────────────
@@ -698,7 +688,6 @@ function renderPhotoPicker(containerId, arr) {
   `;
 }
 renderPhotoPicker('fImages', draftImages);
-renderPhotoPicker('fAfterImages', draftAfterImages);
 
 document.body.addEventListener('change', async e => {
   if (e.target.matches('.photo-add input')) {
@@ -707,10 +696,10 @@ document.body.addEventListener('change', async e => {
     for (const f of files) {
       try {
         const dataUrl = await resizeImage(f);
-        (target === 'fImages' ? draftImages : draftAfterImages).push(dataUrl);
+        draftImages.push(dataUrl);
       } catch { /* skip unreadable file */ }
     }
-    renderPhotoPicker(target, target === 'fImages' ? draftImages : draftAfterImages);
+    renderPhotoPicker(target, draftImages);
   }
 });
 
@@ -718,9 +707,8 @@ document.body.addEventListener('click', e => {
   if (e.target.matches('.photo-thumb .rm')) {
     const target = e.target.dataset.target;
     const idx = Number(e.target.dataset.idx);
-    const arr = target === 'fImages' ? draftImages : draftAfterImages;
-    arr.splice(idx, 1);
-    renderPhotoPicker(target, arr);
+    draftImages.splice(idx, 1);
+    renderPhotoPicker(target, draftImages);
   }
   if (e.target.matches('.photo-view, .detail-photos img')) {
     document.getElementById('lightboxImg').src = e.target.src;
@@ -733,17 +721,14 @@ document.getElementById('lightbox').addEventListener('click', e => { if (e.targe
 // ── Observation form ──────────────────────────────────────────────────────
 const obsFields = [
   'fInspectedBy', 'fLocation', 'fCategory', 'fSubCategory', 'fDescription', 'fRemarks',
-  'fRiskLevel', 'fActionTime', 'fStatus', 'fWhoResponsible', 'fActionOwner',
-  'fPersonResponsible', 'fCloseoutDate', 'fCloseoutRemarks'
+  'fRiskLevel', 'fActionTime', 'fStatus', 'fWhoResponsible'
 ];
 
 function resetObsForm() {
   obsFields.forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('fStatus').value = 'OPEN';
   draftImages = [];
-  draftAfterImages = [];
   renderPhotoPicker('fImages', draftImages);
-  renderPhotoPicker('fAfterImages', draftAfterImages);
   editingId = null;
   document.getElementById('obsFormTitle').textContent = 'New Observation';
   document.getElementById('saveObsBtn').textContent = 'Add Observation';
@@ -761,14 +746,8 @@ function fillObsForm(obs) {
   document.getElementById('fActionTime').value = obs.actionTime || '';
   document.getElementById('fStatus').value = obs.status || 'OPEN';
   document.getElementById('fWhoResponsible').value = obs.whoResponsible || '';
-  document.getElementById('fActionOwner').value = obs.actionOwner || '';
-  document.getElementById('fPersonResponsible').value = obs.personResponsible || '';
-  document.getElementById('fCloseoutDate').value = obs.closeoutDate || '';
-  document.getElementById('fCloseoutRemarks').value = obs.closeoutRemarks || '';
   draftImages = [...(obs.images || [])];
-  draftAfterImages = [...(obs.afterImages || [])];
   renderPhotoPicker('fImages', draftImages);
-  renderPhotoPicker('fAfterImages', draftAfterImages);
 }
 
 document.getElementById('saveObsBtn').addEventListener('click', () => {
@@ -789,12 +768,7 @@ document.getElementById('saveObsBtn').addEventListener('click', () => {
     actionTime: document.getElementById('fActionTime').value,
     status: document.getElementById('fStatus').value,
     whoResponsible: document.getElementById('fWhoResponsible').value.trim(),
-    actionOwner: document.getElementById('fActionOwner').value.trim(),
-    personResponsible: document.getElementById('fPersonResponsible').value.trim(),
-    closeoutDate: document.getElementById('fCloseoutDate').value,
-    closeoutRemarks: document.getElementById('fCloseoutRemarks').value.trim(),
-    images: [...draftImages],
-    afterImages: [...draftAfterImages]
+    images: [...draftImages]
   };
 
   if (editingId) {
@@ -876,15 +850,10 @@ function renderObservations() {
           <div class="detail-item"><div class="k">Sub Category</div><div class="v">${esc(o.subCategory || '—')}</div></div>
           <div class="detail-item"><div class="k">Action Time</div><div class="v">${esc(o.actionTime || '—')}</div></div>
           <div class="detail-item"><div class="k">Who Responsible</div><div class="v">${esc(o.whoResponsible || '—')}</div></div>
-          <div class="detail-item"><div class="k">Action Owner</div><div class="v">${esc(o.actionOwner || '—')}</div></div>
-          <div class="detail-item"><div class="k">Person Responsible (H&amp;S)</div><div class="v">${esc(o.personResponsible || '—')}</div></div>
-          <div class="detail-item"><div class="k">Close Out Date</div><div class="v">${esc(o.closeoutDate || '—')}</div></div>
           <div class="detail-item"><div class="k">Remarks</div><div class="v">${esc(o.remarks || '—')}</div></div>
         </div>
-        <div class="detail-item" style="margin-bottom:.7rem;"><div class="k">Description &amp; Actions Required</div><div class="v">${esc(o.description)}</div></div>
+        <div class="detail-item" style="margin-bottom:.7rem;"><div class="k">Observations Description and any Actions Required</div><div class="v">${esc(o.description)}</div></div>
         ${o.images && o.images.length ? `<div class="detail-item" style="margin-bottom:.7rem;"><div class="k">Images</div><div class="detail-photos">${o.images.map(s => `<img src="${s}" />`).join('')}</div></div>` : ''}
-        ${o.closeoutRemarks ? `<div class="detail-item" style="margin-bottom:.7rem;"><div class="k">Closeout Remarks</div><div class="v">${esc(o.closeoutRemarks)}</div></div>` : ''}
-        ${o.afterImages && o.afterImages.length ? `<div class="detail-item" style="margin-bottom:.7rem;"><div class="k">After Rectification Images</div><div class="detail-photos">${o.afterImages.map(s => `<img src="${s}" />`).join('')}</div></div>` : ''}
         <div class="btn-row">
           <button class="btn btn-outline btn-sm" data-edit="${o.id}" type="button">Edit</button>
           <button class="btn btn-danger btn-sm" data-del="${o.id}" type="button">Delete</button>
@@ -928,14 +897,12 @@ function csvCell(v) { return `"${String(v == null ? '' : v).replace(/"/g, '""')}
 document.getElementById('exportCsvBtn').addEventListener('click', () => {
   const headers = [
     'S№', 'Inspected By', 'Specific Location', 'Observation Category', 'Observation Sub Category',
-    'Description & Actions Required', 'Remarks', 'Risk Level', 'Action Time', 'Who Responsible',
-    'Action Owner', 'Person Responsible (H&S)', 'Current Status', 'Close Out Date', 'Closeout Remarks',
-    'Photos Before', 'Photos After'
+    'Remarks', 'Observations Description and any Actions Required', 'Images', 'Risk Level',
+    'Action Time', 'Who Responsible', 'Current Status'
   ];
   const rows = [...state.observations].sort((a, b) => a.sn - b.sn).map(o => [
-    o.sn, o.inspectedBy, o.location, o.category, o.subCategory, o.description, o.remarks,
-    o.riskLevel, o.actionTime, o.whoResponsible, o.actionOwner, o.personResponsible, o.status,
-    o.closeoutDate, o.closeoutRemarks, (o.images || []).length, (o.afterImages || []).length
+    o.sn, o.inspectedBy, o.location, o.category, o.subCategory, o.remarks, o.description,
+    (o.images || []).length, o.riskLevel, o.actionTime, o.whoResponsible, o.status
   ]);
   const meta = [
     ['Client', state.report.client], ['Contractor', state.report.contractor], ['Project', state.report.project],
@@ -945,13 +912,13 @@ document.getElementById('exportCsvBtn').addEventListener('click', () => {
     ['Attendees on Walk', state.report.attendees]
   ];
   let csv = meta.map(r => r.map(csvCell).join(',')).join('\n');
-  csv += '\n\n' + headers.map(csvCell).join(',') + '\n';
+  csv += '\n\nIssuer\'s Part\n' + headers.map(csvCell).join(',') + '\n';
   csv += rows.map(r => r.map(csvCell).join(',')).join('\n');
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `SOR_${(state.report.docRef || state.report.date || 'report').replace(/[^a-z0-9-_]/gi, '_')}.csv`;
+  a.download = `SiteHSE_ObservationReport_${(state.report.docRef || state.report.date || 'report').replace(/[^a-z0-9-_]/gi, '_')}.csv`;
   a.click();
   URL.revokeObjectURL(a.href);
 });
@@ -967,14 +934,16 @@ function buildPrintArea() {
   const rows = [...state.observations].sort((a, b) => a.sn - b.sn).map(o => `
     <tr>
       <td>${o.sn}</td>
+      <td>${esc(o.inspectedBy)}</td>
       <td>${esc(o.location)}</td>
       <td>${esc(o.category)}<br><small>${esc(o.subCategory)}</small></td>
+      <td>${esc(o.remarks)}</td>
       <td>${esc(o.description)}</td>
+      <td>${(o.images || []).map(s => `<img src="${s}" style="width:38px;height:38px;object-fit:cover;border-radius:3px;margin:1px;" />`).join('') || '—'}</td>
       <td>${esc(o.riskLevel)}</td>
       <td>${esc(o.actionTime)}</td>
       <td>${esc(o.whoResponsible)}</td>
       <td>${esc(o.status)}</td>
-      <td>${esc(o.closeoutDate)}</td>
     </tr>`).join('');
 
   document.getElementById('printArea').innerHTML = `
@@ -993,16 +962,18 @@ function buildPrintArea() {
             <td style="font-weight:700;padding:3px;">Closeout Status</td><td style="padding:3px;">${esc(r.closeoutStatus)}</td></tr>
         <tr><td style="font-weight:700;padding:3px;">Attendees</td><td colspan="3" style="padding:3px;">${esc(r.attendees)}</td></tr>
       </table>
-      <table style="width:100%;border-collapse:collapse;font-size:.72rem;" border="1">
+      <div style="background:#e6f1fb;border:1px solid #999;border-bottom:none;font-weight:700;padding:5px 8px;font-size:.85rem;">Issuer's Part</div>
+      <table style="width:100%;border-collapse:collapse;font-size:.68rem;" border="1">
         <thead>
           <tr style="background:#eee;">
-            <th style="padding:4px;">S№</th><th style="padding:4px;">Location</th><th style="padding:4px;">Category</th>
-            <th style="padding:4px;">Description &amp; Actions Required</th><th style="padding:4px;">Risk</th>
-            <th style="padding:4px;">Action Time</th><th style="padding:4px;">Who Responsible</th>
-            <th style="padding:4px;">Status</th><th style="padding:4px;">Close Out Date</th>
+            <th style="padding:4px;">S№</th><th style="padding:4px;">Inspected By</th><th style="padding:4px;">Location</th>
+            <th style="padding:4px;">Category</th><th style="padding:4px;">Remarks</th>
+            <th style="padding:4px;">Observations Description and any Actions Required</th><th style="padding:4px;">Images</th>
+            <th style="padding:4px;">Risk Level</th><th style="padding:4px;">Action Time</th>
+            <th style="padding:4px;">Who Responsible</th><th style="padding:4px;">Current Status</th>
           </tr>
         </thead>
-        <tbody>${rows || '<tr><td colspan="9" style="padding:8px;text-align:center;">No observations recorded</td></tr>'}</tbody>
+        <tbody>${rows || '<tr><td colspan="11" style="padding:8px;text-align:center;">No observations recorded</td></tr>'}</tbody>
       </table>
     </div>`;
 }
