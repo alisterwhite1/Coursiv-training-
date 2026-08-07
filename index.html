@@ -83,15 +83,18 @@
     .print-btn:hover { background:var(--blue); }
     .html-btn { flex:1; padding:.65rem; background:var(--green); color:#fff; border:none; border-radius:var(--radius); font-size:.85rem; font-weight:600; cursor:pointer; transition:background .2s; }
     .html-btn:hover { background:#15803d; }
-    .mode-tabs { display:flex; gap:.4rem; margin-bottom:.6rem; }
-    .mode-tab { flex:1; padding:.45rem .5rem; font-size:.78rem; font-weight:600; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--muted); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
-    .mode-tab.active { background:var(--amber-light); color:var(--amber); border-color:var(--amber); }
-    .mode-tab:hover:not(.active) { background:var(--border); }
-    #queryPanel { display:none; }
-    #queryInput { width:100%; height:148px; padding:.75rem; border:2px dashed var(--border); border-radius:var(--radius); font-size:.85rem; font-family:inherit; background:var(--card); color:var(--text); resize:vertical; line-height:1.5; }
-    #queryInput:focus { outline:2px solid var(--amber); border-color:transparent; }
-    #queryInput.has-text { border-color:var(--green); background:var(--green-light); }
     .file-name-list { margin-top:.6rem; font-size:.78rem; font-weight:500; color:var(--green); word-break:break-all; }
+    .query-section { margin-bottom:1.25rem; }
+    .query-toggle { display:flex; align-items:center; gap:.5rem; background:none; border:1px dashed var(--border); border-radius:var(--radius); padding:.6rem 1rem; width:100%; text-align:left; font-size:.85rem; color:var(--muted); cursor:pointer; transition:border-color .2s,color .2s; }
+    .query-toggle:hover { border-color:var(--amber); color:var(--amber); }
+    .query-toggle.active { border-color:var(--amber); color:var(--amber); background:var(--amber-light); }
+    .query-toggle .arrow { transition:transform .2s; }
+    .query-toggle.active .arrow { transform:rotate(180deg); }
+    #queryPanel { display:none; margin-top:.6rem; }
+    #queryInput { width:100%; height:110px; padding:.75rem; border:1px solid var(--border); border-radius:var(--radius); font-size:.875rem; font-family:inherit; background:var(--card); color:var(--text); resize:vertical; line-height:1.5; }
+    #queryInput:focus { outline:2px solid var(--amber); border-color:transparent; }
+    #queryInput.has-text { border-color:var(--amber); }
+    .query-hint { font-size:.75rem; color:var(--muted); margin-top:.35rem; }
     /* ── Scan approval panel ── */
     .scan-panel { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:1.25rem 1.5rem; margin-top:1rem; }
     .scan-panel h3 { font-size:1rem; font-weight:700; margin-bottom:.4rem; color:var(--amber); }
@@ -152,22 +155,24 @@
       <div class="hint">PDF, Word, Excel, or TXT &mdash; multiple files allowed</div>
       <div class="file-name-list" id="submittedName"></div>
     </div>
-    <div>
-      <div class="mode-tabs">
-        <button class="mode-tab active" id="tabSpec" onclick="setMode('spec')">&#128203; Upload Specification</button>
-        <button class="mode-tab" id="tabQuery" onclick="setMode('query')">&#128172; Enter Query</button>
-      </div>
-      <div class="upload-card" id="specCard">
-        <input type="file" id="specFile" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" multiple />
-        <div class="upload-icon">&#128203;</div>
-        <div class="badge badge-amber">Specification</div>
-        <h3>Requirements / Specification</h3>
-        <div class="hint">PDF, Word, Excel, or TXT &mdash; multiple files allowed</div>
-        <div class="file-name-list" id="specName"></div>
-      </div>
-      <div id="queryPanel">
-        <textarea id="queryInput" placeholder="Ask a specific question about the uploaded document(s)&#10;&#10;e.g. What are the thermal performance values stated?&#10;e.g. Does this product meet ASTM fire resistance requirements?&#10;e.g. List all technical specifications and compare them to typical industry standards."></textarea>
-      </div>
+    <div class="upload-card" id="specCard">
+      <input type="file" id="specFile" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" multiple />
+      <div class="upload-icon">&#128203;</div>
+      <div class="badge badge-amber">Specification</div>
+      <h3>Requirements / Specification</h3>
+      <div class="hint">PDF, Word, Excel, or TXT &mdash; multiple files allowed</div>
+      <div class="file-name-list" id="specName"></div>
+    </div>
+  </div>
+  <div class="query-section">
+    <button class="query-toggle" id="queryToggle" onclick="toggleQuery()">
+      <span>&#128172;</span>
+      <span>Add a specific query <em style="font-weight:400;font-size:.78rem;">(optional — ask a question about any uploaded documents)</em></span>
+      <span class="arrow" style="margin-left:auto;">&#9660;</span>
+    </button>
+    <div id="queryPanel">
+      <textarea id="queryInput" placeholder="e.g. What thermal performance values are stated?&#10;e.g. Does this submittal confirm compliance with clause 5.3.2?&#10;e.g. List all product specifications and flag anything missing."></textarea>
+      <div class="query-hint">If a query is entered it takes priority — the AI will answer your question using all uploaded documents. Without a query, both documents are compared for compliance.</div>
     </div>
   </div>
   <button class="btn" id="submitBtn" disabled onclick="runCheck()">Check Compliance</button>
@@ -222,13 +227,12 @@
   const submittedInput=document.getElementById('submittedFile');
   const specInput=document.getElementById('specFile');
   const queryInput=document.getElementById('queryInput');
-  let rightMode='spec';
-  function setMode(mode){
-    rightMode=mode;
-    document.getElementById('tabSpec').classList.toggle('active',mode==='spec');
-    document.getElementById('tabQuery').classList.toggle('active',mode==='query');
-    document.getElementById('specCard').style.display=mode==='spec'?'':'none';
-    document.getElementById('queryPanel').style.display=mode==='query'?'':'none';
+  let queryOpen=false;
+  function toggleQuery(){
+    queryOpen=!queryOpen;
+    document.getElementById('queryPanel').style.display=queryOpen?'block':'none';
+    document.getElementById('queryToggle').classList.toggle('active',queryOpen);
+    if(!queryOpen){queryInput.value='';queryInput.classList.remove('has-text');}
     updateBtn();
   }
   function bindFile(input,nameEl,cardEl){
@@ -257,10 +261,12 @@
   function updateBtn(){
     const hasKey=keyInput.value.trim().length>0;
     const hasSubmitted=submittedInput.files.length>0;
-    const rightOk=rightMode==='query'
-      ?queryInput.value.trim().length>0
-      :specInput.files.length>0;
-    document.getElementById('submitBtn').disabled=!(hasKey&&hasSubmitted&&rightOk);
+    const hasQuery=queryInput.value.trim().length>0;
+    const hasSpec=specInput.files.length>0;
+    // Allow: submitted docs + spec, OR submitted docs + query, OR all three
+    const ready=hasKey&&hasSubmitted&&(hasSpec||hasQuery);
+    document.getElementById('submitBtn').disabled=!ready;
+    document.getElementById('submitBtn').textContent=hasQuery?'Answer Query':'Check Compliance';
   }
   // Phase 1: extract text only, detect image pages, return metadata for approval
   // Returns {text, pdfDoc, imagePageInfos: [{pageNum, contextHint}]}
@@ -398,14 +404,22 @@
       submittedContent=await extractContents(submittedInput.files,'Submitted document');
     }catch(err){showError('Could not read a file: '+err.message);return;}
 
-    // ── Query mode: no spec needed ──
-    if(rightMode==='query'){
+    const userQuery=queryInput.value.trim();
+
+    // ── Query mode: use all uploaded docs as context ──
+    if(userQuery){
       const MAX=50000;
-      let submittedText=submittedContent.text;
-      if(submittedText.length>MAX)submittedText=submittedText.slice(0,MAX)+'\n[truncated]';
-      const userQuery=queryInput.value.trim();
+      let docsText=submittedContent.text;
+      // If spec files also uploaded, include them too
+      if(specInput.files.length>0){
+        let specContent;
+        try{specContent=await extractContents(specInput.files,'Specification');}
+        catch(err){showError('Could not read specification: '+err.message);return;}
+        docsText+=(docsText?'\n\n---\n\n':'')+specContent.text;
+      }
+      if(docsText.length>MAX*2)docsText=docsText.slice(0,MAX*2)+'\n[truncated]';
       setStatus('<span class="spinner"></span> Analysing documents… (this may take 30–60 seconds)');
-      const prompt=`You are a senior technical analyst. The user has uploaded the following document(s) and has a specific question. Answer thoroughly, citing specific values, sections, and page references from the documents where relevant.\n\n## Document(s) Provided\n${submittedText}\n\n---\n\n## User Query\n${userQuery}\n\n---\n\n## Instructions\n- Answer the query directly and completely.\n- Extract and cite actual values, clause numbers, and page references from the documents.\n- If information required to fully answer the query is missing from the documents, say so explicitly.\n- Structure your response with clear headings.\n- Where relevant, present findings in a table for clarity.\n- At the end, provide an overall confidence level (High / Medium / Low) in your answer based on the completeness of the provided documents.`;
+      const prompt=`You are a senior technical analyst. The user has uploaded the following document(s) and has a specific question. Answer thoroughly, citing specific values, sections, and page references from the documents where relevant.\n\n## Document(s) Provided\n${docsText}\n\n---\n\n## User Query\n${userQuery}\n\n---\n\n## Instructions\n- Answer the query directly and completely.\n- Extract and cite actual values, clause numbers, and page references from the documents.\n- If information required to fully answer the query is missing from the documents, say so explicitly.\n- Structure your response with clear headings.\n- Where relevant, present findings in a table for clarity.\n- At the end, provide an overall confidence level (High / Medium / Low) in your answer based on the completeness of the provided documents.`;
       try{
         const res=await fetch('https://api.anthropic.com/v1/messages',{
           method:'POST',
@@ -420,7 +434,7 @@
       return;
     }
 
-    // ── Spec mode: extract spec too ──
+    // ── Compliance mode: extract spec ──
     let specContent;
     try{
       specContent=await extractContents(specInput.files,'Specification');
@@ -593,7 +607,7 @@ ${submittedText}`});
     ['submittedCard','specCard'].forEach(id=>document.getElementById(id).classList.remove('has-file'));
     document.getElementById('result').style.display='none';
     document.getElementById('errorBox').innerHTML='';
-    setMode('spec');
+    if(queryOpen)toggleQuery();
     updateBtn();
   }
   function renderReport(text){
@@ -695,8 +709,9 @@ ${submittedText}`});
     const arcColor=arc.style.stroke||'#2563eb';
     const body=document.getElementById('reportBody').innerHTML;
     const submittedFileName=document.getElementById('submittedName').textContent||'Submitted document';
-    const specFileName=rightMode==='query'
-      ?'Query: '+queryInput.value.trim().slice(0,80)+(queryInput.value.trim().length>80?'…':'')
+    const q=queryInput.value.trim();
+    const specFileName=q
+      ?'Query: '+q.slice(0,80)+(q.length>80?'…':'')
       :document.getElementById('specName').textContent||'Specification';
     const date=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
     const verdictColors={'verdict-compliant':'#16a34a','verdict-partial':'#d97706','verdict-noncompliant':'#dc2626','verdict-reject':'#dc2626'};
