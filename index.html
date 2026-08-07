@@ -81,15 +81,28 @@
     .action-row .reset-btn { margin-top:0; flex:1; }
     .print-btn { flex:1; padding:.65rem; background:var(--blue-dark); color:#fff; border:none; border-radius:var(--radius); font-size:.85rem; font-weight:600; cursor:pointer; transition:background .2s; }
     .print-btn:hover { background:var(--blue); }
-    .mode-tabs { display:flex; gap:.4rem; margin-bottom:.6rem; }
-    .mode-tab { flex:1; padding:.45rem .5rem; font-size:.78rem; font-weight:600; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--muted); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
-    .mode-tab.active { background:var(--amber-light); color:var(--amber); border-color:var(--amber); }
-    .mode-tab:hover:not(.active) { background:var(--border); }
-    #queryPanel { display:none; }
-    #queryInput { width:100%; height:148px; padding:.75rem; border:2px dashed var(--border); border-radius:var(--radius); font-size:.85rem; font-family:inherit; background:var(--card); color:var(--text); resize:vertical; line-height:1.5; }
-    #queryInput:focus { outline:2px solid var(--amber); border-color:transparent; }
-    #queryInput.has-text { border-color:var(--green); background:var(--green-light); }
-    .file-name-list { margin-top:.6rem; font-size:.78rem; font-weight:500; color:var(--green); word-break:break-all; }
+    .html-btn { flex:1; padding:.65rem; background:var(--green); color:#fff; border:none; border-radius:var(--radius); font-size:.85rem; font-weight:600; cursor:pointer; transition:background .2s; }
+    .html-btn:hover { background:#15803d; }
+    /* ── Scan approval panel ── */
+    .scan-panel { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:1.25rem 1.5rem; margin-top:1rem; }
+    .scan-panel h3 { font-size:1rem; font-weight:700; margin-bottom:.4rem; color:var(--amber); }
+    .scan-panel > p { font-size:.85rem; color:var(--muted); margin-bottom:1rem; }
+    .scan-list { display:flex; flex-direction:column; gap:.5rem; margin-bottom:1rem; max-height:260px; overflow-y:auto; }
+    .scan-item { display:grid; grid-template-columns:auto 1fr; gap:.6rem; align-items:start; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:.55rem .75rem; cursor:pointer; }
+    .scan-item input[type=checkbox] { margin-top:.2rem; accent-color:var(--blue); width:1rem; height:1rem; cursor:pointer; }
+    .scan-item-info strong { font-size:.85rem; display:block; }
+    .scan-item-info .context { font-size:.78rem; color:var(--muted); margin-top:.15rem; line-height:1.4; }
+    .scan-item-info .doc-tag { font-size:.68rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; display:inline-block; padding:.1rem .4rem; border-radius:3px; margin-bottom:.2rem; }
+    .doc-tag-sub { background:var(--blue-light); color:var(--blue-dark); }
+    .doc-tag-spec { background:var(--amber-light); color:var(--amber); }
+    .scan-cost { font-size:.8rem; font-weight:600; color:var(--text); margin-bottom:.85rem; }
+    .scan-cost span { color:var(--amber); }
+    .scan-actions { display:flex; gap:.75rem; }
+    .scan-skip-btn { flex:1; background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:7px; padding:.6rem; font-size:.85rem; cursor:pointer; }
+    .scan-skip-btn:hover { background:var(--border); }
+    .scan-go-btn { flex:1; background:var(--blue-dark); color:#fff; border:none; border-radius:7px; padding:.6rem; font-size:.85rem; font-weight:600; cursor:pointer; }
+    .scan-go-btn:hover { background:var(--blue); }
+    .scan-go-btn:disabled { opacity:.45; cursor:not-allowed; }
     .app-footer { text-align:center; margin-top:2.5rem; padding-top:1rem; border-top:1px solid var(--border); font-size:.72rem; color:var(--muted); font-family:monospace; }
     .app-footer a { color:var(--muted); text-decoration:none; }
     .app-footer a:hover { color:var(--blue); }
@@ -107,7 +120,7 @@
 <div class="container">
   <header>
     <h1>Compliance Checker</h1>
-    <p>Upload documents to check compliance against a specification, or ask a specific question about your documents.</p>
+    <p>Upload two documents to check whether the submitted document meets the specification.</p>
   </header>
   <div id="keySection">
     <label for="apiKeyInput">Anthropic API Key</label>
@@ -123,29 +136,20 @@
   </div>
   <div class="upload-grid">
     <div class="upload-card" id="submittedCard">
-      <input type="file" id="submittedFile" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" multiple />
+      <input type="file" id="submittedFile" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" />
       <div class="upload-icon">&#128196;</div>
       <div class="badge badge-blue">Submitted Document</div>
-      <h3>Document(s) for Review</h3>
-      <div class="hint">PDF, Word, Excel, or TXT &mdash; multiple files allowed</div>
-      <div class="file-name-list" id="submittedName"></div>
+      <h3>Document for Review</h3>
+      <div class="hint">PDF, Word, Excel, or TXT</div>
+      <div class="file-name" id="submittedName"></div>
     </div>
-    <div>
-      <div class="mode-tabs">
-        <button class="mode-tab active" id="tabSpec" onclick="setMode('spec')">&#128203; Upload Specification</button>
-        <button class="mode-tab" id="tabQuery" onclick="setMode('query')">&#128172; Enter Query</button>
-      </div>
-      <div class="upload-card" id="specCard">
-        <input type="file" id="specFile" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" multiple />
-        <div class="upload-icon">&#128203;</div>
-        <div class="badge badge-amber">Specification</div>
-        <h3>Requirements / Specification</h3>
-        <div class="hint">PDF, Word, Excel, or TXT &mdash; multiple files allowed</div>
-        <div class="file-name-list" id="specName"></div>
-      </div>
-      <div id="queryPanel">
-        <textarea id="queryInput" placeholder="Ask a specific question about the uploaded document(s)&#10;&#10;e.g. What are the thermal performance values stated?&#10;e.g. Does this product meet ASTM fire resistance requirements?&#10;e.g. List all technical specifications and compare them to typical industry standards."></textarea>
-      </div>
+    <div class="upload-card" id="specCard">
+      <input type="file" id="specFile" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" />
+      <div class="upload-icon">&#128203;</div>
+      <div class="badge badge-amber">Specification</div>
+      <h3>Requirements / Specification</h3>
+      <div class="hint">PDF, Word, Excel, or TXT</div>
+      <div class="file-name" id="specName"></div>
     </div>
   </div>
   <button class="btn" id="submitBtn" disabled onclick="runCheck()">Check Compliance</button>
@@ -167,8 +171,9 @@
     </div>
     <div class="report-body" id="reportBody"></div>
     <div class="action-row">
-      <button class="print-btn" onclick="openPrintReport()">&#128438; Open Print / PDF Report</button>
-      <button class="reset-btn" onclick="resetForm()">Start a new comparison</button>
+      <button class="print-btn" onclick="openPrintReport()">&#128438; Print / PDF Report</button>
+      <button class="html-btn" onclick="downloadHtmlReport()">&#128190; Save HTML Report</button>
+      <button class="reset-btn" onclick="resetForm()">New comparison</button>
     </div>
   </div>
 </div>
@@ -197,24 +202,11 @@
   keyInput.addEventListener('keydown',e=>{if(e.key==='Enter')saveKey();});
   const submittedInput=document.getElementById('submittedFile');
   const specInput=document.getElementById('specFile');
-  const queryInput=document.getElementById('queryInput');
-  let rightMode='spec';
-  function setMode(mode){
-    rightMode=mode;
-    document.getElementById('tabSpec').classList.toggle('active',mode==='spec');
-    document.getElementById('tabQuery').classList.toggle('active',mode==='query');
-    document.getElementById('specCard').style.display=mode==='spec'?'':'none';
-    document.getElementById('queryPanel').style.display=mode==='query'?'':'none';
-    updateBtn();
-  }
   function bindFile(input,nameEl,cardEl){
     input.addEventListener('change',()=>{
-      const files=Array.from(input.files);
-      const el=document.getElementById(nameEl);
-      if(files.length===0){el.textContent='';}
-      else if(files.length===1){el.textContent=files[0].name;}
-      else{el.textContent=files.length+' files: '+files.map(f=>f.name).join(', ');}
-      document.getElementById(cardEl).classList.toggle('has-file',files.length>0);
+      const f=input.files[0];
+      document.getElementById(nameEl).textContent=f?f.name:'';
+      document.getElementById(cardEl).classList.toggle('has-file',!!f);
       updateBtn();
     });
   }
@@ -226,109 +218,174 @@
     card.addEventListener('dragleave',()=>card.classList.remove('dragover'));
     card.addEventListener('drop',()=>card.classList.remove('dragover'));
   });
-  queryInput.addEventListener('input',()=>{
-    queryInput.classList.toggle('has-text',queryInput.value.trim().length>0);
-    updateBtn();
-  });
   function updateBtn(){
     const hasKey=keyInput.value.trim().length>0;
-    const hasSubmitted=submittedInput.files.length>0;
-    const rightOk=rightMode==='query'
-      ?queryInput.value.trim().length>0
-      :specInput.files.length>0;
-    document.getElementById('submitBtn').disabled=!(hasKey&&hasSubmitted&&rightOk);
+    const hasFiles=submittedInput.files.length&&specInput.files.length;
+    document.getElementById('submitBtn').disabled=!(hasKey&&hasFiles);
   }
-  async function extractFiles(fileList){
-    const texts=await Promise.all(Array.from(fileList).map(f=>extractText(f)));
-    return texts.length===1?texts[0]:texts.map((t,i)=>'[File '+(i+1)+': '+fileList[i].name+']\n'+t).join('\n\n---\n\n');
-  }
-  async function extractText(file){
+  // Phase 1: extract text only, detect image pages, return metadata for approval
+  // Returns {text, pdfDoc, imagePageInfos: [{pageNum, contextHint}]}
+  async function extractContent(file, label){
     const name=file.name.toLowerCase();
-    if(name.endsWith('.txt'))return file.text();
+    if(name.endsWith('.txt')){
+      const text=await file.text();
+      return {text, pdfDoc:null, imagePageInfos:[]};
+    }
     if(name.endsWith('.pdf')){
       const buf=await file.arrayBuffer();
-      const pdf=await pdfjsLib.getDocument({data:buf}).promise;
-      let pages=[];
-      for(let i=1;i<=pdf.numPages;i++){
-        const page=await pdf.getPage(i);
+      const pdfDoc=await pdfjsLib.getDocument({data:buf}).promise;
+      const pageTexts=[];
+      for(let i=1;i<=pdfDoc.numPages;i++){
+        const page=await pdfDoc.getPage(i);
         const content=await page.getTextContent();
-        pages.push('[Page '+i+']\n'+content.items.map(s=>s.str).join(' '));
+        pageTexts.push(content.items.map(s=>s.str).join(' ').trim());
       }
-      return pages.join('\n\n');
+      const pages=pageTexts.map((t,i)=>'[Page '+(i+1)+']\n'+(t||'(image-based page)'));
+      const imagePageInfos=pageTexts.map((t,i)=>{
+        if(t.length>=80) return null;
+        // Build context hint from surrounding pages' text
+        const prev=(pageTexts[i-1]||'').slice(-180).replace(/\s+/g,' ').trim();
+        const next=(pageTexts[i+1]||'').slice(0,180).replace(/\s+/g,' ').trim();
+        const ctx=[prev,next].filter(Boolean).join(' … ');
+        const hint=ctx.length>12
+          ? 'Surrounding text: "'+ctx.slice(0,160)+(ctx.length>160?'…':'')+'"'
+          : (i===0?'First page (likely cover/title page)'
+            : i===pdfDoc.numPages-1?'Last page (likely appendix/certificate)'
+            : 'No adjacent text context — position: page '+(i+1)+' of '+pdfDoc.numPages);
+        return {pageNum:i+1, contextHint:hint, label};
+      }).filter(Boolean);
+      return {text:pages.join('\n\n'), pdfDoc, imagePageInfos};
     }
     if(name.endsWith('.docx')||name.endsWith('.doc')){
       const buf=await file.arrayBuffer();
       const result=await mammoth.extractRawText({arrayBuffer:buf});
-      return result.value;
+      return {text:result.value, pdfDoc:null, imagePageInfos:[]};
     }
     if(name.endsWith('.xlsx')||name.endsWith('.xls')){
       const buf=await file.arrayBuffer();
       const wb=XLSX.read(buf,{type:'array'});
-      return wb.SheetNames.map(sn=>{
-        const ws=wb.Sheets[sn];
-        return '[Sheet: '+sn+']\n'+XLSX.utils.sheet_to_csv(ws);
-      }).join('\n\n');
+      const text=wb.SheetNames.map(sn=>'[Sheet: '+sn+']\n'+XLSX.utils.sheet_to_csv(wb.Sheets[sn])).join('\n\n');
+      return {text, pdfDoc:null, imagePageInfos:[]};
     }
     throw new Error('Unsupported file type: '+file.name);
+  }
+
+  // Phase 2: render approved pages to JPEG and return Anthropic image content blocks
+  async function renderApprovedPages(pdfDoc, approvedPageNums, label){
+    const blocks=[];
+    for(const pageNum of approvedPageNums){
+      try{
+        const page=await pdfDoc.getPage(pageNum);
+        const vp=page.getViewport({scale:1.5});
+        const canvas=document.createElement('canvas');
+        canvas.width=vp.width; canvas.height=vp.height;
+        await page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise;
+        const b64=canvas.toDataURL('image/jpeg',0.82).split(',')[1];
+        blocks.push({type:'text',text:'['+label+' — Page '+pageNum+' (scanned image):]'});
+        blocks.push({type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}});
+      }catch(e){/* skip if render fails */}
+    }
+    return blocks;
+  }
+
+  // Show the scan-approval panel; resolves with list of approved {key,pageNum} or []
+  function showScanApproval(allImagePages){
+    return new Promise(resolve=>{
+      const panel=document.createElement('div');
+      panel.className='scan-panel';
+      const rows=allImagePages.map((p,idx)=>`
+        <label class="scan-item">
+          <input type="checkbox" checked data-idx="${idx}" />
+          <div class="scan-item-info">
+            <span class="doc-tag ${p.key==='submitted'?'doc-tag-sub':'doc-tag-spec'}">${p.key==='submitted'?'Submitted document':'Specification'}</span>
+            <strong>Page ${p.pageNum}</strong>
+            <div class="context">${p.contextHint}</div>
+          </div>
+        </label>`).join('');
+      panel.innerHTML=`
+        <h3>&#128247; Scanned pages detected — approval required</h3>
+        <p>The pages below contain images with no extractable text. Reading them requires rendering each page and sending it to Claude as an image. Select which pages to scan.</p>
+        <div class="scan-list">${rows}</div>
+        <div class="scan-cost" id="scanCostLine"></div>
+        <div class="scan-actions">
+          <button class="scan-skip-btn" id="scanSkipBtn">Skip all — proceed without scanning</button>
+          <button class="scan-go-btn" id="scanGoBtn">Scan selected &amp; proceed</button>
+        </div>`;
+      document.getElementById('errorBox').appendChild(panel);
+
+      function updateCost(){
+        const n=panel.querySelectorAll('input:checked').length;
+        document.getElementById('scanCostLine').innerHTML=
+          n===0
+            ? 'No pages selected — will proceed without scanning.'
+            : 'Estimated additional cost for <span>'+n+' page'+(n>1?'s':'')+': ~$'+(n*0.01).toFixed(2)+'</span> (≈$0.01 per page)';
+        document.getElementById('scanGoBtn').textContent=n===0?'Proceed without scanning':'Scan '+n+' page'+(n>1?'s':'')+' &amp; proceed';
+      }
+      panel.querySelectorAll('input').forEach(cb=>cb.addEventListener('change',updateCost));
+      updateCost();
+
+      document.getElementById('scanSkipBtn').onclick=()=>{panel.remove();resolve([]);};
+      document.getElementById('scanGoBtn').onclick=()=>{
+        const approved=[];
+        panel.querySelectorAll('input:checked').forEach(cb=>{
+          const p=allImagePages[parseInt(cb.dataset.idx)];
+          approved.push({key:p.key,pageNum:p.pageNum});
+        });
+        panel.remove();
+        resolve(approved);
+      };
+    });
   }
   async function runCheck(){
     const apiKey=keyInput.value.trim();
     document.getElementById('errorBox').innerHTML='';
     document.getElementById('result').style.display='none';
     document.getElementById('submitBtn').disabled=true;
+    // ── Phase 1: extract text and detect image pages ──
     setStatus('<span class="spinner"></span> Reading documents…');
-    let submittedText;
+    let submittedContent,specContent;
     try{
-      submittedText=await extractFiles(submittedInput.files);
+      [submittedContent,specContent]=await Promise.all([
+        extractContent(submittedInput.files[0],'Submitted document'),
+        extractContent(specInput.files[0],'Specification')
+      ]);
     }catch(err){showError('Could not read a file: '+err.message);return;}
     const MAX=50000;
+    let submittedText=submittedContent.text;
+    let specText=specContent.text;
     if(submittedText.length>MAX)submittedText=submittedText.slice(0,MAX)+'\n[truncated — document exceeded limit]';
+    if(specText.length>MAX)specText=specText.slice(0,MAX)+'\n[truncated — document exceeded limit]';
 
-    let prompt;
-    if(rightMode==='query'){
-      const userQuery=queryInput.value.trim();
-      setStatus('<span class="spinner"></span> Analysing documents… (this may take 30–60 seconds)');
-      prompt=`You are a senior technical analyst. The user has uploaded the following document(s) and has a specific question. Answer thoroughly, citing specific values, sections, and page references from the documents where relevant.
+    // ── Phase 2: if image pages found, ask for approval before rendering ──
+    const allImagePages=[
+      ...submittedContent.imagePageInfos.slice(0,20).map(p=>({...p,key:'submitted'})),
+      ...specContent.imagePageInfos.slice(0,20).map(p=>({...p,key:'spec'}))
+    ];
+    let approvedPages=[];
+    if(allImagePages.length>0){
+      setStatus('');
+      approvedPages=await showScanApproval(allImagePages);
+    }
 
-## Document(s) Provided
-${submittedText}
+    // ── Phase 3: render only approved pages ──
+    let submittedImageBlocks=[], specImageBlocks=[];
+    if(approvedPages.length>0){
+      const approvedSubmitted=approvedPages.filter(p=>p.key==='submitted').map(p=>p.pageNum);
+      const approvedSpec=approvedPages.filter(p=>p.key==='spec').map(p=>p.pageNum);
+      setStatus('<span class="spinner"></span> Rendering '+approvedPages.length+' scanned page'+(approvedPages.length>1?'s':'')+' …');
+      [submittedImageBlocks,specImageBlocks]=await Promise.all([
+        submittedContent.pdfDoc&&approvedSubmitted.length?renderApprovedPages(submittedContent.pdfDoc,approvedSubmitted,'Submitted document'):Promise.resolve([]),
+        specContent.pdfDoc&&approvedSpec.length?renderApprovedPages(specContent.pdfDoc,approvedSpec,'Specification'):Promise.resolve([])
+      ]);
+    }
 
----
-
-## User Query
-${userQuery}
-
----
-
-## Instructions
-- Answer the query directly and completely.
-- Extract and cite actual values, clause numbers, and page references from the documents.
-- If information required to fully answer the query is missing from the documents, say so explicitly and state what additional information would be needed.
-- Structure your response with clear headings.
-- Where relevant, present findings in a table for clarity.
-- At the end, provide an overall confidence level (High / Medium / Low) in your answer based on the completeness of the provided documents.`;
-    } else {
-      let specText;
-      try{
-        specText=await extractFiles(specInput.files);
-      }catch(err){showError('Could not read specification file: '+err.message);return;}
-      if(specText.length>MAX)specText=specText.slice(0,MAX)+'\n[truncated — document exceeded limit]';
-      setStatus('<span class="spinner"></span> Analysing compliance with AI… (this may take 30–60 seconds)');
-      prompt=`You are a senior compliance engineer reviewing a technical submittal against a project specification. Your job is to produce a rigorous, traceable compliance report that a design engineer or contractor can act on directly.
-
-## Specification
-${specText}
-
-## Submitted Document
-${submittedText}
-
----
+    const instructions=`---
 
 ## Instructions
 
 Work through every requirement in the specification methodically. For each requirement:
 
-1. **Find the actual value** — Do not just check whether the requirement is acknowledged. Go to the relevant section, table, or technical data sheet in the submitted document and retrieve the actual numeric value, material description, test result, or stated parameter.
+1. **Find the actual value** — Do not just check whether the requirement is acknowledged. Go to the relevant section, table, or technical data sheet in the submitted document and retrieve the actual numeric value, material description, test result, or stated parameter. For image-based pages, read the images directly.
 
 2. **Compare numerically** — Compare the retrieved value against the specification limit. Flag any case where the submitted value falls outside the specified range, even if the compliance matrix in the submittal is marked "compliant" or "N/A".
 
@@ -347,9 +404,10 @@ State one of: **Approved** / **Approved with Comments** / **Reject — Resubmit*
 Assign a compliance score (0–100%). Weight critical safety requirements more heavily than administrative ones. Explain the score in one sentence.
 
 ### 2. Priority Action Table
-A table with columns: Requirement | Spec Clause | Spec Requirement | Submitted Value | Submittal Page/Ref | Severity | Status
-- Severity: CRITICAL / MAJOR / MINOR
-- Status: FAIL / PASS / MISSING / CONTRADICTED / NEEDS HUMAN REVIEW
+A markdown table with exactly these 8 columns in this order: # | Requirement | Spec Clause | Spec Requirement | Submitted Value | Submittal Page/Ref | Severity | Status
+- # is a simple row counter (1, 2, 3…) — keep this cell short
+- Severity values: CRITICAL / MAJOR / MINOR
+- Status values: FAIL / MISSING / CONTRADICTED / NEEDS HUMAN REVIEW / PASS
 List only items that are not straightforwardly compliant. Sort by severity (CRITICAL first).
 
 ### 3. Critical Failures (if any)
@@ -370,6 +428,39 @@ Brief summary of requirements that are satisfactorily met. Do not list every cla
 ---
 
 Be specific. Cite actual values from both documents. If a value is not present in the submittal, say so explicitly rather than assuming compliance. Never mark a requirement as compliant based solely on the submittal's own compliance matrix.`;
+
+    // ── Phase 4: build mixed-content message ──
+    setStatus('<span class="spinner"></span> Analysing compliance with AI… (this may take 30–60 seconds)');
+    const hasImages=submittedImageBlocks.length>0||specImageBlocks.length>0;
+    let messageContent;
+    if(!hasImages){
+      messageContent=`You are a senior compliance engineer reviewing a technical submittal against a project specification. Your job is to produce a rigorous, traceable compliance report that a design engineer or contractor can act on directly.
+
+## Specification
+${specText}
+
+## Submitted Document
+${submittedText}
+
+${instructions}`;
+    } else {
+      messageContent=[
+        {type:'text',text:`You are a senior compliance engineer reviewing a technical submittal against a project specification. Your job is to produce a rigorous, traceable compliance report that a design engineer or contractor can act on directly.
+
+## Specification (text)
+${specText}`}
+      ];
+      if(specImageBlocks.length>0){
+        messageContent.push({type:'text',text:'## Specification (scanned pages follow)'});
+        messageContent.push(...specImageBlocks);
+      }
+      messageContent.push({type:'text',text:`## Submitted Document (text)
+${submittedText}`});
+      if(submittedImageBlocks.length>0){
+        messageContent.push({type:'text',text:'## Submitted Document (scanned pages follow)'});
+        messageContent.push(...submittedImageBlocks);
+      }
+      messageContent.push({type:'text',text:instructions});
     }
 
     try{
@@ -384,7 +475,7 @@ Be specific. Cite actual values from both documents. If a value is not present i
         body:JSON.stringify({
           model:'claude-opus-4-8',
           max_tokens:8192,
-          messages:[{role:'user',content:prompt}]
+          messages:[{role:'user',content:messageContent}]
         })
       });
       if(!res.ok){
@@ -420,13 +511,10 @@ Be specific. Cite actual values from both documents. If a value is not present i
   function resetForm(){
     submittedInput.value='';
     specInput.value='';
-    queryInput.value='';
-    queryInput.classList.remove('has-text');
     ['submittedName','specName'].forEach(id=>document.getElementById(id).textContent='');
     ['submittedCard','specCard'].forEach(id=>document.getElementById(id).classList.remove('has-file'));
     document.getElementById('result').style.display='none';
     document.getElementById('errorBox').innerHTML='';
-    setMode('spec');
     updateBtn();
   }
   function renderReport(text){
@@ -518,7 +606,7 @@ Be specific. Cite actual values from both documents. If a value is not present i
       .replace(/\*(.+?)\*/g,'<em>$1</em>')
       .replace(/`(.+?)`/g,'<code style="background:#f1f5f9;padding:.1em .35em;border-radius:3px;font-size:.9em">$1</code>');
   }
-  function openPrintReport(){
+  function buildReportHtml(){
     const score=document.getElementById('scoreText').textContent;
     const verdict=document.getElementById('verdictBadge').textContent;
     const verdictClass=document.getElementById('verdictBadge').className.replace('verdict-badge ','');
@@ -528,18 +616,11 @@ Be specific. Cite actual values from both documents. If a value is not present i
     const arcColor=arc.style.stroke||'#2563eb';
     const body=document.getElementById('reportBody').innerHTML;
     const submittedFileName=document.getElementById('submittedName').textContent||'Submitted document';
-    const specFileName=rightMode==='query'
-      ?'Query: '+queryInput.value.trim().slice(0,80)+(queryInput.value.trim().length>80?'…':'')
-      :document.getElementById('specName').textContent||'Specification';
+    const specFileName=document.getElementById('specName').textContent||'Specification';
     const date=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
-
-    const verdictColors={
-      'verdict-compliant':'#16a34a','verdict-partial':'#d97706',
-      'verdict-noncompliant':'#dc2626','verdict-reject':'#dc2626'
-    };
+    const verdictColors={'verdict-compliant':'#16a34a','verdict-partial':'#d97706','verdict-noncompliant':'#dc2626','verdict-reject':'#dc2626'};
     const vColor=verdictColors[verdictClass]||'#64748b';
-
-    const html=`<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -566,20 +647,22 @@ Be specific. Cite actual values from both documents. If a value is not present i
   ul{padding-left:16px;margin-bottom:6px;}
   li{margin-bottom:3px;line-height:1.5;}
   /* ── Tables ── */
-  table{width:100%;border-collapse:collapse;font-size:8pt;table-layout:fixed;margin:8px 0 12px;page-break-inside:auto;}
+  table{width:100%;border-collapse:collapse;font-size:7.5pt;table-layout:fixed;margin:8px 0 12px;page-break-inside:auto;}
   thead{display:table-header-group;}
-  th{background:#eff6ff;color:#1d4ed8;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:5px 6px;border:1px solid #bfdbfe;text-align:left;word-break:break-word;}
-  td{padding:5px 6px;border:1px solid #e2e8f0;vertical-align:top;word-break:break-word;line-height:1.4;}
+  th{background:#eff6ff;color:#1d4ed8;font-size:6.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:4px 5px;border:1px solid #bfdbfe;text-align:left;word-break:break-word;overflow-wrap:break-word;}
+  td{padding:4px 5px;border:1px solid #e2e8f0;vertical-align:top;word-break:break-word;overflow-wrap:break-word;line-height:1.35;}
   tr:nth-child(even) td{background:#f8fafc;}
   tr{page-break-inside:avoid;}
-  /* 7-column layout: Req 17%, Clause 9%, Spec Req 19%, Submitted 19%, Page 11%, Severity 9%, Status 11% = 95% + 5% gap */
-  table th:nth-child(1),table td:nth-child(1){width:17%;}
-  table th:nth-child(2),table td:nth-child(2){width:9%;}
-  table th:nth-child(3),table td:nth-child(3){width:19%;}
-  table th:nth-child(4),table td:nth-child(4){width:19%;}
-  table th:nth-child(5),table td:nth-child(5){width:11%;}
-  table th:nth-child(6),table td:nth-child(6){width:9%;}
-  table th:nth-child(7),table td:nth-child(7){width:16%;}
+  /* 8-column layout (# + 7 data cols) fitted to A4 landscape 273mm usable width.
+     #: 4%, Req: 13%, Clause: 9%, Spec Req: 17%, Submitted: 18%, Page: 10%, Severity: 8%, Status: 10% */
+  table th:nth-child(1),table td:nth-child(1){width:4%;text-align:center;}
+  table th:nth-child(2),table td:nth-child(2){width:13%;}
+  table th:nth-child(3),table td:nth-child(3){width:9%;}
+  table th:nth-child(4),table td:nth-child(4){width:17%;}
+  table th:nth-child(5),table td:nth-child(5){width:18%;}
+  table th:nth-child(6),table td:nth-child(6){width:10%;}
+  table th:nth-child(7),table td:nth-child(7){width:8%;}
+  table th:nth-child(8),table td:nth-child(8){width:10%;}
   .tag-crit{color:#dc2626;font-weight:700;}
   .tag-warn{color:#d97706;font-weight:700;}
   .tag-pass{color:#16a34a;font-weight:700;}
@@ -590,8 +673,9 @@ Be specific. Cite actual values from both documents. If a value is not present i
     body{padding:0;}
     .page{padding:10mm 12mm 14mm;max-width:none;}
     .print-btn-bar{display:none;}
-    table{font-size:7.5pt;}
-    th,td{padding:4px 5px;}
+    table{font-size:7pt;}
+    th{font-size:6pt;padding:3px 4px;}
+    td{padding:3px 4px;}
   }
   @page{size:A4 landscape;margin:10mm 12mm;}
 </style>
@@ -623,11 +707,27 @@ Be specific. Cite actual values from both documents. If a value is not present i
 </body>
 </html>`;
 
+  }
+  function openPrintReport(){
+    const html=buildReportHtml();
     const blob=new Blob([html],{type:'text/html'});
     const url=URL.createObjectURL(blob);
     const win=window.open(url,'_blank');
     if(!win){alert('Pop-up blocked. Please allow pop-ups for this site and try again.');}
     setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }
+  function downloadHtmlReport(){
+    const html=buildReportHtml();
+    const blob=new Blob([html],{type:'text/html'});
+    const url=URL.createObjectURL(blob);
+    const submittedFileName=document.getElementById('submittedName').textContent||'report';
+    const safeName=submittedFileName.replace(/\.[^.]+$/,'').replace(/[^a-z0-9_\-]/gi,'-').slice(0,60);
+    const date=new Date().toISOString().slice(0,10);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download='compliance-report-'+safeName+'-'+date+'.html';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
   }
 </script>
 </body>
