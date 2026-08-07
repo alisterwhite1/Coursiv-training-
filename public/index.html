@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Compliance Checker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:        #2563eb;
+      --blue-dark:   #1d4ed8;
+      --blue-light:  #dbeafe;
+      --blue-xlight: #eff6ff;
+      --green:       #16a34a;
+      --green-light: #dcfce7;
+      --amber:       #d97706;
+      --amber-light: #fef3c7;
+      --red:         #dc2626;
+      --red-light:   #fee2e2;
+      --bg:          #f8fafc;
+      --card:        #ffffff;
+      --border:      #e2e8f0;
+      --text:        #0f172a;
+      --muted:       #64748b;
+      --radius:      10px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .container { max-width: 860px; margin: 0 auto; }
+
+    header { text-align: center; margin-bottom: 2.5rem; }
+    header h1 { font-size: 2rem; font-weight: 700; color: var(--blue-dark); }
+    header p { margin-top: .5rem; color: var(--muted); font-size: 1rem; }
+
+    .upload-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    @media (max-width: 600px) { .upload-grid { grid-template-columns: 1fr; } }
+
+    .upload-card {
+      background: var(--card);
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      position: relative;
+    }
+    .upload-card:hover, .upload-card.dragover {
+      border-color: var(--blue);
+      background: var(--blue-xlight);
+    }
+    .upload-card.has-file {
+      border-color: var(--green);
+      background: var(--green-light);
+    }
+
+    .upload-card input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+
+    .upload-icon { font-size: 2.5rem; margin-bottom: .75rem; }
+    .upload-card h3 { font-size: .95rem; font-weight: 600; color: var(--text); margin-bottom: .35rem; }
+    .upload-card .label { font-size: .8rem; color: var(--muted); }
+    .upload-card .file-name {
+      margin-top: .6rem; font-size: .8rem; font-weight: 500;
+      color: var(--green); word-break: break-all;
+    }
+
+    .badge {
+      display: inline-block; font-size: .7rem; font-weight: 600;
+      padding: .15rem .5rem; border-radius: 99px; margin-bottom: .5rem;
+    }
+    .badge-blue { background: var(--blue-light); color: var(--blue-dark); }
+    .badge-amber { background: var(--amber-light); color: var(--amber); }
+
+    .btn {
+      display: block; width: 100%; padding: .85rem;
+      background: var(--blue); color: #fff;
+      border: none; border-radius: var(--radius);
+      font-size: 1rem; font-weight: 600; cursor: pointer;
+      transition: background .2s;
+    }
+    .btn:hover:not(:disabled) { background: var(--blue-dark); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    #status {
+      margin-top: 1.25rem; text-align: center;
+      font-size: .9rem; color: var(--muted);
+      min-height: 1.5rem;
+    }
+
+    .spinner {
+      display: inline-block; width: 1.1rem; height: 1.1rem;
+      border: 2px solid var(--border); border-top-color: var(--blue);
+      border-radius: 50%; animation: spin .7s linear infinite;
+      vertical-align: middle; margin-right: .4rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #result { margin-top: 2rem; display: none; }
+
+    .result-header {
+      display: flex; align-items: center; gap: 1rem;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.25rem 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .verdict-badge {
+      padding: .4rem 1rem; border-radius: 99px; font-weight: 700; font-size: .9rem;
+      white-space: nowrap;
+    }
+    .verdict-compliant     { background: var(--green-light); color: var(--green); }
+    .verdict-partial       { background: var(--amber-light); color: var(--amber); }
+    .verdict-noncompliant  { background: var(--red-light); color: var(--red); }
+
+    .score-ring {
+      width: 4rem; height: 4rem; position: relative; flex-shrink: 0;
+    }
+    .score-ring svg { transform: rotate(-90deg); }
+    .score-ring .score-text {
+      position: absolute; inset: 0; display: flex; align-items: center;
+      justify-content: center; font-weight: 700; font-size: .85rem;
+    }
+
+    .report-body {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.5rem;
+      line-height: 1.7; font-size: .92rem;
+    }
+    .report-body h2 { font-size: 1.1rem; margin: 1.25rem 0 .5rem; color: var(--blue-dark); }
+    .report-body h2:first-child { margin-top: 0; }
+    .report-body ul { padding-left: 1.4rem; }
+    .report-body li { margin-bottom: .35rem; }
+    .report-body strong { color: var(--text); }
+    .report-body p { margin-bottom: .6rem; }
+
+    .error-box {
+      background: var(--red-light); color: var(--red);
+      border: 1px solid #fca5a5; border-radius: var(--radius);
+      padding: 1rem 1.25rem; margin-top: 1rem; font-size: .9rem;
+    }
+
+    .reset-btn {
+      margin-top: 1.5rem; background: transparent; border: 1px solid var(--border);
+      color: var(--muted); border-radius: var(--radius); padding: .65rem;
+      width: 100%; font-size: .85rem; cursor: pointer; transition: background .2s;
+    }
+    .reset-btn:hover { background: var(--border); }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Compliance Checker</h1>
+    <p>Upload two documents to check whether the submitted document meets the specification.</p>
+  </header>
+
+  <form id="complianceForm">
+    <div class="upload-grid">
+      <div class="upload-card" id="submittedCard">
+        <input type="file" id="submittedFile" accept=".pdf,.doc,.docx,.txt" required />
+        <div class="upload-icon">📄</div>
+        <div class="badge badge-blue">Submitted Document</div>
+        <h3>Document for Review</h3>
+        <div class="label">PDF, Word, or TXT — up to 20 MB</div>
+        <div class="file-name" id="submittedName"></div>
+      </div>
+
+      <div class="upload-card" id="specCard">
+        <input type="file" id="specFile" accept=".pdf,.doc,.docx,.txt" required />
+        <div class="upload-icon">📋</div>
+        <div class="badge badge-amber">Specification</div>
+        <h3>Requirements / Specification</h3>
+        <div class="label">PDF, Word, or TXT — up to 20 MB</div>
+        <div class="file-name" id="specName"></div>
+      </div>
+    </div>
+
+    <button class="btn" type="submit" id="submitBtn" disabled>
+      Check Compliance
+    </button>
+  </form>
+
+  <div id="status"></div>
+  <div id="errorBox"></div>
+
+  <div id="result">
+    <div class="result-header">
+      <div class="score-ring">
+        <svg width="64" height="64" viewBox="0 0 64 64">
+          <circle cx="32" cy="32" r="26" fill="none" stroke="#e2e8f0" stroke-width="6"/>
+          <circle id="scoreArc" cx="32" cy="32" r="26" fill="none" stroke="#2563eb"
+                  stroke-width="6" stroke-linecap="round"
+                  stroke-dasharray="163.4" stroke-dashoffset="163.4"/>
+        </svg>
+        <div class="score-text" id="scoreText">–</div>
+      </div>
+      <div>
+        <div class="verdict-badge" id="verdictBadge">–</div>
+        <div style="font-size:.85rem;color:var(--muted);margin-top:.3rem;" id="verdictSub"></div>
+      </div>
+    </div>
+    <div class="report-body" id="reportBody"></div>
+    <button class="reset-btn" id="resetBtn">Start a new comparison</button>
+  </div>
+</div>
+
+<script>
+  const form = document.getElementById('complianceForm');
+  const submittedInput = document.getElementById('submittedFile');
+  const specInput = document.getElementById('specFile');
+  const submittedCard = document.getElementById('submittedCard');
+  const specCard = document.getElementById('specCard');
+  const submitBtn = document.getElementById('submitBtn');
+  const statusEl = document.getElementById('status');
+  const errorBox = document.getElementById('errorBox');
+  const resultEl = document.getElementById('result');
+
+  function updateBtn() {
+    submitBtn.disabled = !(submittedInput.files.length && specInput.files.length);
+  }
+
+  function setFileName(inputEl, nameEl, cardEl) {
+    const f = inputEl.files[0];
+    nameEl.textContent = f ? f.name : '';
+    cardEl.classList.toggle('has-file', !!f);
+  }
+
+  submittedInput.addEventListener('change', () => {
+    setFileName(submittedInput, document.getElementById('submittedName'), submittedCard);
+    updateBtn();
+  });
+  specInput.addEventListener('change', () => {
+    setFileName(specInput, document.getElementById('specName'), specCard);
+    updateBtn();
+  });
+
+  // Drag-over styling
+  [submittedCard, specCard].forEach(card => {
+    card.addEventListener('dragover', e => { e.preventDefault(); card.classList.add('dragover'); });
+    card.addEventListener('dragleave', () => card.classList.remove('dragover'));
+    card.addEventListener('drop', () => card.classList.remove('dragover'));
+  });
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    errorBox.innerHTML = '';
+    resultEl.style.display = 'none';
+    submitBtn.disabled = true;
+    statusEl.innerHTML = '<span class="spinner"></span> Extracting text and analysing compliance…';
+
+    const fd = new FormData();
+    fd.append('submitted', submittedInput.files[0]);
+    fd.append('specification', specInput.files[0]);
+
+    try {
+      const res = await fetch('/api/compare', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Unknown server error');
+      statusEl.textContent = '';
+      renderReport(data.report);
+    } catch (err) {
+      statusEl.textContent = '';
+      errorBox.innerHTML = `<div class="error-box">⚠️ ${err.message}</div>`;
+      submitBtn.disabled = false;
+    }
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    form.reset();
+    ['submittedName','specName'].forEach(id => document.getElementById(id).textContent = '');
+    [submittedCard, specCard].forEach(c => c.classList.remove('has-file'));
+    resultEl.style.display = 'none';
+    errorBox.innerHTML = '';
+    updateBtn();
+  });
+
+  function renderReport(text) {
+    // Parse score from text
+    const scoreMatch = text.match(/(\d{1,3})\s*%/);
+    const score = scoreMatch ? Math.min(100, parseInt(scoreMatch[1])) : null;
+
+    // Parse verdict
+    const textLower = text.toLowerCase();
+    let verdict = 'Unknown', verdictClass = '';
+    if (textLower.includes('non-compliant') || textLower.includes('noncompliant')) {
+      verdict = 'Non-Compliant'; verdictClass = 'verdict-noncompliant';
+    } else if (textLower.includes('partially compliant') || textLower.includes('partial compliance')) {
+      verdict = 'Partially Compliant'; verdictClass = 'verdict-partial';
+    } else if (textLower.includes('fully compliant') || textLower.includes('compliant')) {
+      verdict = 'Compliant'; verdictClass = 'verdict-compliant';
+    }
+
+    const badge = document.getElementById('verdictBadge');
+    badge.textContent = verdict;
+    badge.className = 'verdict-badge ' + verdictClass;
+    document.getElementById('verdictSub').textContent = score !== null ? `Compliance score: ${score}%` : '';
+
+    if (score !== null) {
+      const circumference = 163.4;
+      const offset = circumference * (1 - score / 100);
+      const arc = document.getElementById('scoreArc');
+      arc.style.strokeDashoffset = offset;
+      const color = score >= 80 ? '#16a34a' : score >= 50 ? '#d97706' : '#dc2626';
+      arc.style.stroke = color;
+      document.getElementById('scoreText').textContent = score + '%';
+      document.getElementById('scoreText').style.color = color;
+    }
+
+    document.getElementById('reportBody').innerHTML = markdownToHtml(text);
+    resultEl.style.display = 'block';
+    resultEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function markdownToHtml(md) {
+    return md
+      .replace(/^#{1,2}\s+(.+)$/gm, '<h2>$1</h2>')
+      .replace(/^#{3,}\s+(.+)$/gm, '<h3>$1</h3>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/^[\-\*]\s+(.+)$/gm, '<li>$1</li>')
+      .replace(/(<li>[\s\S]*?<\/li>)(?=\s*(<li>|$))/g, (m) => '<ul>' + m + '</ul>')
+      .replace(/<\/ul>\s*<ul>/g, '')
+      .replace(/\n{2,}/g, '</p><p>')
+      .replace(/^(?!<[hul]|<\/[hul])(.+)$/gm, (m) => m.startsWith('<') ? m : '<p>' + m + '</p>')
+      .replace(/<p><\/p>/g, '');
+  }
+</script>
+</body>
+</html>
