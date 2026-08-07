@@ -81,6 +81,15 @@
     .action-row .reset-btn { margin-top:0; flex:1; }
     .print-btn { flex:1; padding:.65rem; background:var(--blue-dark); color:#fff; border:none; border-radius:var(--radius); font-size:.85rem; font-weight:600; cursor:pointer; transition:background .2s; }
     .print-btn:hover { background:var(--blue); }
+    .mode-tabs { display:flex; gap:.4rem; margin-bottom:.6rem; }
+    .mode-tab { flex:1; padding:.45rem .5rem; font-size:.78rem; font-weight:600; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--muted); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+    .mode-tab.active { background:var(--amber-light); color:var(--amber); border-color:var(--amber); }
+    .mode-tab:hover:not(.active) { background:var(--border); }
+    #queryPanel { display:none; }
+    #queryInput { width:100%; height:148px; padding:.75rem; border:2px dashed var(--border); border-radius:var(--radius); font-size:.85rem; font-family:inherit; background:var(--card); color:var(--text); resize:vertical; line-height:1.5; }
+    #queryInput:focus { outline:2px solid var(--amber); border-color:transparent; }
+    #queryInput.has-text { border-color:var(--green); background:var(--green-light); }
+    .file-name-list { margin-top:.6rem; font-size:.78rem; font-weight:500; color:var(--green); word-break:break-all; }
     .app-footer { text-align:center; margin-top:2.5rem; padding-top:1rem; border-top:1px solid var(--border); font-size:.72rem; color:var(--muted); font-family:monospace; }
     .app-footer a { color:var(--muted); text-decoration:none; }
     .app-footer a:hover { color:var(--blue); }
@@ -98,7 +107,7 @@
 <div class="container">
   <header>
     <h1>Compliance Checker</h1>
-    <p>Upload two documents to check whether the submitted document meets the specification.</p>
+    <p>Upload documents to check compliance against a specification, or ask a specific question about your documents.</p>
   </header>
   <div id="keySection">
     <label for="apiKeyInput">Anthropic API Key</label>
@@ -114,20 +123,29 @@
   </div>
   <div class="upload-grid">
     <div class="upload-card" id="submittedCard">
-      <input type="file" id="submittedFile" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" />
+      <input type="file" id="submittedFile" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" multiple />
       <div class="upload-icon">&#128196;</div>
       <div class="badge badge-blue">Submitted Document</div>
-      <h3>Document for Review</h3>
-      <div class="hint">PDF, Word, Excel, or TXT</div>
-      <div class="file-name" id="submittedName"></div>
+      <h3>Document(s) for Review</h3>
+      <div class="hint">PDF, Word, Excel, or TXT &mdash; multiple files allowed</div>
+      <div class="file-name-list" id="submittedName"></div>
     </div>
-    <div class="upload-card" id="specCard">
-      <input type="file" id="specFile" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" />
-      <div class="upload-icon">&#128203;</div>
-      <div class="badge badge-amber">Specification</div>
-      <h3>Requirements / Specification</h3>
-      <div class="hint">PDF, Word, Excel, or TXT</div>
-      <div class="file-name" id="specName"></div>
+    <div>
+      <div class="mode-tabs">
+        <button class="mode-tab active" id="tabSpec" onclick="setMode('spec')">&#128203; Upload Specification</button>
+        <button class="mode-tab" id="tabQuery" onclick="setMode('query')">&#128172; Enter Query</button>
+      </div>
+      <div class="upload-card" id="specCard">
+        <input type="file" id="specFile" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" multiple />
+        <div class="upload-icon">&#128203;</div>
+        <div class="badge badge-amber">Specification</div>
+        <h3>Requirements / Specification</h3>
+        <div class="hint">PDF, Word, Excel, or TXT &mdash; multiple files allowed</div>
+        <div class="file-name-list" id="specName"></div>
+      </div>
+      <div id="queryPanel">
+        <textarea id="queryInput" placeholder="Ask a specific question about the uploaded document(s)&#10;&#10;e.g. What are the thermal performance values stated?&#10;e.g. Does this product meet ASTM fire resistance requirements?&#10;e.g. List all technical specifications and compare them to typical industry standards."></textarea>
+      </div>
     </div>
   </div>
   <button class="btn" id="submitBtn" disabled onclick="runCheck()">Check Compliance</button>
@@ -179,11 +197,24 @@
   keyInput.addEventListener('keydown',e=>{if(e.key==='Enter')saveKey();});
   const submittedInput=document.getElementById('submittedFile');
   const specInput=document.getElementById('specFile');
+  const queryInput=document.getElementById('queryInput');
+  let rightMode='spec';
+  function setMode(mode){
+    rightMode=mode;
+    document.getElementById('tabSpec').classList.toggle('active',mode==='spec');
+    document.getElementById('tabQuery').classList.toggle('active',mode==='query');
+    document.getElementById('specCard').style.display=mode==='spec'?'':'none';
+    document.getElementById('queryPanel').style.display=mode==='query'?'':'none';
+    updateBtn();
+  }
   function bindFile(input,nameEl,cardEl){
     input.addEventListener('change',()=>{
-      const f=input.files[0];
-      document.getElementById(nameEl).textContent=f?f.name:'';
-      document.getElementById(cardEl).classList.toggle('has-file',!!f);
+      const files=Array.from(input.files);
+      const el=document.getElementById(nameEl);
+      if(files.length===0){el.textContent='';}
+      else if(files.length===1){el.textContent=files[0].name;}
+      else{el.textContent=files.length+' files: '+files.map(f=>f.name).join(', ');}
+      document.getElementById(cardEl).classList.toggle('has-file',files.length>0);
       updateBtn();
     });
   }
@@ -195,10 +226,21 @@
     card.addEventListener('dragleave',()=>card.classList.remove('dragover'));
     card.addEventListener('drop',()=>card.classList.remove('dragover'));
   });
+  queryInput.addEventListener('input',()=>{
+    queryInput.classList.toggle('has-text',queryInput.value.trim().length>0);
+    updateBtn();
+  });
   function updateBtn(){
     const hasKey=keyInput.value.trim().length>0;
-    const hasFiles=submittedInput.files.length&&specInput.files.length;
-    document.getElementById('submitBtn').disabled=!(hasKey&&hasFiles);
+    const hasSubmitted=submittedInput.files.length>0;
+    const rightOk=rightMode==='query'
+      ?queryInput.value.trim().length>0
+      :specInput.files.length>0;
+    document.getElementById('submitBtn').disabled=!(hasKey&&hasSubmitted&&rightOk);
+  }
+  async function extractFiles(fileList){
+    const texts=await Promise.all(Array.from(fileList).map(f=>extractText(f)));
+    return texts.length===1?texts[0]:texts.map((t,i)=>'[File '+(i+1)+': '+fileList[i].name+']\n'+t).join('\n\n---\n\n');
   }
   async function extractText(file){
     const name=file.name.toLowerCase();
@@ -235,19 +277,44 @@
     document.getElementById('result').style.display='none';
     document.getElementById('submitBtn').disabled=true;
     setStatus('<span class="spinner"></span> Reading documents…');
-    let submittedText,specText;
+    let submittedText;
     try{
-      [submittedText,specText]=await Promise.all([
-        extractText(submittedInput.files[0]),
-        extractText(specInput.files[0])
-      ]);
+      submittedText=await extractFiles(submittedInput.files);
     }catch(err){showError('Could not read a file: '+err.message);return;}
     const MAX=50000;
     if(submittedText.length>MAX)submittedText=submittedText.slice(0,MAX)+'\n[truncated — document exceeded limit]';
-    if(specText.length>MAX)specText=specText.slice(0,MAX)+'\n[truncated — document exceeded limit]';
-    setStatus('<span class="spinner"></span> Analysing compliance with AI… (this may take 30–60 seconds)');
 
-    const prompt=`You are a senior compliance engineer reviewing a technical submittal against a project specification. Your job is to produce a rigorous, traceable compliance report that a design engineer or contractor can act on directly.
+    let prompt;
+    if(rightMode==='query'){
+      const userQuery=queryInput.value.trim();
+      setStatus('<span class="spinner"></span> Analysing documents… (this may take 30–60 seconds)');
+      prompt=`You are a senior technical analyst. The user has uploaded the following document(s) and has a specific question. Answer thoroughly, citing specific values, sections, and page references from the documents where relevant.
+
+## Document(s) Provided
+${submittedText}
+
+---
+
+## User Query
+${userQuery}
+
+---
+
+## Instructions
+- Answer the query directly and completely.
+- Extract and cite actual values, clause numbers, and page references from the documents.
+- If information required to fully answer the query is missing from the documents, say so explicitly and state what additional information would be needed.
+- Structure your response with clear headings.
+- Where relevant, present findings in a table for clarity.
+- At the end, provide an overall confidence level (High / Medium / Low) in your answer based on the completeness of the provided documents.`;
+    } else {
+      let specText;
+      try{
+        specText=await extractFiles(specInput.files);
+      }catch(err){showError('Could not read specification file: '+err.message);return;}
+      if(specText.length>MAX)specText=specText.slice(0,MAX)+'\n[truncated — document exceeded limit]';
+      setStatus('<span class="spinner"></span> Analysing compliance with AI… (this may take 30–60 seconds)');
+      prompt=`You are a senior compliance engineer reviewing a technical submittal against a project specification. Your job is to produce a rigorous, traceable compliance report that a design engineer or contractor can act on directly.
 
 ## Specification
 ${specText}
@@ -303,6 +370,7 @@ Brief summary of requirements that are satisfactorily met. Do not list every cla
 ---
 
 Be specific. Cite actual values from both documents. If a value is not present in the submittal, say so explicitly rather than assuming compliance. Never mark a requirement as compliant based solely on the submittal's own compliance matrix.`;
+    }
 
     try{
       const res=await fetch('https://api.anthropic.com/v1/messages',{
@@ -352,10 +420,13 @@ Be specific. Cite actual values from both documents. If a value is not present i
   function resetForm(){
     submittedInput.value='';
     specInput.value='';
+    queryInput.value='';
+    queryInput.classList.remove('has-text');
     ['submittedName','specName'].forEach(id=>document.getElementById(id).textContent='');
     ['submittedCard','specCard'].forEach(id=>document.getElementById(id).classList.remove('has-file'));
     document.getElementById('result').style.display='none';
     document.getElementById('errorBox').innerHTML='';
+    setMode('spec');
     updateBtn();
   }
   function renderReport(text){
@@ -457,7 +528,9 @@ Be specific. Cite actual values from both documents. If a value is not present i
     const arcColor=arc.style.stroke||'#2563eb';
     const body=document.getElementById('reportBody').innerHTML;
     const submittedFileName=document.getElementById('submittedName').textContent||'Submitted document';
-    const specFileName=document.getElementById('specName').textContent||'Specification';
+    const specFileName=rightMode==='query'
+      ?'Query: '+queryInput.value.trim().slice(0,80)+(queryInput.value.trim().length>80?'…':'')
+      :document.getElementById('specName').textContent||'Specification';
     const date=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
 
     const verdictColors={
