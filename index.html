@@ -3,53 +3,179 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Compliance Checker</title>
+  <title>Verity Checker</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --blue:#2563eb;--blue-dark:#1d4ed8;--blue-light:#dbeafe;--blue-xlight:#eff6ff;
-      --green:#16a34a;--green-light:#dcfce7;--amber:#d97706;--amber-light:#fef3c7;
-      --red:#dc2626;--red-light:#fee2e2;--bg:#f8fafc;--card:#ffffff;
-      --border:#e2e8f0;--text:#0f172a;--muted:#64748b;--radius:10px;
+      /* Verity brand tokens */
+      --navy:      #0e2947;
+      --navy-panel:#123258;
+      --gold:      #e0a24d;
+      --gold-dark: #b5701a;
+      --ink-light: #eaf2fa;
+      --ink-dark:  #0f2c4c;
+      /* UI palette (light-mode ground) */
+      --bg:        #f4f7fb;
+      --card:      #ffffff;
+      --border:    #d5e0ee;
+      --text:      #0f2c4c;
+      --muted:     #5a7a9a;
+      --radius:    10px;
+      /* Semantic */
+      --green:     #16a34a; --green-light:#dcfce7;
+      --amber:     #d97706; --amber-light:#fef3c7;
+      --red:       #dc2626; --red-light:  #fee2e2;
+      --blue-light:#dbeafe; --blue-xlight:#eff6ff;
     }
-    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding:2rem 1rem; }
-    .container { max-width:860px; margin:0 auto; }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+    /* ── Splash ── */
+    #splash {
+      position:fixed; inset:0; z-index:1000;
+      background:var(--navy);
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:1.5rem; cursor:pointer;
+    }
+    #splash-brand { opacity:0; transition:opacity .6s ease; text-align:center; }
+    #splash-brand .wordmark { font-size:2.4rem; font-weight:800; color:var(--gold); letter-spacing:-.02em; }
+    #splash-brand .tagline  { font-size:.9rem; color:var(--ink-light); opacity:.7; margin-top:.35rem; letter-spacing:.06em; text-transform:uppercase; }
+    #splash-project { opacity:0; transition:opacity .6s ease; text-align:center; }
+    #splash-project .proj-label { font-size:.75rem; text-transform:uppercase; letter-spacing:.1em; color:var(--gold); margin-bottom:.4rem; }
+    #splash-project .proj-name  { font-size:1.5rem; font-weight:700; color:var(--ink-light); }
+    #splash-skip { position:absolute; bottom:1.5rem; font-size:.75rem; color:var(--ink-light); opacity:.4; }
+
+    /* ── Auth screen ── */
+    #authScreen {
+      display:none; min-height:100vh;
+      background:var(--navy);
+      align-items:center; justify-content:center; flex-direction:column; gap:1.5rem; padding:2rem;
+    }
+    #authScreen .auth-logo { font-size:1.8rem; font-weight:800; color:var(--gold); letter-spacing:-.02em; margin-bottom:.25rem; text-align:center; }
+    #authScreen .auth-sub  { font-size:.82rem; color:var(--ink-light); opacity:.65; text-align:center; margin-bottom:.5rem; }
+    .auth-card { background:var(--navy-panel); border:1px solid rgba(224,162,77,.18); border-radius:14px; padding:2rem 2.25rem; width:100%; max-width:400px; }
+    .auth-card h2 { font-size:1.1rem; font-weight:700; color:var(--ink-light); margin-bottom:1.25rem; }
+    .auth-tabs { display:flex; gap:.5rem; margin-bottom:1.5rem; }
+    .auth-tab { flex:1; padding:.5rem; background:transparent; border:1px solid rgba(224,162,77,.25); border-radius:7px; color:var(--ink-light); opacity:.6; font-size:.82rem; font-weight:600; cursor:pointer; transition:all .15s; }
+    .auth-tab.active { background:var(--gold); color:var(--navy); opacity:1; border-color:var(--gold); }
+    .auth-field { margin-bottom:1rem; }
+    .auth-field label { display:block; font-size:.78rem; font-weight:600; color:var(--ink-light); opacity:.8; margin-bottom:.35rem; }
+    .auth-field input { width:100%; padding:.65rem .85rem; background:rgba(255,255,255,.07); border:1px solid rgba(224,162,77,.2); border-radius:7px; font-size:.9rem; color:var(--ink-light); outline:none; transition:border-color .15s; }
+    .auth-field input:focus { border-color:var(--gold); }
+    .pw-hint { font-size:.72rem; color:var(--ink-light); opacity:.5; margin-top:.3rem; line-height:1.4; }
+    .pw-strength { display:flex; gap:.25rem; margin-top:.4rem; height:3px; }
+    .pw-strength span { flex:1; border-radius:2px; background:rgba(255,255,255,.12); transition:background .2s; }
+    .pw-strength.s1 span:nth-child(1) { background:#dc2626; }
+    .pw-strength.s2 span:nth-child(-n+2) { background:#d97706; }
+    .pw-strength.s3 span:nth-child(-n+3) { background:#16a34a; }
+    .pw-strength.s4 span { background:#16a34a; }
+    .auth-btn { width:100%; padding:.75rem; background:var(--gold); color:var(--navy); font-weight:700; font-size:.95rem; border:none; border-radius:8px; cursor:pointer; transition:background .15s; margin-top:.5rem; }
+    .auth-btn:hover { background:#c8883c; }
+    .auth-btn:disabled { opacity:.5; cursor:not-allowed; }
+    .auth-msg { font-size:.8rem; text-align:center; margin-top:.75rem; min-height:1.2rem; }
+    .auth-msg.ok  { color:#4ade80; }
+    .auth-msg.err { color:#f87171; }
+    .auth-link { background:none; border:none; color:var(--gold); font-size:.78rem; cursor:pointer; text-decoration:underline; display:block; text-align:center; margin-top:.75rem; }
+
+    /* ── Project picker ── */
+    #projectScreen {
+      display:none; min-height:100vh;
+      background:var(--navy);
+      align-items:center; justify-content:center; flex-direction:column; gap:1rem; padding:2rem;
+    }
+    #projectScreen .proj-logo { font-size:1.4rem; font-weight:800; color:var(--gold); margin-bottom:.5rem; }
+    .proj-card { background:var(--navy-panel); border:1px solid rgba(224,162,77,.18); border-radius:14px; padding:1.75rem 2rem; width:100%; max-width:440px; }
+    .proj-card h2 { font-size:1rem; font-weight:700; color:var(--ink-light); margin-bottom:.25rem; }
+    .proj-card p  { font-size:.8rem; color:var(--ink-light); opacity:.6; margin-bottom:1.25rem; }
+    .proj-list { display:flex; flex-direction:column; gap:.5rem; max-height:220px; overflow-y:auto; margin-bottom:1rem; }
+    .proj-item { display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,.05); border:1px solid rgba(224,162,77,.12); border-radius:8px; padding:.6rem .85rem; cursor:pointer; transition:border-color .15s; }
+    .proj-item:hover { border-color:var(--gold); }
+    .proj-item span { font-size:.88rem; color:var(--ink-light); font-weight:500; }
+    .proj-item .proj-arrow { color:var(--gold); font-size:.8rem; }
+    .proj-divider { text-align:center; font-size:.72rem; color:var(--ink-light); opacity:.4; margin:.5rem 0; }
+    .proj-new-row { display:flex; gap:.5rem; }
+    .proj-new-row input { flex:1; padding:.6rem .75rem; background:rgba(255,255,255,.07); border:1px solid rgba(224,162,77,.2); border-radius:7px; font-size:.85rem; color:var(--ink-light); outline:none; }
+    .proj-new-row input:focus { border-color:var(--gold); }
+    .proj-new-row button { padding:.6rem 1rem; background:var(--gold); color:var(--navy); font-weight:700; font-size:.82rem; border:none; border-radius:7px; cursor:pointer; white-space:nowrap; }
+    .proj-signout { background:none; border:none; color:var(--ink-light); opacity:.4; font-size:.75rem; cursor:pointer; margin-top:.75rem; display:block; text-align:center; width:100%; }
+    .proj-signout:hover { opacity:.7; }
+
+    /* ── Main app shell ── */
+    #appShell { display:none; }
+    .app-topbar {
+      background:var(--navy); color:var(--ink-light);
+      display:flex; align-items:center; justify-content:space-between;
+      padding:.75rem 1.5rem; gap:1rem;
+    }
+    .app-topbar .brand { font-size:1rem; font-weight:800; color:var(--gold); letter-spacing:-.01em; }
+    .app-topbar .proj-chip {
+      display:flex; align-items:center; gap:.5rem;
+      background:rgba(255,255,255,.08); border:1px solid rgba(224,162,77,.2);
+      border-radius:99px; padding:.3rem .85rem; font-size:.78rem; color:var(--ink-light);
+      cursor:pointer; transition:border-color .15s;
+    }
+    .app-topbar .proj-chip:hover { border-color:var(--gold); }
+    .app-topbar .proj-chip .dot { width:6px; height:6px; border-radius:50%; background:var(--gold); }
+    .topbar-right { display:flex; align-items:center; gap:.75rem; }
+    .topbar-signout { background:none; border:1px solid rgba(255,255,255,.15); color:var(--ink-light); font-size:.75rem; padding:.3rem .75rem; border-radius:6px; cursor:pointer; transition:border-color .15s; }
+    .topbar-signout:hover { border-color:rgba(255,255,255,.4); }
+
+    /* ── Content ── */
+    .container { max-width:880px; margin:0 auto; padding:2rem 1rem; }
     header { text-align:center; margin-bottom:2rem; }
-    header h1 { font-size:2rem; font-weight:700; color:var(--blue-dark); }
-    header p { margin-top:.5rem; color:var(--muted); font-size:1rem; }
-    #keySection { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:1.25rem 1.5rem; margin-bottom:1.75rem; }
-    #keySection label { display:block; font-size:.85rem; font-weight:600; margin-bottom:.5rem; }
-    #keySection .row { display:flex; gap:.75rem; align-items:center; }
-    #apiKeyInput { flex:1; padding:.6rem .85rem; border:1px solid var(--border); border-radius:7px; font-size:.9rem; font-family:monospace; background:var(--bg); }
-    #apiKeyInput:focus { outline:2px solid var(--blue); border-color:transparent; }
-    .save-btn { padding:.6rem 1.1rem; background:var(--blue); color:#fff; border:none; border-radius:7px; font-size:.85rem; font-weight:600; cursor:pointer; white-space:nowrap; }
-    .save-btn:hover { background:var(--blue-dark); }
-    .key-hint { font-size:.78rem; color:var(--muted); margin-top:.5rem; }
-    .key-hint a { color:var(--blue); }
-    #keySaved { display:none; font-size:.8rem; color:var(--green); font-weight:600; margin-top:.4rem; }
-    .upload-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-bottom:1.5rem; }
-    @media(max-width:600px){.upload-grid{grid-template-columns:1fr;}}
+    header h1 { font-size:1.8rem; font-weight:800; color:var(--navy); }
+    header p  { margin-top:.5rem; color:var(--muted); font-size:.95rem; }
+
+    /* ── Upload grid ── */
+    .upload-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-bottom:1.25rem; }
+    @media(max-width:600px){ .upload-grid{ grid-template-columns:1fr; } }
     .upload-card { background:var(--card); border:2px dashed var(--border); border-radius:var(--radius); padding:1.5rem; text-align:center; cursor:pointer; transition:border-color .2s,background .2s; position:relative; }
-    .upload-card:hover,.upload-card.dragover { border-color:var(--blue); background:var(--blue-xlight); }
+    .upload-card:hover,.upload-card.dragover { border-color:var(--navy); background:var(--blue-xlight); }
     .upload-card.has-file { border-color:var(--green); background:var(--green-light); }
     .upload-card input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
     .upload-icon { font-size:2.5rem; margin-bottom:.75rem; }
     .upload-card h3 { font-size:.95rem; font-weight:600; margin-bottom:.35rem; }
     .upload-card .hint { font-size:.8rem; color:var(--muted); }
     .badge { display:inline-block; font-size:.7rem; font-weight:600; padding:.15rem .5rem; border-radius:99px; margin-bottom:.5rem; }
-    .badge-blue { background:var(--blue-light); color:var(--blue-dark); }
+    .badge-blue  { background:var(--blue-light); color:var(--navy); }
     .badge-amber { background:var(--amber-light); color:var(--amber); }
-    .file-name { margin-top:.6rem; font-size:.8rem; font-weight:500; color:var(--green); word-break:break-all; }
-    .btn { display:block; width:100%; padding:.85rem; background:var(--blue); color:#fff; border:none; border-radius:var(--radius); font-size:1rem; font-weight:600; cursor:pointer; transition:background .2s; }
-    .btn:hover:not(:disabled) { background:var(--blue-dark); }
-    .btn:disabled { opacity:.45; cursor:not-allowed; }
+    .file-name-list { margin-top:.6rem; font-size:.78rem; font-weight:500; color:var(--green); word-break:break-all; }
+
+    /* ── Query section ── */
+    .query-section { margin-bottom:1.25rem; }
+    .query-toggle { display:flex; align-items:center; gap:.5rem; background:none; border:1px dashed var(--border); border-radius:var(--radius); padding:.6rem 1rem; width:100%; text-align:left; font-size:.85rem; color:var(--muted); cursor:pointer; transition:border-color .2s,color .2s; }
+    .query-toggle:hover { border-color:var(--gold-dark); color:var(--gold-dark); }
+    .query-toggle.active { border-color:var(--gold-dark); color:var(--gold-dark); background:var(--amber-light); }
+    .query-toggle .arrow { transition:transform .2s; margin-left:auto; }
+    .query-toggle.active .arrow { transform:rotate(180deg); }
+    #queryPanel { display:none; margin-top:.6rem; }
+    #queryInput { width:100%; height:110px; padding:.75rem; border:1px solid var(--border); border-radius:var(--radius); font-size:.875rem; font-family:inherit; background:var(--card); color:var(--text); resize:vertical; line-height:1.5; outline:none; }
+    #queryInput:focus { border-color:var(--gold-dark); }
+    #queryInput.has-text { border-color:var(--gold-dark); }
+    .query-hint { font-size:.75rem; color:var(--muted); margin-top:.35rem; }
+
+    /* ── Buttons ── */
+    .btn { display:block; width:100%; padding:.85rem; background:var(--navy); color:var(--ink-light); border:none; border-radius:var(--radius); font-size:1rem; font-weight:700; cursor:pointer; transition:background .2s; }
+    .btn:hover:not(:disabled) { background:var(--navy-panel); }
+    .btn:disabled { opacity:.4; cursor:not-allowed; }
+    .action-row { display:flex; gap:.75rem; margin-top:1.5rem; }
+    .print-btn { flex:1; padding:.65rem; background:var(--navy); color:var(--ink-light); border:none; border-radius:var(--radius); font-size:.85rem; font-weight:600; cursor:pointer; transition:background .2s; }
+    .print-btn:hover { background:var(--navy-panel); }
+    .html-btn { flex:1; padding:.65rem; background:var(--green); color:#fff; border:none; border-radius:var(--radius); font-size:.85rem; font-weight:600; cursor:pointer; }
+    .html-btn:hover { background:#15803d; }
+    .reset-btn { flex:1; padding:.65rem; background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:var(--radius); font-size:.85rem; cursor:pointer; transition:background .2s; }
+    .reset-btn:hover { background:var(--border); }
+
+    /* ── Status / error ── */
     #status { margin-top:1.25rem; text-align:center; font-size:.9rem; color:var(--muted); min-height:1.5rem; }
-    .spinner { display:inline-block; width:1.1rem; height:1.1rem; border:2px solid var(--border); border-top-color:var(--blue); border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:.4rem; }
-    @keyframes spin{to{transform:rotate(360deg);}}
+    .spinner { display:inline-block; width:1.1rem; height:1.1rem; border:2px solid var(--border); border-top-color:var(--navy); border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:.4rem; }
+    @keyframes spin { to { transform:rotate(360deg); } }
     .error-box { background:var(--red-light); color:var(--red); border:1px solid #fca5a5; border-radius:var(--radius); padding:1rem 1.25rem; margin-top:1rem; font-size:.9rem; }
+
+    /* ── Result ── */
     #result { margin-top:2rem; display:none; }
     .result-header { display:flex; align-items:center; gap:1rem; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:1.25rem 1.5rem; margin-bottom:1.25rem; }
     .score-ring { width:4rem; height:4rem; position:relative; flex-shrink:0; }
@@ -58,417 +184,662 @@
     .verdict-badge { padding:.4rem 1rem; border-radius:99px; font-weight:700; font-size:.9rem; }
     .verdict-compliant    { background:var(--green-light); color:var(--green); }
     .verdict-partial      { background:var(--amber-light); color:var(--amber); }
-    .verdict-noncompliant { background:var(--red-light);   color:var(--red); }
-    .verdict-reject       { background:var(--red-light);   color:var(--red); }
+    .verdict-noncompliant { background:var(--red-light);   color:var(--red);   }
+    .verdict-reject       { background:var(--red-light);   color:var(--red);   }
     .report-body { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:1.5rem; line-height:1.7; font-size:.92rem; }
-    .report-body h2 { font-size:1.1rem; margin:1.25rem 0 .5rem; color:var(--blue-dark); border-bottom:1px solid var(--border); padding-bottom:.3rem; }
+    .report-body h2 { font-size:1.1rem; margin:1.25rem 0 .5rem; color:var(--navy); border-bottom:1px solid var(--border); padding-bottom:.3rem; }
     .report-body h2:first-child { margin-top:0; }
-    .report-body h3 { font-size:1rem; margin:1rem 0 .4rem; color:var(--text); }
+    .report-body h3 { font-size:1rem; margin:1rem 0 .4rem; }
     .report-body ul { padding-left:1.4rem; }
     .report-body li { margin-bottom:.35rem; }
-    .report-body p { margin-bottom:.6rem; }
+    .report-body p  { margin-bottom:.6rem; }
     .report-body table { width:100%; border-collapse:collapse; margin:1rem 0; font-size:.85rem; overflow-x:auto; display:block; }
-    .report-body th { background:var(--blue-xlight); color:var(--blue-dark); font-weight:600; font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; padding:.45rem .7rem; text-align:left; border-bottom:2px solid var(--blue-light); white-space:nowrap; }
+    .report-body th { background:var(--blue-xlight); color:var(--navy); font-weight:600; font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; padding:.45rem .7rem; text-align:left; border-bottom:2px solid var(--blue-light); white-space:nowrap; }
     .report-body td { padding:.45rem .7rem; border-bottom:1px solid var(--border); vertical-align:top; }
     .report-body tr:nth-child(even) td { background:var(--bg); }
-    .report-body strong { color:var(--text); }
-    .report-body .tag-crit { color:var(--red); font-weight:700; }
+    .report-body .tag-crit { color:var(--red);   font-weight:700; }
     .report-body .tag-warn { color:var(--amber); font-weight:700; }
     .report-body .tag-pass { color:var(--green); font-weight:700; }
-    .reset-btn { margin-top:1.5rem; background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:var(--radius); padding:.65rem; width:100%; font-size:.85rem; cursor:pointer; transition:background .2s; }
-    .reset-btn:hover { background:var(--border); }
-    .action-row { display:flex; gap:.75rem; margin-top:1.5rem; }
-    .action-row .reset-btn { margin-top:0; flex:1; }
-    .print-btn { flex:1; padding:.65rem; background:var(--blue-dark); color:#fff; border:none; border-radius:var(--radius); font-size:.85rem; font-weight:600; cursor:pointer; transition:background .2s; }
-    .print-btn:hover { background:var(--blue); }
-    .html-btn { flex:1; padding:.65rem; background:var(--green); color:#fff; border:none; border-radius:var(--radius); font-size:.85rem; font-weight:600; cursor:pointer; transition:background .2s; }
-    .html-btn:hover { background:#15803d; }
-    .file-name-list { margin-top:.6rem; font-size:.78rem; font-weight:500; color:var(--green); word-break:break-all; }
-    .query-section { margin-bottom:1.25rem; }
-    .query-toggle { display:flex; align-items:center; gap:.5rem; background:none; border:1px dashed var(--border); border-radius:var(--radius); padding:.6rem 1rem; width:100%; text-align:left; font-size:.85rem; color:var(--muted); cursor:pointer; transition:border-color .2s,color .2s; }
-    .query-toggle:hover { border-color:var(--amber); color:var(--amber); }
-    .query-toggle.active { border-color:var(--amber); color:var(--amber); background:var(--amber-light); }
-    .query-toggle .arrow { transition:transform .2s; }
-    .query-toggle.active .arrow { transform:rotate(180deg); }
-    #queryPanel { display:none; margin-top:.6rem; }
-    #queryInput { width:100%; height:110px; padding:.75rem; border:1px solid var(--border); border-radius:var(--radius); font-size:.875rem; font-family:inherit; background:var(--card); color:var(--text); resize:vertical; line-height:1.5; }
-    #queryInput:focus { outline:2px solid var(--amber); border-color:transparent; }
-    #queryInput.has-text { border-color:var(--amber); }
-    .query-hint { font-size:.75rem; color:var(--muted); margin-top:.35rem; }
-    /* ── Scan approval panel ── */
+
+    /* ── Scan panel ── */
     .scan-panel { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:1.25rem 1.5rem; margin-top:1rem; }
     .scan-panel h3 { font-size:1rem; font-weight:700; margin-bottom:.4rem; color:var(--amber); }
     .scan-panel > p { font-size:.85rem; color:var(--muted); margin-bottom:1rem; }
     .scan-list { display:flex; flex-direction:column; gap:.5rem; margin-bottom:1rem; max-height:260px; overflow-y:auto; }
     .scan-item { display:grid; grid-template-columns:auto 1fr; gap:.6rem; align-items:start; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:.55rem .75rem; cursor:pointer; }
-    .scan-item input[type=checkbox] { margin-top:.2rem; accent-color:var(--blue); width:1rem; height:1rem; cursor:pointer; }
+    .scan-item input[type=checkbox] { margin-top:.2rem; accent-color:var(--navy); width:1rem; height:1rem; cursor:pointer; }
     .scan-item-info strong { font-size:.85rem; display:block; }
     .scan-item-info .context { font-size:.78rem; color:var(--muted); margin-top:.15rem; line-height:1.4; }
     .scan-item-info .doc-tag { font-size:.68rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; display:inline-block; padding:.1rem .4rem; border-radius:3px; margin-bottom:.2rem; }
-    .doc-tag-sub { background:var(--blue-light); color:var(--blue-dark); }
+    .doc-tag-sub  { background:var(--blue-light);  color:var(--navy); }
     .doc-tag-spec { background:var(--amber-light); color:var(--amber); }
-    .scan-cost { font-size:.8rem; font-weight:600; color:var(--text); margin-bottom:.85rem; }
+    .scan-cost { font-size:.8rem; font-weight:600; margin-bottom:.85rem; }
     .scan-cost span { color:var(--amber); }
     .scan-actions { display:flex; gap:.75rem; }
     .scan-skip-btn { flex:1; background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:7px; padding:.6rem; font-size:.85rem; cursor:pointer; }
-    .scan-skip-btn:hover { background:var(--border); }
-    .scan-go-btn { flex:1; background:var(--blue-dark); color:#fff; border:none; border-radius:7px; padding:.6rem; font-size:.85rem; font-weight:600; cursor:pointer; }
-    .scan-go-btn:hover { background:var(--blue); }
+    .scan-go-btn   { flex:1; background:var(--navy); color:var(--ink-light); border:none; border-radius:7px; padding:.6rem; font-size:.85rem; font-weight:600; cursor:pointer; }
     .scan-go-btn:disabled { opacity:.45; cursor:not-allowed; }
+
+    /* ── Footer ── */
     .app-footer { text-align:center; margin-top:2.5rem; padding-top:1rem; border-top:1px solid var(--border); font-size:.72rem; color:var(--muted); font-family:monospace; }
     .app-footer a { color:var(--muted); text-decoration:none; }
-    .app-footer a:hover { color:var(--blue); }
+    .app-footer a:hover { color:var(--navy); }
+
     @media print {
-      body { background:white; padding:.5rem; }
-      #keySection, .upload-grid, .btn, #status, #errorBox, .action-row { display:none !important; }
-      header { margin-bottom:1rem; }
+      body { background:white; }
+      #appShell .app-topbar, #keySection, .upload-grid, .query-section, .btn, #status, #errorBox, .action-row { display:none !important; }
       .report-body { border:none; padding:0; }
-      .result-header { border:1px solid #ccc; }
       #result { display:block !important; margin-top:0; }
     }
   </style>
 </head>
 <body>
-<div class="container">
-  <header>
-    <h1>Compliance Checker</h1>
-    <p>Upload documents to check compliance against a specification, or ask a specific question about your documents.</p>
-  </header>
-  <div id="keySection">
-    <label for="apiKeyInput">Anthropic API Key</label>
-    <div class="row">
-      <input type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off" />
-      <button class="save-btn" onclick="saveKey()">Save</button>
-    </div>
-    <div class="key-hint">
-      Get an API key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> (usage is billed per request).
-      Your key is saved only in this browser &mdash; never sent anywhere except directly to Anthropic.
-    </div>
-    <div id="keySaved">&check; Key saved</div>
+
+<!-- ── Splash ── -->
+<div id="splash" onclick="skipSplash()">
+  <div id="splash-brand">
+    <div class="wordmark">Verity Checker</div>
+    <div class="tagline">Part of the SiteVerity family</div>
   </div>
-  <div class="upload-grid">
-    <div class="upload-card" id="submittedCard">
-      <input type="file" id="submittedFile" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" multiple />
-      <div class="upload-icon">&#128196;</div>
-      <div class="badge badge-blue">Submitted Document</div>
-      <h3>Document(s) for Review</h3>
-      <div class="hint">PDF, Word, Excel, or TXT &mdash; multiple files allowed</div>
-      <div class="file-name-list" id="submittedName"></div>
-    </div>
-    <div class="upload-card" id="specCard">
-      <input type="file" id="specFile" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" multiple />
-      <div class="upload-icon">&#128203;</div>
-      <div class="badge badge-amber">Specification</div>
-      <h3>Requirements / Specification</h3>
-      <div class="hint">PDF, Word, Excel, or TXT &mdash; multiple files allowed</div>
-      <div class="file-name-list" id="specName"></div>
-    </div>
+  <div id="splash-project">
+    <div class="proj-label">Current project</div>
+    <div class="proj-name" id="splashProjName"></div>
   </div>
-  <div class="query-section">
-    <button class="query-toggle" id="queryToggle" onclick="toggleQuery()">
-      <span>&#128172;</span>
-      <span>Add a specific query <em style="font-weight:400;font-size:.78rem;">(optional — ask a question about any uploaded documents)</em></span>
-      <span class="arrow" style="margin-left:auto;">&#9660;</span>
-    </button>
-    <div id="queryPanel">
-      <textarea id="queryInput" placeholder="e.g. What thermal performance values are stated?&#10;e.g. Does this submittal confirm compliance with clause 5.3.2?&#10;e.g. List all product specifications and flag anything missing."></textarea>
-      <div class="query-hint">If a query is entered it takes priority — the AI will answer your question using all uploaded documents. Without a query, both documents are compared for compliance.</div>
+  <div id="splash-skip">Tap anywhere to skip</div>
+</div>
+
+<!-- ── Auth ── -->
+<div id="authScreen" style="display:flex;">
+  <div class="auth-logo">Verity Checker</div>
+  <div class="auth-sub">Sign in to your account</div>
+  <div class="auth-card">
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="showAuthTab('signin')">Sign in</button>
+      <button class="auth-tab" onclick="showAuthTab('signup')">Create account</button>
     </div>
-  </div>
-  <button class="btn" id="submitBtn" disabled onclick="runCheck()">Check Compliance</button>
-  <div id="status"></div>
-  <div id="errorBox"></div>
-  <div id="result">
-    <div class="result-header">
-      <div class="score-ring">
-        <svg width="64" height="64" viewBox="0 0 64 64">
-          <circle cx="32" cy="32" r="26" fill="none" stroke="#e2e8f0" stroke-width="6"/>
-          <circle id="scoreArc" cx="32" cy="32" r="26" fill="none" stroke="#2563eb" stroke-width="6" stroke-linecap="round" stroke-dasharray="163.4" stroke-dashoffset="163.4"/>
-        </svg>
-        <div class="score-text" id="scoreText">&ndash;</div>
+    <!-- Sign in -->
+    <div id="signinForm">
+      <div class="auth-field"><label>Email</label><input type="email" id="siEmail" autocomplete="email" /></div>
+      <div class="auth-field"><label>Password</label><input type="password" id="siPassword" autocomplete="current-password" /></div>
+      <button class="auth-btn" id="signinBtn" onclick="doSignIn()">Sign in</button>
+      <button class="auth-link" onclick="showAuthTab('reset')">Forgot password?</button>
+      <div class="auth-msg" id="siMsg"></div>
+    </div>
+    <!-- Sign up -->
+    <div id="signupForm" style="display:none;">
+      <div class="auth-field"><label>Email</label><input type="email" id="suEmail" autocomplete="email" /></div>
+      <div class="auth-field">
+        <label>Password</label>
+        <input type="password" id="suPassword" autocomplete="new-password" oninput="checkPwStrength(this.value)" />
+        <div class="pw-strength" id="pwStrength"><span></span><span></span><span></span><span></span></div>
+        <div class="pw-hint">Min 8 chars · upper &amp; lower case · a number · a special character</div>
       </div>
-      <div>
-        <div class="verdict-badge" id="verdictBadge">&ndash;</div>
-        <div style="font-size:.85rem;color:var(--muted);margin-top:.3rem;" id="verdictSub"></div>
-      </div>
+      <button class="auth-btn" id="signupBtn" onclick="doSignUp()">Create account</button>
+      <div class="auth-msg" id="suMsg"></div>
     </div>
-    <div class="report-body" id="reportBody"></div>
-    <div class="action-row">
-      <button class="print-btn" onclick="openPrintReport()">&#128438; Print / PDF Report</button>
-      <button class="html-btn" onclick="downloadHtmlReport()">&#128190; Save HTML Report</button>
-      <button class="reset-btn" onclick="resetForm()">New comparison</button>
+    <!-- Reset -->
+    <div id="resetForm" style="display:none;">
+      <div class="auth-field"><label>Email</label><input type="email" id="rstEmail" autocomplete="email" /></div>
+      <button class="auth-btn" onclick="doReset()">Send reset link</button>
+      <button class="auth-link" onclick="showAuthTab('signin')">&#8592; Back to sign in</button>
+      <div class="auth-msg" id="rstMsg"></div>
     </div>
   </div>
 </div>
-<footer class="app-footer">
-  <a href="https://github.com/alisterwhite1/Coursiv-training-/commit/__APP_VERSION__" target="_blank" title="View this commit on GitHub">
-    commit&nbsp;<strong>__APP_VERSION__</strong>
-  </a>
-  &nbsp;&middot;&nbsp;built&nbsp;__BUILD_DATE__&nbsp;__BUILD_TIME__
-  &nbsp;&middot;&nbsp;<a href="https://github.com/alisterwhite1/Coursiv-training-" target="_blank">source</a>
-</footer>
+
+<!-- ── Project picker ── -->
+<div id="projectScreen" style="display:flex;">
+  <div class="proj-logo">Verity Checker</div>
+  <div class="proj-card">
+    <h2>Select or create a project</h2>
+    <p>Projects are private to your account — a label for your own organisation.</p>
+    <div class="proj-list" id="projList"></div>
+    <div class="proj-divider">— or create new —</div>
+    <div class="proj-new-row">
+      <input type="text" id="newProjName" placeholder="e.g. Building 4 Fitout" maxlength="80" />
+      <button onclick="createProject()">Create</button>
+    </div>
+    <button class="proj-signout" onclick="doSignOut()">Sign out</button>
+  </div>
+</div>
+
+<!-- ── Main app ── -->
+<div id="appShell">
+  <div class="app-topbar">
+    <div class="brand">Verity Checker</div>
+    <div class="topbar-right">
+      <div class="proj-chip" id="projChip" onclick="switchProject()" title="Switch project">
+        <span class="dot"></span>
+        <span id="projChipName">—</span>
+      </div>
+      <button class="topbar-signout" onclick="doSignOut()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <header>
+      <h1>Verity Checker</h1>
+      <p>Upload documents to check compliance against a specification, or ask a specific question about your documents.</p>
+    </header>
+
+    <div class="upload-grid">
+      <div class="upload-card" id="submittedCard">
+        <input type="file" id="submittedFile" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" multiple />
+        <div class="upload-icon">&#128196;</div>
+        <div class="badge badge-blue">Submitted Document</div>
+        <h3>Document(s) for Review</h3>
+        <div class="hint">PDF, Word, Excel, or TXT &mdash; multiple files allowed</div>
+        <div class="file-name-list" id="submittedName"></div>
+      </div>
+      <div class="upload-card" id="specCard">
+        <input type="file" id="specFile" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" multiple />
+        <div class="upload-icon">&#128203;</div>
+        <div class="badge badge-amber">Specification</div>
+        <h3>Requirements / Specification</h3>
+        <div class="hint">PDF, Word, Excel, or TXT &mdash; multiple files allowed</div>
+        <div class="file-name-list" id="specName"></div>
+      </div>
+    </div>
+
+    <div class="query-section">
+      <button class="query-toggle" id="queryToggle" onclick="toggleQuery()">
+        <span>&#128172;</span>
+        <span>Add a specific query <em style="font-weight:400;font-size:.78rem;">(optional — ask a question about any uploaded documents)</em></span>
+        <span class="arrow">&#9660;</span>
+      </button>
+      <div id="queryPanel">
+        <textarea id="queryInput" placeholder="e.g. What thermal performance values are stated?&#10;e.g. Does this submittal confirm compliance with clause 5.3.2?&#10;e.g. List all product specifications and flag anything missing."></textarea>
+        <div class="query-hint">If a query is entered it takes priority — the AI will answer your question using all uploaded documents. Without a query, both documents are compared for compliance.</div>
+      </div>
+    </div>
+
+    <button class="btn" id="submitBtn" disabled onclick="runCheck()">Check Compliance</button>
+    <div id="status"></div>
+    <div id="errorBox"></div>
+
+    <div id="result">
+      <div class="result-header">
+        <div class="score-ring">
+          <svg width="64" height="64" viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r="26" fill="none" stroke="#d5e0ee" stroke-width="6"/>
+            <circle id="scoreArc" cx="32" cy="32" r="26" fill="none" stroke="#0e2947" stroke-width="6" stroke-linecap="round" stroke-dasharray="163.4" stroke-dashoffset="163.4"/>
+          </svg>
+          <div class="score-text" id="scoreText">&ndash;</div>
+        </div>
+        <div>
+          <div class="verdict-badge" id="verdictBadge">&ndash;</div>
+          <div style="font-size:.85rem;color:var(--muted);margin-top:.3rem;" id="verdictSub"></div>
+        </div>
+      </div>
+      <div class="report-body" id="reportBody"></div>
+      <div class="action-row">
+        <button class="print-btn" onclick="openPrintReport()">&#128438; Open Print / PDF Report</button>
+        <button class="html-btn"  onclick="downloadHtmlReport()">&#128190; Save HTML Report</button>
+        <button class="reset-btn" onclick="resetForm()">New comparison</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <a href="https://github.com/alisterwhite1/Coursiv-training-/commit/__APP_VERSION__" target="_blank">commit&nbsp;<strong>__APP_VERSION__</strong></a>
+    &nbsp;&middot;&nbsp;built&nbsp;__BUILD_DATE__&nbsp;__BUILD_TIME__
+    &nbsp;&middot;&nbsp;Verity Checker &mdash; Part of the <a href="https://site-verity.com" target="_blank">SiteVerity</a> family
+  </footer>
+</div><!-- /appShell -->
+
 <script>
-  const APP_VERSION='__APP_VERSION__';
-  const BUILD_DATE='__BUILD_DATE__';
-  const BUILD_TIME='__BUILD_TIME__';
-  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  const keyInput=document.getElementById('apiKeyInput');
-  const saved=localStorage.getItem('anthropic_api_key');
-  if(saved){keyInput.value=saved;document.getElementById('keySaved').style.display='block';}
-  function saveKey(){
-    const k=keyInput.value.trim();
-    if(!k)return;
-    localStorage.setItem('anthropic_api_key',k);
-    document.getElementById('keySaved').style.display='block';
-    updateBtn();
+// ── Config (fill in after Supabase + Worker are set up) ──────────────────────
+const SUPABASE_URL  = '__SUPABASE_URL__';
+const SUPABASE_ANON = '__SUPABASE_ANON_KEY__';
+const WORKER_URL    = '__WORKER_URL__';   // e.g. https://verity-checker-worker.yourname.workers.dev
+const APP_VERSION   = '__APP_VERSION__';
+const BUILD_DATE    = '__BUILD_DATE__';
+const BUILD_TIME    = '__BUILD_TIME__';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ── Supabase client ──────────────────────────────────────────────────────────
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ── App state ────────────────────────────────────────────────────────────────
+let currentUser    = null;
+let currentProject = null;   // {id, name}
+let splashDone     = false;
+
+// ── Splash ───────────────────────────────────────────────────────────────────
+function runSplash(projName) {
+  const brand   = document.getElementById('splash-brand');
+  const projEl  = document.getElementById('splash-project');
+  const nameEl  = document.getElementById('splashProjName');
+
+  // Phase 1: brand fades in at 0s, out at 2.4s
+  setTimeout(() => { brand.style.opacity = '1'; }, 50);
+  setTimeout(() => { brand.style.opacity = '0'; }, 2400);
+
+  // Phase 2: project name fades in at 3.4s (if we have one)
+  if (projName) {
+    nameEl.textContent = projName;
+    setTimeout(() => { projEl.style.opacity = '1'; }, 3400);
   }
-  keyInput.addEventListener('input',()=>{document.getElementById('keySaved').style.display='none';updateBtn();});
-  keyInput.addEventListener('keydown',e=>{if(e.key==='Enter')saveKey();});
-  const submittedInput=document.getElementById('submittedFile');
-  const specInput=document.getElementById('specFile');
-  const queryInput=document.getElementById('queryInput');
-  let queryOpen=false;
-  function toggleQuery(){
-    queryOpen=!queryOpen;
-    document.getElementById('queryPanel').style.display=queryOpen?'block':'none';
-    document.getElementById('queryToggle').classList.toggle('active',queryOpen);
-    if(!queryOpen){queryInput.value='';queryInput.classList.remove('has-text');}
-    updateBtn();
+
+  // Auto-dismiss at 6s
+  setTimeout(() => endSplash(), 6000);
+}
+function skipSplash() { endSplash(); }
+function endSplash() {
+  if (splashDone) return;
+  splashDone = true;
+  const splash = document.getElementById('splash');
+  splash.style.transition = 'opacity .4s';
+  splash.style.opacity = '0';
+  setTimeout(() => { splash.style.display = 'none'; showCorrectScreen(); }, 400);
+}
+
+// ── Auth flow ────────────────────────────────────────────────────────────────
+function showCorrectScreen() {
+  if (!currentUser) {
+    document.getElementById('authScreen').style.display    = 'flex';
+    document.getElementById('projectScreen').style.display = 'none';
+    document.getElementById('appShell').style.display      = 'none';
+  } else if (!currentProject) {
+    document.getElementById('authScreen').style.display    = 'none';
+    document.getElementById('projectScreen').style.display = 'flex';
+    document.getElementById('appShell').style.display      = 'none';
+    loadProjects();
+  } else {
+    document.getElementById('authScreen').style.display    = 'none';
+    document.getElementById('projectScreen').style.display = 'none';
+    document.getElementById('appShell').style.display      = 'block';
+    document.getElementById('projChipName').textContent    = currentProject.name;
   }
-  function bindFile(input,nameEl,cardEl){
-    input.addEventListener('change',()=>{
-      const files=Array.from(input.files);
-      const el=document.getElementById(nameEl);
-      if(files.length===0){el.textContent='';}
-      else if(files.length===1){el.textContent=files[0].name;}
-      else{el.textContent=files.length+' files: '+files.map(f=>f.name).join(', ');}
-      document.getElementById(cardEl).classList.toggle('has-file',files.length>0);
-      updateBtn();
-    });
-  }
-  bindFile(submittedInput,'submittedName','submittedCard');
-  bindFile(specInput,'specName','specCard');
-  ['submittedCard','specCard'].forEach(id=>{
-    const card=document.getElementById(id);
-    card.addEventListener('dragover',e=>{e.preventDefault();card.classList.add('dragover');});
-    card.addEventListener('dragleave',()=>card.classList.remove('dragover'));
-    card.addEventListener('drop',()=>card.classList.remove('dragover'));
+}
+
+function showAuthTab(tab) {
+  ['signin','signup','reset'].forEach(t => {
+    document.getElementById(t+'Form').style.display = t === tab ? '' : 'none';
   });
-  queryInput.addEventListener('input',()=>{
-    queryInput.classList.toggle('has-text',queryInput.value.trim().length>0);
+  document.querySelectorAll('.auth-tab').forEach((btn, i) => {
+    btn.classList.toggle('active', ['signin','signup'][i] === tab);
+  });
+}
+
+function pwMsg(id, msg, ok) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = 'auth-msg ' + (ok ? 'ok' : 'err');
+}
+
+function checkPwStrength(pw) {
+  let score = 0;
+  if (pw.length >= 8) score++;
+  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
+  if (/\d/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  const bar = document.getElementById('pwStrength');
+  bar.className = 'pw-strength' + (score ? ' s'+score : '');
+}
+
+function validatePw(pw) {
+  if (pw.length < 8)               return 'Password must be at least 8 characters.';
+  if (!/[A-Z]/.test(pw))           return 'Password must include an uppercase letter.';
+  if (!/[a-z]/.test(pw))           return 'Password must include a lowercase letter.';
+  if (!/\d/.test(pw))              return 'Password must include a number.';
+  if (!/[^A-Za-z0-9]/.test(pw))   return 'Password must include a special character.';
+  return null;
+}
+
+async function doSignIn() {
+  const email = document.getElementById('siEmail').value.trim();
+  const pw    = document.getElementById('siPassword').value;
+  document.getElementById('signinBtn').disabled = true;
+  pwMsg('siMsg', '', false);
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
+  document.getElementById('signinBtn').disabled = false;
+  if (error) { pwMsg('siMsg', error.message, false); return; }
+  currentUser = data.user;
+  await loadCurrentProject();
+  showCorrectScreen();
+}
+
+async function doSignUp() {
+  const email = document.getElementById('suEmail').value.trim();
+  const pw    = document.getElementById('suPassword').value;
+  const err   = validatePw(pw);
+  if (err) { pwMsg('suMsg', err, false); return; }
+  document.getElementById('signupBtn').disabled = true;
+  const { error } = await sb.auth.signUp({ email, password: pw });
+  document.getElementById('signupBtn').disabled = false;
+  if (error) { pwMsg('suMsg', error.message, false); return; }
+  pwMsg('suMsg', 'Check your email to confirm your account, then sign in.', true);
+}
+
+async function doReset() {
+  const email = document.getElementById('rstEmail').value.trim();
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: location.href,
+  });
+  pwMsg('rstMsg', error ? error.message : 'Reset link sent — check your email.', !error);
+}
+
+async function doSignOut() {
+  await sb.auth.signOut();
+  currentUser = null; currentProject = null;
+  showCorrectScreen();
+}
+
+// ── Projects ─────────────────────────────────────────────────────────────────
+async function loadProjects() {
+  const { data } = await sb.from('projects').select('id,name').order('created_at', { ascending: false });
+  const list = document.getElementById('projList');
+  list.innerHTML = '';
+  if (!data || data.length === 0) {
+    list.innerHTML = '<div style="font-size:.78rem;color:rgba(234,242,250,.4);text-align:center;padding:.5rem;">No projects yet — create one below.</div>';
+    return;
+  }
+  data.forEach(p => {
+    const el = document.createElement('div');
+    el.className = 'proj-item';
+    el.innerHTML = `<span>${p.name}</span><span class="proj-arrow">&#8250;</span>`;
+    el.onclick = () => selectProject(p);
+    list.appendChild(el);
+  });
+}
+
+async function createProject() {
+  const name = document.getElementById('newProjName').value.trim();
+  if (!name) return;
+  const { data, error } = await sb.from('projects').insert({ name, user_id: currentUser.id }).select().single();
+  if (error || !data) return;
+  document.getElementById('newProjName').value = '';
+  selectProject(data);
+}
+
+function selectProject(p) {
+  currentProject = p;
+  localStorage.setItem('verity_project', JSON.stringify(p));
+  showCorrectScreen();
+}
+
+function switchProject() {
+  currentProject = null;
+  localStorage.removeItem('verity_project');
+  showCorrectScreen();
+}
+
+async function loadCurrentProject() {
+  // Try localStorage first (fast)
+  const stored = localStorage.getItem('verity_project');
+  if (stored) {
+    try { currentProject = JSON.parse(stored); return; } catch {}
+  }
+  // Otherwise pick their most recent project
+  const { data } = await sb.from('projects').select('id,name').order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (data) { currentProject = data; localStorage.setItem('verity_project', JSON.stringify(data)); }
+}
+
+// ── Initialise ───────────────────────────────────────────────────────────────
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    await loadCurrentProject();
+  }
+  runSplash(currentProject?.name);
+  // After 6s endSplash fires; if user skips early endSplash also calls showCorrectScreen
+})();
+
+sb.auth.onAuthStateChange((_event, session) => {
+  if (session) { currentUser = session.user; }
+  else { currentUser = null; currentProject = null; }
+});
+
+// ── Upload inputs ─────────────────────────────────────────────────────────────
+const submittedInput = document.getElementById('submittedFile');
+const specInput      = document.getElementById('specFile');
+const queryInput     = document.getElementById('queryInput');
+let queryOpen = false;
+
+function toggleQuery() {
+  queryOpen = !queryOpen;
+  document.getElementById('queryPanel').style.display = queryOpen ? 'block' : 'none';
+  document.getElementById('queryToggle').classList.toggle('active', queryOpen);
+  if (!queryOpen) { queryInput.value = ''; queryInput.classList.remove('has-text'); }
+  updateBtn();
+}
+
+function bindFile(input, nameEl, cardEl) {
+  input.addEventListener('change', () => {
+    const files = Array.from(input.files);
+    const el = document.getElementById(nameEl);
+    if (files.length === 0)      el.textContent = '';
+    else if (files.length === 1) el.textContent = files[0].name;
+    else                         el.textContent = files.length + ' files: ' + files.map(f => f.name).join(', ');
+    document.getElementById(cardEl).classList.toggle('has-file', files.length > 0);
     updateBtn();
   });
-  function updateBtn(){
-    const hasKey=keyInput.value.trim().length>0;
-    const hasSubmitted=submittedInput.files.length>0;
-    const hasQuery=queryInput.value.trim().length>0;
-    const hasSpec=specInput.files.length>0;
-    // Allow: submitted docs + spec, OR submitted docs + query, OR all three
-    const ready=hasKey&&hasSubmitted&&(hasSpec||hasQuery);
-    document.getElementById('submitBtn').disabled=!ready;
-    document.getElementById('submitBtn').textContent=hasQuery?'Answer Query':'Check Compliance';
-  }
-  // Phase 1: extract text only, detect image pages, return metadata for approval
-  // Returns {text, pdfDoc, imagePageInfos: [{pageNum, contextHint}]}
-  async function extractContent(file, label){
-    const name=file.name.toLowerCase();
-    if(name.endsWith('.txt')){
-      const text=await file.text();
-      return {text, pdfDoc:null, imagePageInfos:[]};
-    }
-    if(name.endsWith('.pdf')){
-      const buf=await file.arrayBuffer();
-      const pdfDoc=await pdfjsLib.getDocument({data:buf}).promise;
-      const pageTexts=[];
-      for(let i=1;i<=pdfDoc.numPages;i++){
-        const page=await pdfDoc.getPage(i);
-        const content=await page.getTextContent();
-        pageTexts.push(content.items.map(s=>s.str).join(' ').trim());
-      }
-      const pages=pageTexts.map((t,i)=>'[Page '+(i+1)+']\n'+(t||'(image-based page)'));
-      const imagePageInfos=pageTexts.map((t,i)=>{
-        if(t.length>=80) return null;
-        // Build context hint from surrounding pages' text
-        const prev=(pageTexts[i-1]||'').slice(-180).replace(/\s+/g,' ').trim();
-        const next=(pageTexts[i+1]||'').slice(0,180).replace(/\s+/g,' ').trim();
-        const ctx=[prev,next].filter(Boolean).join(' … ');
-        const hint=ctx.length>12
-          ? 'Surrounding text: "'+ctx.slice(0,160)+(ctx.length>160?'…':'')+'"'
-          : (i===0?'First page (likely cover/title page)'
-            : i===pdfDoc.numPages-1?'Last page (likely appendix/certificate)'
-            : 'No adjacent text context — position: page '+(i+1)+' of '+pdfDoc.numPages);
-        return {pageNum:i+1, contextHint:hint, label};
-      }).filter(Boolean);
-      return {text:pages.join('\n\n'), pdfDoc, imagePageInfos};
-    }
-    if(name.endsWith('.docx')||name.endsWith('.doc')){
-      const buf=await file.arrayBuffer();
-      const result=await mammoth.extractRawText({arrayBuffer:buf});
-      return {text:result.value, pdfDoc:null, imagePageInfos:[]};
-    }
-    if(name.endsWith('.xlsx')||name.endsWith('.xls')){
-      const buf=await file.arrayBuffer();
-      const wb=XLSX.read(buf,{type:'array'});
-      const text=wb.SheetNames.map(sn=>'[Sheet: '+sn+']\n'+XLSX.utils.sheet_to_csv(wb.Sheets[sn])).join('\n\n');
-      return {text, pdfDoc:null, imagePageInfos:[]};
-    }
-    throw new Error('Unsupported file type: '+file.name);
-  }
+}
+bindFile(submittedInput, 'submittedName', 'submittedCard');
+bindFile(specInput,      'specName',      'specCard');
+['submittedCard','specCard'].forEach(id => {
+  const card = document.getElementById(id);
+  card.addEventListener('dragover',  e => { e.preventDefault(); card.classList.add('dragover'); });
+  card.addEventListener('dragleave', ()=> card.classList.remove('dragover'));
+  card.addEventListener('drop',      ()=> card.classList.remove('dragover'));
+});
+queryInput.addEventListener('input', () => {
+  queryInput.classList.toggle('has-text', queryInput.value.trim().length > 0);
+  updateBtn();
+});
 
-  // Phase 2: render approved pages to JPEG and return Anthropic image content blocks
-  async function renderApprovedPages(pdfDoc, approvedPageNums, label){
-    const blocks=[];
-    for(const pageNum of approvedPageNums){
-      try{
-        const page=await pdfDoc.getPage(pageNum);
-        const vp=page.getViewport({scale:1.5});
-        const canvas=document.createElement('canvas');
-        canvas.width=vp.width; canvas.height=vp.height;
-        await page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise;
-        const b64=canvas.toDataURL('image/jpeg',0.82).split(',')[1];
-        blocks.push({type:'text',text:'['+label+' — Page '+pageNum+' (scanned image):]'});
-        blocks.push({type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}});
-      }catch(e){/* skip if render fails */}
+function updateBtn() {
+  const hasSubmitted = submittedInput.files.length > 0;
+  const hasQuery     = queryInput.value.trim().length > 0;
+  const hasSpec      = specInput.files.length > 0;
+  const ready = hasSubmitted && (hasSpec || hasQuery);
+  document.getElementById('submitBtn').disabled = !ready;
+  document.getElementById('submitBtn').textContent = hasQuery ? 'Answer Query' : 'Check Compliance';
+}
+
+// ── Document extraction ───────────────────────────────────────────────────────
+async function extractContent(file, label) {
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.txt')) {
+    const text = await file.text();
+    return { text, pdfDoc: null, imagePageInfos: [] };
+  }
+  if (name.endsWith('.pdf')) {
+    const buf = await file.arrayBuffer();
+    const pdfDoc = await pdfjsLib.getDocument({ data: buf }).promise;
+    const pageTexts = [];
+    for (let i = 1; i <= pdfDoc.numPages; i++) {
+      const page = await pdfDoc.getPage(i);
+      const content = await page.getTextContent();
+      pageTexts.push(content.items.map(s => s.str).join(' ').trim());
     }
-    return blocks;
+    const pages = pageTexts.map((t, i) => '[Page ' + (i+1) + ']\n' + (t || '(image-based page)'));
+    const imagePageInfos = pageTexts.map((t, i) => {
+      if (t.length >= 80) return null;
+      const prev = (pageTexts[i-1] || '').slice(-180).replace(/\s+/g,' ').trim();
+      const next = (pageTexts[i+1] || '').slice(0,180).replace(/\s+/g,' ').trim();
+      const ctx  = [prev, next].filter(Boolean).join(' … ');
+      const hint = ctx.length > 12
+        ? 'Surrounding text: "' + ctx.slice(0,160) + (ctx.length > 160 ? '…' : '') + '"'
+        : (i === 0 ? 'First page (likely cover/title page)'
+          : i === pdfDoc.numPages-1 ? 'Last page (likely appendix/certificate)'
+          : 'No adjacent text context — position: page '+(i+1)+' of '+pdfDoc.numPages);
+      return { pageNum: i+1, contextHint: hint, label };
+    }).filter(Boolean);
+    return { text: pages.join('\n\n'), pdfDoc, imagePageInfos };
   }
-
-  // Show the scan-approval panel; resolves with list of approved {key,pageNum} or []
-  function showScanApproval(allImagePages){
-    return new Promise(resolve=>{
-      const panel=document.createElement('div');
-      panel.className='scan-panel';
-      const rows=allImagePages.map((p,idx)=>`
-        <label class="scan-item">
-          <input type="checkbox" checked data-idx="${idx}" />
-          <div class="scan-item-info">
-            <span class="doc-tag ${p.key==='submitted'?'doc-tag-sub':'doc-tag-spec'}">${p.key==='submitted'?'Submitted document':'Specification'}</span>
-            <strong>Page ${p.pageNum}</strong>
-            <div class="context">${p.contextHint}</div>
-          </div>
-        </label>`).join('');
-      panel.innerHTML=`
-        <h3>&#128247; Scanned pages detected — approval required</h3>
-        <p>The pages below contain images with no extractable text. Reading them requires rendering each page and sending it to Claude as an image. Select which pages to scan.</p>
-        <div class="scan-list">${rows}</div>
-        <div class="scan-cost" id="scanCostLine"></div>
-        <div class="scan-actions">
-          <button class="scan-skip-btn" id="scanSkipBtn">Skip all — proceed without scanning</button>
-          <button class="scan-go-btn" id="scanGoBtn">Scan selected &amp; proceed</button>
-        </div>`;
-      document.getElementById('errorBox').appendChild(panel);
-
-      function updateCost(){
-        const n=panel.querySelectorAll('input:checked').length;
-        document.getElementById('scanCostLine').innerHTML=
-          n===0
-            ? 'No pages selected — will proceed without scanning.'
-            : 'Estimated additional cost for <span>'+n+' page'+(n>1?'s':'')+': ~$'+(n*0.01).toFixed(2)+'</span> (≈$0.01 per page)';
-        document.getElementById('scanGoBtn').textContent=n===0?'Proceed without scanning':'Scan '+n+' page'+(n>1?'s':'')+' &amp; proceed';
-      }
-      panel.querySelectorAll('input').forEach(cb=>cb.addEventListener('change',updateCost));
-      updateCost();
-
-      document.getElementById('scanSkipBtn').onclick=()=>{panel.remove();resolve([]);};
-      document.getElementById('scanGoBtn').onclick=()=>{
-        const approved=[];
-        panel.querySelectorAll('input:checked').forEach(cb=>{
-          const p=allImagePages[parseInt(cb.dataset.idx)];
-          approved.push({key:p.key,pageNum:p.pageNum});
-        });
-        panel.remove();
-        resolve(approved);
-      };
-    });
+  if (name.endsWith('.docx') || name.endsWith('.doc')) {
+    const buf = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer: buf });
+    return { text: result.value, pdfDoc: null, imagePageInfos: [] };
   }
-  async function extractContents(fileList, label){
-    const results=await Promise.all(Array.from(fileList).map((f,i)=>
-      extractContent(f, fileList.length>1?label+' '+(i+1):label)
-    ));
-    return {
-      text: results.length===1 ? results[0].text
-        : results.map((r,i)=>'[File '+(i+1)+': '+fileList[i].name+']\n'+r.text).join('\n\n---\n\n'),
-      pdfDoc: results[0].pdfDoc,
-      imagePageInfos: results.flatMap(r=>r.imagePageInfos)
+  if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+    const buf = await file.arrayBuffer();
+    const wb  = XLSX.read(buf, { type: 'array' });
+    const text = wb.SheetNames.map(sn => '[Sheet: ' + sn + ']\n' + XLSX.utils.sheet_to_csv(wb.Sheets[sn])).join('\n\n');
+    return { text, pdfDoc: null, imagePageInfos: [] };
+  }
+  throw new Error('Unsupported file type: ' + file.name);
+}
+
+async function extractContents(fileList, label) {
+  const results = await Promise.all(Array.from(fileList).map((f, i) =>
+    extractContent(f, fileList.length > 1 ? label + ' ' + (i+1) : label)
+  ));
+  return {
+    text: results.length === 1 ? results[0].text
+      : results.map((r, i) => '[File '+(i+1)+': '+fileList[i].name+']\n'+r.text).join('\n\n---\n\n'),
+    pdfDoc: results[0].pdfDoc,
+    imagePageInfos: results.flatMap(r => r.imagePageInfos),
+  };
+}
+
+async function renderApprovedPages(pdfDoc, approvedPageNums, label) {
+  const blocks = [];
+  for (const pageNum of approvedPageNums) {
+    try {
+      const page = await pdfDoc.getPage(pageNum);
+      const vp   = page.getViewport({ scale: 1.5 });
+      const canvas = document.createElement('canvas');
+      canvas.width = vp.width; canvas.height = vp.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+      const b64 = canvas.toDataURL('image/jpeg', 0.82).split(',')[1];
+      blocks.push({ type: 'text', text: '[' + label + ' — Page ' + pageNum + ' (scanned image):]' });
+      blocks.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } });
+    } catch {}
+  }
+  return blocks;
+}
+
+function showScanApproval(allImagePages) {
+  return new Promise(resolve => {
+    const panel = document.createElement('div');
+    panel.className = 'scan-panel';
+    const rows = allImagePages.map((p, idx) => `
+      <label class="scan-item">
+        <input type="checkbox" checked data-idx="${idx}" />
+        <div class="scan-item-info">
+          <span class="doc-tag ${p.key==='submitted'?'doc-tag-sub':'doc-tag-spec'}">${p.key==='submitted'?'Submitted document':'Specification'}</span>
+          <strong>Page ${p.pageNum}</strong>
+          <div class="context">${p.contextHint}</div>
+        </div>
+      </label>`).join('');
+    panel.innerHTML = `
+      <h3>&#128247; Scanned pages detected — approval required</h3>
+      <p>The pages below contain images with no extractable text. Reading them requires rendering each page and sending it to the AI as an image. Select which pages to scan.</p>
+      <div class="scan-list">${rows}</div>
+      <div class="scan-cost" id="scanCostLine"></div>
+      <div class="scan-actions">
+        <button class="scan-skip-btn" id="scanSkipBtn">Skip all — proceed without scanning</button>
+        <button class="scan-go-btn" id="scanGoBtn">Scan selected &amp; proceed</button>
+      </div>`;
+    document.getElementById('errorBox').appendChild(panel);
+    function updateCost() {
+      const n = panel.querySelectorAll('input:checked').length;
+      document.getElementById('scanCostLine').innerHTML = n === 0
+        ? 'No pages selected — will proceed without scanning.'
+        : 'Estimated additional cost for <span>'+n+' page'+(n>1?'s':'')+': ~$'+(n*0.01).toFixed(2)+'</span> (≈$0.01 per page)';
+      document.getElementById('scanGoBtn').textContent = n === 0
+        ? 'Proceed without scanning' : 'Scan '+n+' page'+(n>1?'s':'')+' & proceed';
+    }
+    panel.querySelectorAll('input').forEach(cb => cb.addEventListener('change', updateCost));
+    updateCost();
+    document.getElementById('scanSkipBtn').onclick = () => { panel.remove(); resolve([]); };
+    document.getElementById('scanGoBtn').onclick = () => {
+      const approved = [];
+      panel.querySelectorAll('input:checked').forEach(cb => {
+        approved.push(allImagePages[parseInt(cb.dataset.idx)]);
+      });
+      panel.remove(); resolve(approved);
     };
+  });
+}
+
+// ── API call (via Cloudflare Worker) ─────────────────────────────────────────
+async function callAI(messageContent) {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) throw new Error('Not signed in — please refresh and sign in again.');
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + session.access_token,
+    },
+    body: JSON.stringify({ model: 'claude-opus-4-8', max_tokens: 8192, messages: [{ role: 'user', content: messageContent }] }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || err?.error || 'HTTP ' + res.status);
   }
-  async function runCheck(){
-    const apiKey=keyInput.value.trim();
-    document.getElementById('errorBox').innerHTML='';
-    document.getElementById('result').style.display='none';
-    document.getElementById('submitBtn').disabled=true;
-    // ── Phase 1: extract text and detect image pages ──
-    setStatus('<span class="spinner"></span> Reading documents…');
-    let submittedContent;
-    try{
-      submittedContent=await extractContents(submittedInput.files,'Submitted document');
-    }catch(err){showError('Could not read a file: '+err.message);return;}
+  const data = await res.json();
+  return data.content[0].text;
+}
 
-    const userQuery=queryInput.value.trim();
+// ── Run check ────────────────────────────────────────────────────────────────
+async function runCheck() {
+  document.getElementById('errorBox').innerHTML = '';
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('submitBtn').disabled = true;
 
-    // ── Query mode: use all uploaded docs as context ──
-    if(userQuery){
-      const MAX=50000;
-      let docsText=submittedContent.text;
-      // If spec files also uploaded, include them too
-      if(specInput.files.length>0){
-        let specContent;
-        try{specContent=await extractContents(specInput.files,'Specification');}
-        catch(err){showError('Could not read specification: '+err.message);return;}
-        docsText+=(docsText?'\n\n---\n\n':'')+specContent.text;
-      }
-      if(docsText.length>MAX*2)docsText=docsText.slice(0,MAX*2)+'\n[truncated]';
-      setStatus('<span class="spinner"></span> Analysing documents… (this may take 30–60 seconds)');
-      const prompt=`You are a senior technical analyst. The user has uploaded the following document(s) and has a specific question. Answer thoroughly, citing specific values, sections, and page references from the documents where relevant.\n\n## Document(s) Provided\n${docsText}\n\n---\n\n## User Query\n${userQuery}\n\n---\n\n## Instructions\n- Answer the query directly and completely.\n- Extract and cite actual values, clause numbers, and page references from the documents.\n- If information required to fully answer the query is missing from the documents, say so explicitly.\n- Structure your response with clear headings.\n- Where relevant, present findings in a table for clarity.\n- At the end, provide an overall confidence level (High / Medium / Low) in your answer based on the completeness of the provided documents.`;
-      try{
-        const res=await fetch('https://api.anthropic.com/v1/messages',{
-          method:'POST',
-          headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-          body:JSON.stringify({model:'claude-opus-4-8',max_tokens:8192,messages:[{role:'user',content:prompt}]})
-        });
-        if(!res.ok){const err=await res.json().catch(()=>({}));throw new Error(err?.error?.message||'HTTP '+res.status);}
-        const data=await res.json();
-        setStatus('');
-        renderReport(data.content[0].text);
-      }catch(err){handleFetchError(err);}
-      return;
+  setStatus('<span class="spinner"></span> Reading documents…');
+  let submittedContent;
+  try { submittedContent = await extractContents(submittedInput.files, 'Submitted document'); }
+  catch (err) { showError('Could not read a file: ' + err.message); return; }
+
+  const userQuery = queryInput.value.trim();
+
+  if (userQuery) {
+    // ── Query mode ──
+    const MAX = 100000;
+    let docsText = submittedContent.text;
+    if (specInput.files.length > 0) {
+      let specContent;
+      try { specContent = await extractContents(specInput.files, 'Specification'); }
+      catch (err) { showError('Could not read specification: ' + err.message); return; }
+      docsText += (docsText ? '\n\n---\n\n' : '') + specContent.text;
     }
+    if (docsText.length > MAX) docsText = docsText.slice(0, MAX) + '\n[truncated]';
+    setStatus('<span class="spinner"></span> Analysing documents… (30–60 seconds)');
+    const prompt = `You are a senior technical analyst. The user has uploaded the following document(s) and has a specific question. Answer thoroughly, citing specific values, sections, and page references from the documents where relevant.\n\n## Document(s) Provided\n${docsText}\n\n---\n\n## User Query\n${userQuery}\n\n---\n\n## Instructions\n- Answer the query directly and completely.\n- Extract and cite actual values, clause numbers, and page references.\n- If required information is missing from the documents, say so explicitly.\n- Structure your response with clear headings.\n- Where relevant, present findings in a table.\n- At the end, provide an overall confidence level (High / Medium / Low) based on the completeness of the provided documents.`;
+    try { setStatus(''); renderReport(await callAI(prompt)); }
+    catch (err) { handleFetchError(err); }
+    return;
+  }
 
-    // ── Compliance mode: extract spec ──
-    let specContent;
-    try{
-      specContent=await extractContents(specInput.files,'Specification');
-    }catch(err){showError('Could not read specification: '+err.message);return;}
-    const MAX=50000;
-    let submittedText=submittedContent.text;
-    let specText=specContent.text;
-    if(submittedText.length>MAX)submittedText=submittedText.slice(0,MAX)+'\n[truncated — document exceeded limit]';
-    if(specText.length>MAX)specText=specText.slice(0,MAX)+'\n[truncated — document exceeded limit]';
+  // ── Compliance mode ──
+  let specContent;
+  try { specContent = await extractContents(specInput.files, 'Specification'); }
+  catch (err) { showError('Could not read specification: ' + err.message); return; }
 
-    // ── Phase 2: if image pages found, ask for approval before rendering ──
-    const allImagePages=[
-      ...submittedContent.imagePageInfos.slice(0,20).map(p=>({...p,key:'submitted'})),
-      ...specContent.imagePageInfos.slice(0,20).map(p=>({...p,key:'spec'}))
-    ];
-    let approvedPages=[];
-    if(allImagePages.length>0){
-      setStatus('');
-      approvedPages=await showScanApproval(allImagePages);
-    }
+  const MAX = 50000;
+  let submittedText = submittedContent.text;
+  let specText      = specContent.text;
+  if (submittedText.length > MAX) submittedText = submittedText.slice(0, MAX) + '\n[truncated]';
+  if (specText.length > MAX)      specText      = specText.slice(0, MAX)      + '\n[truncated]';
 
-    // ── Phase 3: render only approved pages ──
-    let submittedImageBlocks=[], specImageBlocks=[];
-    if(approvedPages.length>0){
-      const approvedSubmitted=approvedPages.filter(p=>p.key==='submitted').map(p=>p.pageNum);
-      const approvedSpec=approvedPages.filter(p=>p.key==='spec').map(p=>p.pageNum);
-      setStatus('<span class="spinner"></span> Rendering '+approvedPages.length+' scanned page'+(approvedPages.length>1?'s':'')+' …');
-      [submittedImageBlocks,specImageBlocks]=await Promise.all([
-        submittedContent.pdfDoc&&approvedSubmitted.length?renderApprovedPages(submittedContent.pdfDoc,approvedSubmitted,'Submitted document'):Promise.resolve([]),
-        specContent.pdfDoc&&approvedSpec.length?renderApprovedPages(specContent.pdfDoc,approvedSpec,'Specification'):Promise.resolve([])
-      ]);
-    }
+  const allImagePages = [
+    ...submittedContent.imagePageInfos.slice(0, 20).map(p => ({ ...p, key: 'submitted' })),
+    ...specContent.imagePageInfos.slice(0, 20).map(p => ({ ...p, key: 'spec' })),
+  ];
+  let approvedPages = [];
+  if (allImagePages.length > 0) { setStatus(''); approvedPages = await showScanApproval(allImagePages); }
 
-    const instructions=`---
+  let submittedImageBlocks = [], specImageBlocks = [];
+  if (approvedPages.length > 0) {
+    const approvedSub  = approvedPages.filter(p => p.key === 'submitted').map(p => p.pageNum);
+    const approvedSpec = approvedPages.filter(p => p.key === 'spec').map(p => p.pageNum);
+    setStatus('<span class="spinner"></span> Rendering ' + approvedPages.length + ' scanned page' + (approvedPages.length > 1 ? 's' : '') + ' …');
+    [submittedImageBlocks, specImageBlocks] = await Promise.all([
+      submittedContent.pdfDoc && approvedSub.length  ? renderApprovedPages(submittedContent.pdfDoc, approvedSub,  'Submitted document') : Promise.resolve([]),
+      specContent.pdfDoc      && approvedSpec.length ? renderApprovedPages(specContent.pdfDoc,      approvedSpec, 'Specification')       : Promise.resolve([]),
+    ]);
+  }
+
+  const instructions = `---
 
 ## Instructions
 
@@ -500,7 +871,7 @@ A markdown table with exactly these 8 columns in this order: # | Requirement | S
 List only items that are not straightforwardly compliant. Sort by severity (CRITICAL first).
 
 ### 3. Critical Failures (if any)
-For each CRITICAL item: explain what the failure is, why it matters (what goes wrong if this product is installed), and what the manufacturer must provide to resolve it.
+For each CRITICAL item: explain what the failure is, why it matters, and what the manufacturer must provide to resolve it.
 
 ### 4. Major Non-Conformances
 Items that must be resolved before approval but are not safety-critical. Specific corrective action required for each.
@@ -512,319 +883,222 @@ Items that need attention but do not prevent approval. List briefly.
 List any requirements where the available document text is insufficient to make a determination. State exactly what a human reviewer needs to check or obtain.
 
 ### 7. Compliant Requirements
-Brief summary of requirements that are satisfactorily met. Do not list every clause — group by subject area.
+Brief summary of requirements that are satisfactorily met. Group by subject area.
 
 ---
 
 Be specific. Cite actual values from both documents. If a value is not present in the submittal, say so explicitly rather than assuming compliance. Never mark a requirement as compliant based solely on the submittal's own compliance matrix.`;
 
-    // ── Phase 4: build mixed-content message ──
-    setStatus('<span class="spinner"></span> Analysing compliance with AI… (this may take 30–60 seconds)');
-    const hasImages=submittedImageBlocks.length>0||specImageBlocks.length>0;
-    let messageContent;
-    if(!hasImages){
-      messageContent=`You are a senior compliance engineer reviewing a technical submittal against a project specification. Your job is to produce a rigorous, traceable compliance report that a design engineer or contractor can act on directly.
-
-## Specification
-${specText}
-
-## Submitted Document
-${submittedText}
-
-${instructions}`;
-    } else {
-      messageContent=[
-        {type:'text',text:`You are a senior compliance engineer reviewing a technical submittal against a project specification. Your job is to produce a rigorous, traceable compliance report that a design engineer or contractor can act on directly.
-
-## Specification (text)
-${specText}`}
-      ];
-      if(specImageBlocks.length>0){
-        messageContent.push({type:'text',text:'## Specification (scanned pages follow)'});
-        messageContent.push(...specImageBlocks);
-      }
-      messageContent.push({type:'text',text:`## Submitted Document (text)
-${submittedText}`});
-      if(submittedImageBlocks.length>0){
-        messageContent.push({type:'text',text:'## Submitted Document (scanned pages follow)'});
-        messageContent.push(...submittedImageBlocks);
-      }
-      messageContent.push({type:'text',text:instructions});
-    }
-
-    try{
-      const res=await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'x-api-key':apiKey,
-          'anthropic-version':'2023-06-01',
-          'anthropic-dangerous-direct-browser-access':'true'
-        },
-        body:JSON.stringify({
-          model:'claude-opus-4-8',
-          max_tokens:8192,
-          messages:[{role:'user',content:messageContent}]
-        })
-      });
-      if(!res.ok){
-        const err=await res.json().catch(()=>({}));
-        const msg=err&&err.error&&err.error.message?err.error.message:'HTTP '+res.status;
-        if(res.status===401)throw new Error('Invalid API key. Check the key you entered.');
-        throw new Error(msg);
-      }
-      const data=await res.json();
-      const report=data.content[0].text;
-      setStatus('');
-      renderReport(report);
-    }catch(err){handleFetchError(err);}
+  const hasImages = submittedImageBlocks.length > 0 || specImageBlocks.length > 0;
+  let messageContent;
+  if (!hasImages) {
+    messageContent = `You are a senior compliance engineer reviewing a technical submittal against a project specification. Your job is to produce a rigorous, traceable compliance report that a design engineer or contractor can act on directly.\n\n## Specification\n${specText}\n\n## Submitted Document\n${submittedText}\n\n${instructions}`;
+  } else {
+    messageContent = [
+      { type: 'text', text: `You are a senior compliance engineer reviewing a technical submittal against a project specification. Your job is to produce a rigorous, traceable compliance report.\n\n## Specification (text)\n${specText}` }
+    ];
+    if (specImageBlocks.length > 0) { messageContent.push({ type: 'text', text: '## Specification (scanned pages follow)' }); messageContent.push(...specImageBlocks); }
+    messageContent.push({ type: 'text', text: `## Submitted Document (text)\n${submittedText}` });
+    if (submittedImageBlocks.length > 0) { messageContent.push({ type: 'text', text: '## Submitted Document (scanned pages follow)' }); messageContent.push(...submittedImageBlocks); }
+    messageContent.push({ type: 'text', text: instructions });
   }
-  function handleFetchError(err){
-    if(err.message==='Failed to fetch'||err.name==='TypeError'){
-      showError(
-        'Network error — could not reach api.anthropic.com. Most likely causes:<br><br>'+
-        '<strong>1. Ad blocker or browser extension</strong> — try disabling it for this page (uBlock Origin, Privacy Badger, etc. often block Anthropic\'s API domain).<br>'+
-        '<strong>2. Firewall / corporate network</strong> — api.anthropic.com may be blocked on your network. Try a personal hotspot.<br>'+
-        '<strong>3. Files too large</strong> — very large PDFs can cause a timeout. Try with smaller documents first.<br><br>'+
-        'Open browser DevTools (F12) → Network tab → re-run to see the blocked request.'
-      );
-    } else {
-      showError(err.message);
-    }
-  }
-  function setStatus(html){document.getElementById('status').innerHTML=html;}
-  function showError(msg){
-    setStatus('');
-    document.getElementById('errorBox').innerHTML='<div class="error-box">⚠️ '+msg+'</div>';
-    document.getElementById('submitBtn').disabled=false;
-  }
-  function resetForm(){
-    submittedInput.value='';
-    specInput.value='';
-    queryInput.value='';
-    queryInput.classList.remove('has-text');
-    ['submittedName','specName'].forEach(id=>document.getElementById(id).textContent='');
-    ['submittedCard','specCard'].forEach(id=>document.getElementById(id).classList.remove('has-file'));
-    document.getElementById('result').style.display='none';
-    document.getElementById('errorBox').innerHTML='';
-    if(queryOpen)toggleQuery();
-    updateBtn();
-  }
-  function renderReport(text){
-    const scoreMatch=text.match(/(\d{1,3})\s*%/);
-    const score=scoreMatch?Math.min(100,parseInt(scoreMatch[1])):null;
-    const lower=text.toLowerCase();
-    let verdict='Unknown',cls='';
-    if(lower.includes('reject')){verdict='Reject — Resubmit';cls='verdict-reject';}
-    else if(lower.includes('non-compliant')||lower.includes('noncompliant')){verdict='Non-Compliant';cls='verdict-noncompliant';}
-    else if(lower.includes('approved with comments')||lower.includes('partially compliant')||lower.includes('partial compliance')){verdict='Approved with Comments';cls='verdict-partial';}
-    else if(lower.includes('approved')||lower.includes('compliant')){verdict='Approved';cls='verdict-compliant';}
-    const badge=document.getElementById('verdictBadge');
-    badge.textContent=verdict;
-    badge.className='verdict-badge '+cls;
-    document.getElementById('verdictSub').textContent=score!==null?'Compliance score: '+score+'%':'';
-    if(score!==null){
-      const offset=163.4*(1-score/100);
-      const color=score>=80?'#16a34a':score>=50?'#d97706':'#dc2626';
-      const arc=document.getElementById('scoreArc');
-      arc.style.strokeDashoffset=offset;
-      arc.style.stroke=color;
-      const st=document.getElementById('scoreText');
-      st.textContent=score+'%';
-      st.style.color=color;
-    }
-    document.getElementById('reportBody').innerHTML=mdToHtml(text);
-    const result=document.getElementById('result');
-    result.style.display='block';
-    result.scrollIntoView({behavior:'smooth',block:'start'});
-  }
-  function mdToHtml(md){
-    const lines=md.split('\n');
-    let html='';
-    let inTable=false;
-    let inUl=false;
-    let headerDone=false;
 
-    function closeUl(){if(inUl){html+='</ul>\n';inUl=false;}}
-    function closeTable(){if(inTable){html+='</tbody></table>\n';inTable=false;headerDone=false;}}
+  setStatus('<span class="spinner"></span> Analysing compliance with AI… (30–60 seconds)');
+  try { setStatus(''); renderReport(await callAI(messageContent)); }
+  catch (err) { handleFetchError(err); }
+}
 
-    for(let i=0;i<lines.length;i++){
-      let line=lines[i];
-
-      // Detect table rows
-      if(line.trim().startsWith('|')){
-        closeUl();
-        const cols=line.split('|').slice(1,-1).map(c=>c.trim());
-        // separator row
-        if(cols.every(c=>/^[-:]+$/.test(c))){
-          headerDone=true;
-          continue;
-        }
-        if(!inTable){html+='<table><thead><tr>';cols.forEach(c=>{html+='<th>'+inline(c)+'</th>';});html+='</tr></thead><tbody>\n';inTable=true;headerDone=false;}
-        else if(!headerDone){html+='<tr>';cols.forEach(c=>{html+='<td>'+inline(c)+'</td>';});html+='</tr>\n';}
-        else{html+='<tr>';cols.forEach(c=>{html+='<td>'+inline(c)+'</td>';});html+='</tr>\n';}
-        continue;
-      } else {
-        closeTable();
-      }
-
-      if(/^### /.test(line)){closeUl();html+='<h3>'+inline(line.slice(4))+'</h3>\n';continue;}
-      if(/^## /.test(line)){closeUl();html+='<h2>'+inline(line.slice(3))+'</h2>\n';continue;}
-      if(/^# /.test(line)){closeUl();html+='<h2>'+inline(line.slice(2))+'</h2>\n';continue;}
-
-      if(/^[-*]\s/.test(line)){
-        if(!inUl){html+='<ul>';inUl=true;}
-        html+='<li>'+inline(line.slice(2))+'</li>\n';
-        continue;
-      } else {
-        closeUl();
-      }
-
-      if(line.trim()===''){html+='<br>\n';continue;}
-      html+='<p>'+inline(line)+'</p>\n';
-    }
-    closeUl();
-    closeTable();
-    return html;
+function handleFetchError(err) {
+  if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+    showError('Network error — could not reach the analysis service.<br><br><strong>1. Ad blocker</strong> — try disabling it for this page.<br><strong>2. Corporate firewall</strong> — try a personal hotspot.<br><strong>3. File too large</strong> — try smaller documents first.');
+  } else {
+    showError(err.message);
   }
-  function inline(t){
-    return t
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-      .replace(/\*\*CRITICAL\*\*/g,'<strong class="tag-crit">CRITICAL</strong>')
-      .replace(/\*\*MAJOR\*\*/g,'<strong class="tag-warn">MAJOR</strong>')
-      .replace(/\*\*MINOR\*\*/g,'<strong>MINOR</strong>')
-      .replace(/\*\*FAIL\*\*/g,'<strong class="tag-crit">FAIL</strong>')
-      .replace(/\*\*PASS\*\*/g,'<strong class="tag-pass">PASS</strong>')
-      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g,'<em>$1</em>')
-      .replace(/`(.+?)`/g,'<code style="background:#f1f5f9;padding:.1em .35em;border-radius:3px;font-size:.9em">$1</code>');
+}
+
+function setStatus(html) { document.getElementById('status').innerHTML = html; }
+function showError(msg) {
+  setStatus('');
+  document.getElementById('errorBox').innerHTML = '<div class="error-box">⚠️ ' + msg + '</div>';
+  document.getElementById('submitBtn').disabled = false;
+}
+
+function resetForm() {
+  submittedInput.value = ''; specInput.value = '';
+  queryInput.value = ''; queryInput.classList.remove('has-text');
+  ['submittedName','specName'].forEach(id => document.getElementById(id).textContent = '');
+  ['submittedCard','specCard'].forEach(id => document.getElementById(id).classList.remove('has-file'));
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('errorBox').innerHTML = '';
+  if (queryOpen) toggleQuery();
+  updateBtn();
+}
+
+// ── Report rendering ──────────────────────────────────────────────────────────
+function renderReport(text) {
+  const scoreMatch = text.match(/(\d{1,3})\s*%/);
+  const score = scoreMatch ? Math.min(100, parseInt(scoreMatch[1])) : null;
+  const lower = text.toLowerCase();
+  let verdict = 'Unknown', cls = '';
+  if (lower.includes('reject'))                                                         { verdict = 'Reject — Resubmit';     cls = 'verdict-reject'; }
+  else if (lower.includes('non-compliant') || lower.includes('noncompliant'))           { verdict = 'Non-Compliant';         cls = 'verdict-noncompliant'; }
+  else if (lower.includes('approved with comments') || lower.includes('partial'))       { verdict = 'Approved with Comments'; cls = 'verdict-partial'; }
+  else if (lower.includes('approved') || lower.includes('compliant'))                   { verdict = 'Approved';              cls = 'verdict-compliant'; }
+  const badge = document.getElementById('verdictBadge');
+  badge.textContent = verdict; badge.className = 'verdict-badge ' + cls;
+  document.getElementById('verdictSub').textContent = score !== null ? 'Compliance score: ' + score + '%' : '';
+  if (score !== null) {
+    const color = score >= 80 ? '#16a34a' : score >= 50 ? '#d97706' : '#dc2626';
+    const arc = document.getElementById('scoreArc');
+    arc.style.strokeDashoffset = 163.4 * (1 - score/100);
+    arc.style.stroke = color;
+    const st = document.getElementById('scoreText');
+    st.textContent = score + '%'; st.style.color = color;
   }
-  function buildReportHtml(){
-    const score=document.getElementById('scoreText').textContent;
-    const verdict=document.getElementById('verdictBadge').textContent;
-    const verdictClass=document.getElementById('verdictBadge').className.replace('verdict-badge ','');
-    const sub=document.getElementById('verdictSub').textContent;
-    const arc=document.getElementById('scoreArc');
-    const arcOffset=arc.style.strokeDashoffset||'163.4';
-    const arcColor=arc.style.stroke||'#2563eb';
-    const body=document.getElementById('reportBody').innerHTML;
-    const submittedFileName=document.getElementById('submittedName').textContent||'Submitted document';
-    const q=queryInput.value.trim();
-    const specFileName=q
-      ?'Query: '+q.slice(0,80)+(q.length>80?'…':'')
-      :document.getElementById('specName').textContent||'Specification';
-    const date=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
-    const verdictColors={'verdict-compliant':'#16a34a','verdict-partial':'#d97706','verdict-noncompliant':'#dc2626','verdict-reject':'#dc2626'};
-    const vColor=verdictColors[verdictClass]||'#64748b';
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Compliance Report — ${submittedFileName}</title>
+  document.getElementById('reportBody').innerHTML = mdToHtml(text);
+  const result = document.getElementById('result');
+  result.style.display = 'block';
+  result.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function mdToHtml(md) {
+  const lines = md.split('\n');
+  let html = '', inTable = false, inUl = false, headerDone = false;
+  function closeUl()    { if (inUl)    { html += '</ul>\n'; inUl = false; } }
+  function closeTable() { if (inTable) { html += '</tbody></table>\n'; inTable = false; headerDone = false; } }
+  for (const line of lines) {
+    if (line.trim().startsWith('|')) {
+      closeUl();
+      const cols = line.split('|').slice(1,-1).map(c => c.trim());
+      if (cols.every(c => /^[-:]+$/.test(c))) { headerDone = true; continue; }
+      if (!inTable) { html += '<table><thead><tr>' + cols.map(c => '<th>'+inline(c)+'</th>').join('') + '</tr></thead><tbody>\n'; inTable = true; headerDone = false; }
+      else { html += '<tr>' + cols.map(c => '<td>'+inline(c)+'</td>').join('') + '</tr>\n'; }
+      continue;
+    } else { closeTable(); }
+    if (/^### /.test(line)) { closeUl(); html += '<h3>'+inline(line.slice(4))+'</h3>\n'; continue; }
+    if (/^## /.test(line))  { closeUl(); html += '<h2>'+inline(line.slice(3))+'</h2>\n'; continue; }
+    if (/^# /.test(line))   { closeUl(); html += '<h2>'+inline(line.slice(2))+'</h2>\n'; continue; }
+    if (/^[-*]\s/.test(line)) { if (!inUl) { html += '<ul>'; inUl = true; } html += '<li>'+inline(line.slice(2))+'</li>\n'; continue; } else { closeUl(); }
+    if (line.trim() === '') { html += '<br>\n'; continue; }
+    html += '<p>'+inline(line)+'</p>\n';
+  }
+  closeUl(); closeTable();
+  return html;
+}
+function inline(t) {
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*CRITICAL\*\*/g,'<strong class="tag-crit">CRITICAL</strong>')
+    .replace(/\*\*MAJOR\*\*/g,'<strong class="tag-warn">MAJOR</strong>')
+    .replace(/\*\*MINOR\*\*/g,'<strong>MINOR</strong>')
+    .replace(/\*\*FAIL\*\*/g,'<strong class="tag-crit">FAIL</strong>')
+    .replace(/\*\*PASS\*\*/g,'<strong class="tag-pass">PASS</strong>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/`(.+?)`/g,'<code style="background:#f4f7fb;padding:.1em .35em;border-radius:3px;font-size:.9em">$1</code>');
+}
+
+// ── Print / save report ───────────────────────────────────────────────────────
+function buildReportHtml() {
+  const score       = document.getElementById('scoreText').textContent;
+  const verdict     = document.getElementById('verdictBadge').textContent;
+  const verdictClass= document.getElementById('verdictBadge').className.replace('verdict-badge ','');
+  const sub         = document.getElementById('verdictSub').textContent;
+  const arc         = document.getElementById('scoreArc');
+  const arcOffset   = arc.style.strokeDashoffset || '163.4';
+  const arcColor    = arc.style.stroke || '#0e2947';
+  const body        = document.getElementById('reportBody').innerHTML;
+  const submittedFileName = document.getElementById('submittedName').textContent || 'Submitted document';
+  const q = queryInput.value.trim();
+  const specFileName = q
+    ? 'Query: ' + q.slice(0,80) + (q.length > 80 ? '…' : '')
+    : document.getElementById('specName').textContent || 'Specification';
+  const date = new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' });
+  const vColors = { 'verdict-compliant':'#16a34a','verdict-partial':'#d97706','verdict-noncompliant':'#dc2626','verdict-reject':'#dc2626' };
+  const vColor = vColors[verdictClass] || '#5a7a9a';
+  const projLabel = currentProject ? ' | Project: ' + currentProject.name : '';
+
+  return `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"/><title>Verity Checker — ${submittedFileName}</title>
 <style>
-  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:10pt;color:#0f172a;background:#fff;padding:0;}
-  .page{max-width:210mm;margin:0 auto;padding:15mm 14mm 18mm;}
-  .report-header{display:flex;align-items:flex-start;gap:16px;border-bottom:2px solid #2563eb;padding-bottom:14px;margin-bottom:18px;}
-  .score-ring{flex-shrink:0;width:64px;height:64px;position:relative;}
-  .score-ring svg{transform:rotate(-90deg);}
-  .score-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11pt;color:${arcColor};}
-  .header-text h1{font-size:14pt;font-weight:700;color:#1d4ed8;margin-bottom:4px;}
-  .header-text .meta{font-size:8pt;color:#64748b;margin-bottom:6px;}
-  .verdict-pill{display:inline-block;padding:3px 10px;border-radius:99px;font-weight:700;font-size:9pt;background:${vColor}22;color:${vColor};border:1px solid ${vColor}66;}
-  .print-btn-bar{text-align:right;margin-bottom:12px;}
-  .print-btn-bar button{background:#1d4ed8;color:#fff;border:none;padding:6px 18px;border-radius:6px;font-size:9pt;font-weight:600;cursor:pointer;}
-  .print-btn-bar button:hover{background:#2563eb;}
-  h2{font-size:11pt;font-weight:700;color:#1d4ed8;margin:16px 0 6px;padding-bottom:3px;border-bottom:1px solid #e2e8f0;}
-  h2:first-child{margin-top:0;}
-  h3{font-size:10pt;font-weight:700;margin:10px 0 4px;}
-  p{margin-bottom:6px;line-height:1.55;}
-  ul{padding-left:16px;margin-bottom:6px;}
-  li{margin-bottom:3px;line-height:1.5;}
-  /* ── Tables ── */
-  table{width:100%;border-collapse:collapse;font-size:7.5pt;table-layout:fixed;margin:8px 0 12px;page-break-inside:auto;}
-  thead{display:table-header-group;}
-  th{background:#eff6ff;color:#1d4ed8;font-size:6.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:4px 5px;border:1px solid #bfdbfe;text-align:left;word-break:break-word;overflow-wrap:break-word;}
-  td{padding:4px 5px;border:1px solid #e2e8f0;vertical-align:top;word-break:break-word;overflow-wrap:break-word;line-height:1.35;}
-  tr:nth-child(even) td{background:#f8fafc;}
-  tr{page-break-inside:avoid;}
-  /* 8-column layout (# + 7 data cols) fitted to A4 landscape 273mm usable width.
-     #: 4%, Req: 13%, Clause: 9%, Spec Req: 17%, Submitted: 18%, Page: 10%, Severity: 8%, Status: 10% */
-  table th:nth-child(1),table td:nth-child(1){width:4%;text-align:center;}
-  table th:nth-child(2),table td:nth-child(2){width:13%;}
-  table th:nth-child(3),table td:nth-child(3){width:9%;}
-  table th:nth-child(4),table td:nth-child(4){width:17%;}
-  table th:nth-child(5),table td:nth-child(5){width:18%;}
-  table th:nth-child(6),table td:nth-child(6){width:10%;}
-  table th:nth-child(7),table td:nth-child(7){width:8%;}
-  table th:nth-child(8),table td:nth-child(8){width:10%;}
-  .tag-crit{color:#dc2626;font-weight:700;}
-  .tag-warn{color:#d97706;font-weight:700;}
-  .tag-pass{color:#16a34a;font-weight:700;}
-  strong{font-weight:600;}
-  code{background:#f1f5f9;padding:1px 4px;border-radius:3px;font-size:8pt;}
-  .footer{margin-top:18px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:7.5pt;color:#94a3b8;display:flex;justify-content:space-between;}
-  @media print{
-    body{padding:0;}
-    .page{padding:10mm 12mm 14mm;max-width:none;}
-    .print-btn-bar{display:none;}
-    table{font-size:7pt;}
-    th{font-size:6pt;padding:3px 4px;}
-    td{padding:3px 4px;}
-  }
-  @page{size:A4 landscape;margin:10mm 12mm;}
-</style>
-</head>
-<body>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:10pt;color:#0f2c4c;background:#fff;}
+.page{max-width:210mm;margin:0 auto;padding:15mm 14mm 18mm;}
+.report-header{display:flex;align-items:flex-start;gap:16px;border-bottom:2px solid #0e2947;padding-bottom:14px;margin-bottom:18px;}
+.score-ring{flex-shrink:0;width:64px;height:64px;position:relative;}
+.score-ring svg{transform:rotate(-90deg);}
+.score-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11pt;color:${arcColor};}
+.header-text h1{font-size:14pt;font-weight:800;color:#0e2947;margin-bottom:4px;}
+.header-text .meta{font-size:8pt;color:#5a7a9a;margin-bottom:6px;}
+.verdict-pill{display:inline-block;padding:3px 10px;border-radius:99px;font-weight:700;font-size:9pt;background:${vColor}22;color:${vColor};border:1px solid ${vColor}66;}
+.print-btn-bar{text-align:right;margin-bottom:12px;}
+.print-btn-bar button{background:#0e2947;color:#eaf2fa;border:none;padding:6px 18px;border-radius:6px;font-size:9pt;font-weight:600;cursor:pointer;}
+h2{font-size:11pt;font-weight:700;color:#0e2947;margin:16px 0 6px;padding-bottom:3px;border-bottom:1px solid #d5e0ee;}
+h3{font-size:10pt;font-weight:700;margin:10px 0 4px;}
+p{margin-bottom:6px;line-height:1.55;}
+ul{padding-left:16px;margin-bottom:6px;}
+li{margin-bottom:3px;line-height:1.5;}
+table{width:100%;border-collapse:collapse;font-size:7.5pt;table-layout:fixed;margin:8px 0 12px;}
+thead{display:table-header-group;}
+th{background:#eff6ff;color:#0e2947;font-size:6.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:4px 5px;border:1px solid #d5e0ee;text-align:left;word-break:break-word;}
+td{padding:4px 5px;border:1px solid #d5e0ee;vertical-align:top;word-break:break-word;line-height:1.35;}
+tr:nth-child(even) td{background:#f4f7fb;}
+table th:nth-child(1),table td:nth-child(1){width:4%;text-align:center;}
+table th:nth-child(2),table td:nth-child(2){width:13%;}
+table th:nth-child(3),table td:nth-child(3){width:9%;}
+table th:nth-child(4),table td:nth-child(4){width:17%;}
+table th:nth-child(5),table td:nth-child(5){width:18%;}
+table th:nth-child(6),table td:nth-child(6){width:10%;}
+table th:nth-child(7),table td:nth-child(7){width:8%;}
+table th:nth-child(8),table td:nth-child(8){width:10%;}
+.tag-crit{color:#dc2626;font-weight:700;}.tag-warn{color:#d97706;font-weight:700;}.tag-pass{color:#16a34a;font-weight:700;}
+.footer{margin-top:18px;padding-top:8px;border-top:1px solid #d5e0ee;font-size:7.5pt;color:#94a3b8;display:flex;justify-content:space-between;}
+@media print{body{padding:0;}.page{padding:10mm 12mm 14mm;max-width:none;}.print-btn-bar{display:none;}table{font-size:7pt;}th{font-size:6pt;padding:3px 4px;}td{padding:3px 4px;}}
+@page{size:A4 landscape;margin:10mm 12mm;}
+</style></head><body>
 <div class="page">
   <div class="print-btn-bar"><button onclick="window.print()">&#128438; Print / Save as PDF</button></div>
   <div class="report-header">
     <div class="score-ring">
       <svg width="64" height="64" viewBox="0 0 64 64">
-        <circle cx="32" cy="32" r="26" fill="none" stroke="#e2e8f0" stroke-width="6"/>
+        <circle cx="32" cy="32" r="26" fill="none" stroke="#d5e0ee" stroke-width="6"/>
         <circle cx="32" cy="32" r="26" fill="none" stroke="${arcColor}" stroke-width="6" stroke-linecap="round" stroke-dasharray="163.4" stroke-dashoffset="${arcOffset}"/>
       </svg>
       <div class="score-label">${score}</div>
     </div>
     <div class="header-text">
-      <h1>Compliance Report</h1>
-      <div class="meta">Submitted: ${submittedFileName} &nbsp;|&nbsp; Specification: ${specFileName} &nbsp;|&nbsp; ${date}</div>
+      <h1>Verity Checker — Compliance Report</h1>
+      <div class="meta">Submitted: ${submittedFileName} &nbsp;|&nbsp; Against: ${specFileName}${projLabel} &nbsp;|&nbsp; ${date}</div>
       <span class="verdict-pill">${verdict}</span>
-      ${sub?'<span style="font-size:8pt;color:#64748b;margin-left:10px;">'+sub+'</span>':''}
+      ${sub ? '<span style="font-size:8pt;color:#5a7a9a;margin-left:10px;">'+sub+'</span>' : ''}
     </div>
   </div>
   ${body}
   <div class="footer">
-    <span>Compliance Checker &mdash; alisterwhite1.github.io/Coursiv-training- &nbsp;|&nbsp; commit&nbsp;<strong>${APP_VERSION}</strong> &nbsp;|&nbsp; built&nbsp;${BUILD_DATE}&nbsp;${BUILD_TIME}</span>
+    <span>Verity Checker — site-verity.com &nbsp;|&nbsp; commit&nbsp;<strong>${APP_VERSION}</strong> &nbsp;|&nbsp; built&nbsp;${BUILD_DATE}&nbsp;${BUILD_TIME}</span>
     <span>${date}</span>
   </div>
-</div>
-</body>
-</html>`;
+</div></body></html>`;
+}
 
-  }
-  function openPrintReport(){
-    const html=buildReportHtml();
-    const blob=new Blob([html],{type:'text/html'});
-    const url=URL.createObjectURL(blob);
-    const win=window.open(url,'_blank');
-    if(!win){alert('Pop-up blocked. Please allow pop-ups for this site and try again.');}
-    setTimeout(()=>URL.revokeObjectURL(url),60000);
-  }
-  function downloadHtmlReport(){
-    const html=buildReportHtml();
-    const blob=new Blob([html],{type:'text/html'});
-    const url=URL.createObjectURL(blob);
-    const submittedFileName=document.getElementById('submittedName').textContent||'report';
-    const safeName=submittedFileName.replace(/\.[^.]+$/,'').replace(/[^a-z0-9_\-]/gi,'-').slice(0,60);
-    const date=new Date().toISOString().slice(0,10);
-    const a=document.createElement('a');
-    a.href=url;
-    a.download='compliance-report-'+safeName+'-'+date+'.html';
-    a.click();
-    setTimeout(()=>URL.revokeObjectURL(url),5000);
-  }
+function openPrintReport() {
+  const blob = new Blob([buildReportHtml()], { type: 'text/html' });
+  const url  = URL.createObjectURL(blob);
+  const win  = window.open(url, '_blank');
+  if (!win) alert('Pop-up blocked. Please allow pop-ups for this site and try again.');
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+function downloadHtmlReport() {
+  const blob = new Blob([buildReportHtml()], { type: 'text/html' });
+  const url  = URL.createObjectURL(blob);
+  const safeName = (document.getElementById('submittedName').textContent || 'report')
+    .replace(/\.[^.]+$/, '').replace(/[^a-z0-9_\-]/gi, '-').slice(0, 60);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'verity-report-' + safeName + '-' + new Date().toISOString().slice(0,10) + '.html';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
 </script>
 </body>
 </html>
