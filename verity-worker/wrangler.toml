@@ -1,0 +1,11 @@
+name = "verity-checker-worker"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+SUPABASE_URL = "https://YOUR_PROJECT.supabase.co"
+SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY"
+ALLOWED_ORIGIN = "https://alisterwhite1.github.io"
+
+# Set the Anthropic key as a secret (never in this file):
+#   wrangler secret put ANTHROPIC_API_KEY
